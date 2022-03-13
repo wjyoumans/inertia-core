@@ -1,0 +1,30 @@
+[package]
+name = "inertia-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["William Youmans <wyoumans@usf.edu>"]
+description = "Core functionality of the Inertia crate."
+homepage = "https://github.com/wjyoumans/inertia-core"
+repository = "https://github.com/wjyoumans/inertia-core"
+license = "GPL-3.0-or-later" 
+keywords = ["flint", "real", "complex", "number-theory", "math"]
+categories = ["algorithms", "external-ffi-bindings", "mathematics"]
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libc = "0.2" 
+flint-sys = {version = "0.6.2", features = ["disable-make-check"] }
+arb-sys = {version = "0.3", features = ["disable-make-check"] }
+antic-sys = {version = "0.3", features = ["disable-make-check"] }
+
+# Only Assign trait and traits in rug::ops provided
+[dependencies.rug]
+version = "1.13"
+default-features = false
+features = []
+
+[dev-dependencies]
+quickcheck = "1.0"
+quickcheck_macros = "1.0"

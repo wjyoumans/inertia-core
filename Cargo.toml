@@ -19,12 +19,6 @@ flint-sys = {version = "0.6.2", features = ["disable-make-check"] }
 arb-sys = {version = "0.3", features = ["disable-make-check"] }
 antic-sys = {version = "0.3", features = ["disable-make-check"] }
 
-# Only Assign trait and traits in rug::ops provided
-[dependencies.rug]
-version = "1.13"
-default-features = false
-features = []
-
 [dev-dependencies]
 quickcheck = "1.0"
 quickcheck_macros = "1.0"

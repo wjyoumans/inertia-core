@@ -15,50 +15,14 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::cmp::Ordering::{self, Less, Greater, Equal};
-use flint_sys::fmpz;
-use crate::{Integer, IntegerRing};
+use crate::FinFldElem;
 
-impl Eq for IntegerRing {}
 
-impl PartialEq for IntegerRing {
-    fn eq(&self, _rhs: &IntegerRing) -> bool {
-        true
+impl_from! {
+    String, FinFldElem
+    {
+        fn from(x: &FinFldElem) -> String {
+            x.get_str_pretty()
+        }
     }
-}
-
-impl_cmp_unsafe! {
-    eq
-    Integer
-    fmpz::fmpz_equal
-}
-
-impl_cmp_unsafe! {
-    ord
-    Integer
-    fmpz::fmpz_cmp
-}
-
-impl_cmp_unsafe! {
-    eq
-    Integer, u64 {u64 u32 u16 u8}
-    fmpz::fmpz_equal_ui
-}
-
-impl_cmp_unsafe! {
-    ord
-    Integer, u64 {u64 u32 u16 u8}
-    fmpz::fmpz_cmp_ui
-}
-
-impl_cmp_unsafe! {
-    eq
-    Integer, i64 {i64 i32 i16 i8}
-    fmpz::fmpz_equal_si
-}
-
-impl_cmp_unsafe! {
-    ord
-    Integer, i64 {i64 i32 i16 i8}
-    fmpz::fmpz_cmp_si
 }

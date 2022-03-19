@@ -17,7 +17,15 @@
 
 use flint_sys::{fmpz, fmpq};
 use libc::c_int;
-use crate::{Integer, Rational, IntMod};
+use crate::{Integer, Rational, IntMod, IntModRing};
+
+impl Eq for IntModRing {}
+
+impl PartialEq for IntModRing {
+    fn eq(&self, rhs: &IntModRing) -> bool {
+        self.modulus() == rhs.modulus()
+    }
+}
 
 impl_cmp_unsafe! {
     eq

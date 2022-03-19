@@ -18,7 +18,15 @@
 use std::cmp::Ordering::{self, Less, Greater, Equal};
 use flint_sys::{fmpz, fmpq};
 use libc::c_int;
-use crate::{Integer, Rational};
+use crate::{Integer, Rational, RationalField};
+
+impl Eq for RationalField {}
+
+impl PartialEq for RationalField {
+    fn eq(&self, _rhs: &RationalField) -> bool {
+        true
+    }
+}
 
 impl_cmp_unsafe! {
     eq

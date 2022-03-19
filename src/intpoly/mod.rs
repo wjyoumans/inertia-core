@@ -15,50 +15,17 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::cmp::Ordering::{self, Less, Greater, Equal};
-use flint_sys::fmpz;
-use crate::{Integer, IntegerRing};
+//! Univariate polynomials with integer coefficients.
 
-impl Eq for IntegerRing {}
+/// Definition and general implementation.
+mod src;
+pub use src::*;
 
-impl PartialEq for IntegerRing {
-    fn eq(&self, _rhs: &IntegerRing) -> bool {
-        true
-    }
-}
+/// Conversions.
+pub mod conv;
 
-impl_cmp_unsafe! {
-    eq
-    Integer
-    fmpz::fmpz_equal
-}
+/// Comparisons and equality.
+pub mod cmp;
 
-impl_cmp_unsafe! {
-    ord
-    Integer
-    fmpz::fmpz_cmp
-}
-
-impl_cmp_unsafe! {
-    eq
-    Integer, u64 {u64 u32 u16 u8}
-    fmpz::fmpz_equal_ui
-}
-
-impl_cmp_unsafe! {
-    ord
-    Integer, u64 {u64 u32 u16 u8}
-    fmpz::fmpz_cmp_ui
-}
-
-impl_cmp_unsafe! {
-    eq
-    Integer, i64 {i64 i32 i16 i8}
-    fmpz::fmpz_equal_si
-}
-
-impl_cmp_unsafe! {
-    ord
-    Integer, i64 {i64 i32 i16 i8}
-    fmpz::fmpz_cmp_si
-}
+/// Arithmetic operations.
+pub mod arith;

@@ -15,14 +15,19 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, IntMod};
+//! Finite fields.
 
+/// Definition and general implementation.
+mod src;
+pub use src::*;
 
-impl_from! {
-    String, IntMod
-    {
-        fn from(x: &IntMod) -> String {
-            String::from(Integer::from(x))
-        }
-    }
-}
+/// Conversions.
+pub mod conv;
+/*
+/// Comparisons and equality.
+pub mod cmp;
+*/
+/*
+/// Arithmetic operations.
+pub mod arith;
+*/

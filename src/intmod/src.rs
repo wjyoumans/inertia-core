@@ -19,12 +19,15 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::sync::Arc;
+
 use flint_sys::{fmpz, fmpz_mod};
+use serde::ser::{Serialize, Serializer, SerializeTuple};
+use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess};
 use crate::{Integer, ValOrRef, IntoValOrRef};
 
 
 #[derive(Debug)]
-pub struct FmpzModCtx(fmpz_mod::fmpz_mod_ctx_struct);
+pub struct FmpzModCtx(pub fmpz_mod::fmpz_mod_ctx_struct);
 
 impl Drop for FmpzModCtx {
     fn drop(&mut self) {
@@ -34,9 +37,11 @@ impl Drop for FmpzModCtx {
 
 #[derive(Clone, Debug)]
 pub struct IntModRing {
-    ctx: Arc<FmpzModCtx>
+    pub ctx: Arc<FmpzModCtx>
 }
 
+// TODO: get rid of this. Used for checking Arc::ptr_eq to see if two rings point to the same
+// location in memory. Replace with new Eq type? StrictEq etc.?
 impl std::ops::Deref for IntModRing {
     type Target = Arc<FmpzModCtx>;
     fn deref(&self) -> &Self::Target {
@@ -50,16 +55,8 @@ impl Hash for IntModRing {
     }
 }
 
-impl<'a, T> IntoValOrRef<'a, IntMod> for T where
-    T: Into<IntMod>
-{
-    fn val_or_ref(self) -> ValOrRef<'a, IntMod> {
-        ValOrRef::Val(self.into())
-    }
-}
-
 impl IntModRing {
-    
+
     /// Returns a pointer to the [FLINT context][fmpz_mod::fmpz_mod_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
@@ -82,7 +79,10 @@ impl IntModRing {
         T: IntoValOrRef<'a, Integer>
     {
         let mut res = self.default();
-        unsafe { fmpz::fmpz_set(res.as_mut_ptr(), x.val_or_ref().as_ptr()); }
+        unsafe { 
+            fmpz::fmpz_set(res.as_mut_ptr(), x.val_or_ref().as_ptr());
+            fmpz::fmpz_mod(res.as_mut_ptr(), res.as_ptr(), self.modulus().as_ptr());
+        }
         res
     }
 
@@ -146,6 +146,14 @@ impl Hash for IntMod {
     }
 }
 
+impl<'a, T> IntoValOrRef<'a, IntMod> for T where
+    T: Into<IntMod>
+{
+    fn val_or_ref(self) -> ValOrRef<'a, IntMod> {
+        ValOrRef::Val(self.into())
+    }
+}
+
 impl IntMod {
     
     /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
@@ -181,5 +189,70 @@ impl IntMod {
             fmpz::fmpz_set(res.as_mut_ptr(), n);
         }
         res
+    }
+}
+
+
+impl Serialize for IntMod {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_tuple(2)?;
+        state.serialize_element(&Integer::from(self))?;
+        state.serialize_element(&self.modulus())?;
+        state.end()
+    }
+}
+
+struct IntModVisitor {}
+
+impl IntModVisitor {
+    fn new() -> Self {
+        IntModVisitor {}
+    }
+}
+
+impl<'de> Visitor<'de> for IntModVisitor {
+    type Value = IntMod;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an IntMod")
+    }
+
+    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let val: Integer = access.next_element()?
+            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+        let modulus: Integer = access.next_element()?
+            .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+
+        let zn = IntModRing::init(modulus);
+        Ok(zn.new(val))
+    }
+}
+
+impl<'de> Deserialize<'de> for IntMod {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(IntModVisitor::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Integer, IntModRing};
+
+    #[test]
+    fn serde() {
+        let zn = IntModRing::init(12);
+        let x = zn.new("18446744073709551616");
+        let ser = bincode::serialize(&x).unwrap();
+        let y: Integer = bincode::deserialize(&ser).unwrap();
+        assert_eq!(x, y);
     }
 }

@@ -15,50 +15,62 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::cmp::Ordering::{self, Less, Greater, Equal};
-use flint_sys::fmpz;
-use crate::{Integer, IntegerRing};
+use flint_sys::fq_default as fq;
+use crate::{FiniteField, FinFldElem};
 
-impl Eq for IntegerRing {}
 
-impl PartialEq for IntegerRing {
-    fn eq(&self, _rhs: &IntegerRing) -> bool {
-        true
+impl Eq for FiniteField {}
+impl PartialEq for FiniteField {
+    fn eq(&self, other: &FiniteField) -> bool {
+        self.modulus() == other.modulus()
     }
 }
 
+impl_cmp! {
+    eq
+    FinFldElem
+    {
+        fn eq(&self, rhs: &FinFldElem) -> bool {
+            assert_eq!(self.parent(), rhs.parent());
+            unsafe { fq::fq_default_equal(self.as_ptr(), rhs.as_ptr(), self.ctx_as_ptr()) != 0 }
+        }
+    }
+}
+
+
+/*
 impl_cmp_unsafe! {
     eq
-    Integer
+    IntMod, Integer
     fmpz::fmpz_equal
 }
 
 impl_cmp_unsafe! {
-    ord
-    Integer
-    fmpz::fmpz_cmp
+    eq
+    IntMod, Rational
+    fmpz_equal_fmpq
 }
 
 impl_cmp_unsafe! {
     eq
-    Integer, u64 {u64 u32 u16 u8}
+    IntMod, u64 {u64 u32 u16 u8}
     fmpz::fmpz_equal_ui
 }
 
 impl_cmp_unsafe! {
-    ord
-    Integer, u64 {u64 u32 u16 u8}
-    fmpz::fmpz_cmp_ui
-}
-
-impl_cmp_unsafe! {
     eq
-    Integer, i64 {i64 i32 i16 i8}
+    IntMod, i64 {i64 i32 i16 i8}
     fmpz::fmpz_equal_si
 }
 
-impl_cmp_unsafe! {
-    ord
-    Integer, i64 {i64 i32 i16 i8}
-    fmpz::fmpz_cmp_si
-}
+#[inline]
+unsafe fn fmpz_equal_fmpq(
+    f: *const fmpz::fmpz,
+    g: *const fmpq::fmpq) -> c_int
+{
+    if fmpq::fmpq_cmp_fmpz(g, f) == 0 {
+        1
+    } else {
+        0
+    }
+}*/

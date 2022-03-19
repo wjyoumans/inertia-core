@@ -18,11 +18,18 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
+
 use flint_sys::fmpz;
 use libc::{c_int, c_long, c_ulong};
-use crate::{ValOrRef, IntoValOrRef};
+use serde::ser::{Serialize, Serializer, SerializeSeq};
+use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
+use crate::{
+    ops::Assign,
+    ValOrRef, 
+    IntoValOrRef
+};
 
-#[derive(Clone, Copy, Debug, Hash)]
+#[derive(Clone, Copy, Debug, Hash, serde::Serialize, serde::Deserialize)]
 pub struct IntegerRing {}
 pub type Integers = IntegerRing;
 
@@ -84,20 +91,24 @@ pub struct Integer {
     inner: fmpz::fmpz,
 }
 
-/*
-impl AsRef<Integer> for Integer {
-    #[inline]
-    fn as_ref(&self) -> &Integer {
-        self
+impl<'a, T> Assign<T> for Integer where
+    T: IntoValOrRef<'a, Integer>
+{
+    fn assign(&mut self, other: T) {
+        unsafe {
+            fmpz::fmpz_set(self.as_mut_ptr(), other.val_or_ref().as_ptr());
+        }
     }
-}*/
+}
 
 impl Clone for Integer {
     #[inline]
     fn clone(&self) -> Self {
-        let mut res = Integer::default();
-        unsafe { flint_sys::fmpz::fmpz_init_set(res.as_mut_ptr(), self.as_ptr()); }
-        res
+        let mut z = MaybeUninit::uninit();
+        unsafe { 
+            fmpz::fmpz_init_set(z.as_mut_ptr(), self.as_ptr()); 
+            Integer { inner: z.assume_init() }
+        }
     }
 }
 
@@ -144,7 +155,6 @@ impl<'a, T> IntoValOrRef<'a, Integer> for T where
     }
 }
 
-
 impl Integer {
     
     /// Initialize a new `Integer` with the given number of limbs.
@@ -166,19 +176,19 @@ impl Integer {
         }
     }
     
-    /// Returns a pointer to the inner [FLINT integer][fmpz].
+    /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz::fmpz {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner [FLINT integer][fmpz].
+    /// Returns a mutable pointer to the inner [FLINT integer][fmpz::fmpz].
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut fmpz::fmpz {
         &mut self.inner
     }
     
-    /// Instantiate an `Integer` from a [FLINT integer][fmpz].
+    /// Instantiate an `Integer` from a [FLINT integer][fmpz::fmpz].
     #[inline]
     pub fn from_raw(raw: fmpz::fmpz) -> Integer {
         Integer { inner: raw }
@@ -335,8 +345,11 @@ impl Integer {
     /// Return a vector `A` of unsigned longs such that the original [Integer] can be written as 
     /// `a[0] + a[1]*x + ... + a[n-1]*x^(n-1)` where `x = 2^FLINT_BITS`.
     ///
-    /// ```ignore
-    /// use inertia_core::Integer;
+    /// ```
+    /// use inertia_core::{
+    ///     ops::Pow,
+    ///     Integer
+    /// };
     ///
     /// let z = Integer::from(2).pow(65u8);
     /// let v = z.get_ui_vector();
@@ -354,22 +367,27 @@ impl Integer {
     /// ```
     #[inline]
     pub fn get_ui_vector(&self) -> Vec<c_ulong> {
-        assert!(self > &0);
-
-        let n = self.size();
-        let mut out = Vec::<c_ulong>::with_capacity(n as usize);
-        unsafe {
-            fmpz::fmpz_get_ui_array(out.as_mut_ptr(), n, self.as_ptr());
-            out.set_len(n as usize);
+        if self.is_zero() {
+            vec![]
+        } else {
+            let n = self.size();
+            let mut out = Vec::<c_ulong>::with_capacity(n as usize);
+            unsafe {
+                fmpz::fmpz_get_ui_array(out.as_mut_ptr(), n, self.as_ptr());
+                out.set_len(n as usize);
+            }
+            out
         }
-        out
     }
 
     /// Set `self` to the nonnegative [Integer] `vec[0] + vec[1]*x + ... + vec[n-1]*x^(n-1)` 
     /// where `x = 2^FLINT_BITS`.
     ///
-    /// ```ignore
-    /// use inertia_core::Integer;
+    /// ```
+    /// use inertia_core::{
+    ///     ops::Pow,
+    ///     Integer
+    /// };
     ///
     /// let mut z = Integer::default();
     /// z.set_ui_vector(vec![0,2]);
@@ -377,8 +395,12 @@ impl Integer {
     /// ```
     #[inline]
     pub fn set_ui_vector(&mut self, vec: Vec<c_ulong>) {
-        unsafe {
-            fmpz::fmpz_set_ui_array(self.as_mut_ptr(), vec.as_ptr(), vec.len() as c_long);
+        if vec.is_empty() {
+            self.assign(0);
+        } else {
+            unsafe {
+                fmpz::fmpz_set_ui_array(self.as_mut_ptr(), vec.as_ptr(), vec.len() as c_long);
+            }
         }
     }
     
@@ -533,5 +555,91 @@ impl Integer {
                 Some(res)
             }
         }
+    }
+    
+    // a = 4, a = 6. a.is_prime() == true??
+    /// Returns true if `self` is a prime.
+    ///
+    /// ```
+    /// use inertia::prelude::*;
+    ///
+    /// let a = int!(3);
+    /// assert!(a.is_prime());
+    ///
+    /// let b = int!(4);
+    /// assert!(!b.is_prime());
+    /// ```
+    #[inline]
+    pub fn is_prime(&self) -> bool {
+        unsafe {
+            fmpz::fmpz_is_prime(self.as_ptr()) == 1
+        }
+    }
+}
+
+impl Serialize for Integer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let ui_vec = self.get_ui_vector();
+        let mut seq = serializer.serialize_seq(Some(ui_vec.len()))?;
+        for e in ui_vec.iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+struct IntegerVisitor {}
+
+impl IntegerVisitor {
+    fn new() -> Self {
+        IntegerVisitor {}
+    }
+}
+
+impl<'de> Visitor<'de> for IntegerVisitor {
+    type Value = Integer;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an Integer")
+    }
+
+    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        //let mut vec_ui = Vec::default();
+        let mut vec_ui = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        while let Some(x) = access.next_element()? {
+            vec_ui.push(x);
+        }
+
+        let mut out = Integer::default();
+        out.set_ui_vector(vec_ui);
+        Ok(out)
+    }
+}
+
+impl<'de> Deserialize<'de> for Integer {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(IntegerVisitor::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Integer;
+
+    #[test]
+    fn serde() {
+        let x = Integer::from("18446744073709551616");
+        let ser = bincode::serialize(&x).unwrap();
+        let y: Integer = bincode::deserialize(&ser).unwrap();
+        assert_eq!(x, y);
     }
 }

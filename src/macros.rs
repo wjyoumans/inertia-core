@@ -1299,7 +1299,7 @@ macro_rules! impl_from {
             fn from(src: &[$t2]) -> $t1 {
                 let mut res = <$t1>::default();
                 for (i, x) in src.iter().enumerate() {
-                    res.set_coeff(i, &<$cast>::from(x));
+                    res.set_coeff(i as i64, &<$cast>::from(x));
                 }
                 res
             }

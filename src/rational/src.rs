@@ -18,10 +18,13 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
+
 use flint_sys::fmpq;
+use serde::ser::{Serialize, Serializer, SerializeTuple};
+use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess};
 use crate::{Integer, ValOrRef, IntoValOrRef};
 
-#[derive(Clone, Copy, Debug, Hash)]
+#[derive(Clone, Copy, Debug, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RationalField {}
 pub type Rationals = RationalField;
 
@@ -138,5 +141,69 @@ impl Rational {
     #[inline]
     pub fn denominator(&self) -> Integer {
         Integer::from_raw(self.inner.den)
+    }
+}
+
+impl Serialize for Rational {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_tuple(2)?;
+        state.serialize_element(&self.numerator())?;
+        state.serialize_element(&self.denominator())?;
+        state.end()
+    }
+}
+
+struct RationalVisitor {}
+
+impl RationalVisitor {
+    fn new() -> Self {
+        RationalVisitor {}
+    }
+}
+
+impl<'de> Visitor<'de> for RationalVisitor {
+    type Value = Rational;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a Rational")
+    }
+
+    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let num: Integer = access.next_element()?
+            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+        let den: Integer = access.next_element()?
+            .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+
+        Ok(Rational::from([num, den]))
+    }
+}
+
+impl<'de> Deserialize<'de> for Rational {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(RationalVisitor::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Integer, Rational};
+
+    #[test]
+    fn serde() {
+        let n = Integer::from("18446744073709551616");
+        let d = Integer::from("2");
+        let x = Rational::from([n, d]);
+        let ser = bincode::serialize(&x).unwrap();
+        let y: Integer = bincode::deserialize(&ser).unwrap();
+        assert_eq!(x, y);
     }
 }

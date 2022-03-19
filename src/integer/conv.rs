@@ -18,7 +18,7 @@
 use std::convert::TryFrom;
 use std::ffi::CString;
 use flint_sys::fmpz;
-use crate::*;
+use crate::{Integer, Rational, IntMod};
 
 impl From<&str> for Integer {
     fn from(s: &str) -> Integer {

@@ -15,6 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#![allow(unused_macros)]
 //! Inertia is a (WIP) computational mathematics library for Rust. 
 //!
 //! Inertia-core contains the core functionality of the 
@@ -22,17 +23,27 @@
 //! [FLINT](https://flintlib.org/doc/), [Arb](https://arblib.org/), and 
 //! [Antic](https://github.com/wbhart/antic) C libraries.
 
-#![allow(unused_macros)]
+
 #[macro_use]
 pub mod macros;
 
 pub mod integer;
 pub mod rational;
 pub mod intmod;
+pub mod intpoly;
+pub mod intmodpoly;
+//pub mod intmpoly;
+pub mod intmat;
+pub mod finfld;
 
 pub use integer::*;
 pub use rational::*;
 pub use intmod::*;
+pub use intpoly::*;
+pub use intmodpoly::*;
+//pub use intmpoly::*;
+pub use intmat::*;
+pub use finfld::*;
 
 /// Enum holding either a value or borrow of type T.
 pub enum ValOrRef<'a, T> {
@@ -69,6 +80,10 @@ impl<'a, T> IntoValOrRef<'a, T> for &'a T {
 
 /// Expand on the operations provided in `std::ops`.
 pub mod ops {
+    pub trait Assign<T = Self> {
+        fn assign(&mut self, other: T);
+    }
+
     /// Inverse as a unary operation.
     pub trait Inv {
         type Output;

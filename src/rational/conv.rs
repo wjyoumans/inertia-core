@@ -16,7 +16,7 @@
  */
 
 use flint_sys::fmpq;
-use crate::{Integer, Rational, IntMod};
+use crate::{Integer, Rational, IntMod, IntoValOrRef};
 
 
 impl_from_unsafe! {
@@ -76,6 +76,70 @@ impl_from! {
     }
 }
 
+
+impl<'a, T: 'a> From<[T; 2]> for Rational where 
+    T: IntoValOrRef<'a, Integer> + Clone
+{
+    fn from(src: [T; 2]) -> Rational {
+        let n = src[0].clone().val_or_ref();
+        let d = src[1].clone().val_or_ref();
+        assert!(!d.is_zero());
+
+        let mut res = Rational::default();
+        unsafe { 
+            fmpq::fmpq_set_fmpz_frac(
+                res.as_mut_ptr(), 
+                n.as_ptr(),
+                d.as_ptr()
+            ); 
+        }
+        res
+    }
+}
+
+impl<'a, T: 'a> From<&[T]> for Rational where 
+    T: IntoValOrRef<'a, Integer> + Clone
+{
+    fn from(src: &[T]) -> Rational {
+        assert_eq!(src.len(), 2);
+
+        let n = src[0].clone().val_or_ref();
+        let d = src[1].clone().val_or_ref();
+        assert!(!d.is_zero());
+
+        let mut res = Rational::default();
+        unsafe { 
+            fmpq::fmpq_set_fmpz_frac(
+                res.as_mut_ptr(), 
+                n.as_ptr(),
+                d.as_ptr()
+            ); 
+        }
+        res
+    }
+}
+
+impl<'a, T: 'a> From<Vec<T>> for Rational where 
+    T: IntoValOrRef<'a, Integer> + Clone
+{
+    #[inline]
+    fn from(src: Vec<T>) -> Rational {
+        Rational::from(src.as_slice())
+    }
+
+}
+
+/*
+impl<'a, T: 'a> From<Vec<T>> for IntPoly where 
+    T: IntoValOrRef<'a, Integer> + Clone
+{
+    #[inline]
+    fn from(src: Vec<T>) -> IntPoly {
+        IntPoly::from(src.as_slice())
+    }
+
+}
+
 impl<T> From<[T; 2]> for Rational where
     T: Copy,
     T: Into<Integer>,
@@ -101,7 +165,7 @@ impl From<[&Integer; 2]> for Rational {
         res
     }
 }
-
+*/
 #[cfg(test)]
 mod tests {
     //use crate::{Rational, IntModRing};

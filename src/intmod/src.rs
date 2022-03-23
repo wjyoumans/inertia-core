@@ -23,7 +23,7 @@ use std::sync::Arc;
 use flint_sys::{fmpz, fmpz_mod};
 use serde::ser::{Serialize, Serializer, SerializeTuple};
 use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{Integer, ValOrRef, IntoValOrRef};
+use crate::{Integer, ValOrRef};
 
 
 #[derive(Debug)]
@@ -49,6 +49,13 @@ impl std::ops::Deref for IntModRing {
     }
 }
 
+impl fmt::Display for IntModRing {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Ring of integers mod {}", self.modulus())
+    }
+}
+
 impl Hash for IntModRing {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.modulus().hash(state)
@@ -65,22 +72,22 @@ impl IntModRing {
    
     #[inline]
     pub fn init<'a, T>(n: T) -> IntModRing where 
-        T: IntoValOrRef<'a, Integer>
+        T: Into<ValOrRef<'a, Integer>>
     {
         let mut ctx = MaybeUninit::uninit();
         unsafe {
-            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.val_or_ref().as_ptr());
+            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
             IntModRing { ctx: Arc::new(FmpzModCtx(ctx.assume_init())) }
         }
     }
 
     #[inline]
     pub fn new<'a, T>(&self, x: T) -> IntMod where
-        T: IntoValOrRef<'a, Integer>
+        T: Into<ValOrRef<'a, Integer>>
     {
         let mut res = self.default();
         unsafe { 
-            fmpz::fmpz_set(res.as_mut_ptr(), x.val_or_ref().as_ptr());
+            fmpz::fmpz_set(res.as_mut_ptr(), x.into().as_ptr());
             fmpz::fmpz_mod(res.as_mut_ptr(), res.as_ptr(), self.modulus().as_ptr());
         }
         res
@@ -127,30 +134,22 @@ impl Clone for IntMod {
     }
 }
 
-impl Drop for IntMod {
-    fn drop(&mut self) {
-        unsafe { fmpz::fmpz_clear(self.as_mut_ptr())}
-    }
-}
-
 impl fmt::Display for IntMod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", String::from(self))
     }
 }
 
-impl Hash for IntMod {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Integer::from(self).hash(state);
-        self.modulus().hash(state);
+impl Drop for IntMod {
+    fn drop(&mut self) {
+        unsafe { fmpz::fmpz_clear(self.as_mut_ptr())}
     }
 }
 
-impl<'a, T> IntoValOrRef<'a, IntMod> for T where
-    T: Into<IntMod>
-{
-    fn val_or_ref(self) -> ValOrRef<'a, IntMod> {
-        ValOrRef::Val(self.into())
+impl Hash for IntMod {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.parent().hash(state);
+        Integer::from(self).hash(state);
     }
 }
 

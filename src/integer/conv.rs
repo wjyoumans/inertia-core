@@ -18,7 +18,15 @@
 use std::convert::TryFrom;
 use std::ffi::CString;
 use flint_sys::fmpz;
-use crate::{Integer, Rational, IntMod};
+use crate::{Integer, Rational, IntMod, ValOrRef};
+
+impl<'a, T> From<T> for ValOrRef<'a, Integer> where
+    T: Into<Integer>
+{
+    fn from(x: T) -> ValOrRef<'a, Integer> {
+        ValOrRef::Val(x.into())
+    }
+}
 
 impl From<&str> for Integer {
     fn from(s: &str) -> Integer {

@@ -16,8 +16,16 @@
  */
 
 use flint_sys::fmpz_poly;
-use crate::{Integer, IntMod, IntPoly, IntoValOrRef};
+use crate::{Integer, IntMod, IntPoly, IntModPoly, FinFldElem, ValOrRef};
 
+
+impl<'a, T> From<T> for ValOrRef<'a, IntPoly> where
+    T: Into<IntPoly>
+{
+    fn from(x: T) -> ValOrRef<'a, IntPoly> {
+        ValOrRef::Val(x.into())
+    }
+}
 
 impl_from_unsafe! {
     None
@@ -50,19 +58,6 @@ impl_from! {
     }
 }
 
-/*
-impl_from! {
-    IntPoly, PadicElem
-    {
-        fn from(x: &PadicElem) -> IntPoly {
-            let mut res = IntPoly::default();
-            let tmp = Integer::from(x);
-            res.set_coeff(0, &tmp);
-            res
-        }
-    }
-}
-
 impl_from! {
     IntPoly, IntModPoly
     {
@@ -80,8 +75,6 @@ impl_from! {
     }
 }
 
-// PadicPol
-
 impl_from! {
     IntPoly, FinFldElem
     {
@@ -97,7 +90,20 @@ impl_from! {
             res
         }
     }
+}
+/*
+impl_from! {
+    IntPoly, PadicElem
+    {
+        fn from(x: &PadicElem) -> IntPoly {
+            let mut res = IntPoly::default();
+            let tmp = Integer::from(x);
+            res.set_coeff(0, &tmp);
+            res
+        }
+    }
 }*/
+
 
 impl_from! {
     String, IntPoly
@@ -109,7 +115,7 @@ impl_from! {
 }
 
 impl<'a, T: 'a> From<&[T]> for IntPoly where 
-    T: IntoValOrRef<'a, Integer> + Clone
+    T: Into<ValOrRef<'a, Integer>> + Clone
 {
     fn from(src: &[T]) -> IntPoly {
         let mut res = IntPoly::default();
@@ -121,7 +127,7 @@ impl<'a, T: 'a> From<&[T]> for IntPoly where
 }
 
 impl<'a, T: 'a> From<Vec<T>> for IntPoly where 
-    T: IntoValOrRef<'a, Integer> + Clone
+    T: Into<ValOrRef<'a, Integer>> + Clone
 {
     #[inline]
     fn from(src: Vec<T>) -> IntPoly {

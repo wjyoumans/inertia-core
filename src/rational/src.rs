@@ -22,7 +22,7 @@ use std::mem::MaybeUninit;
 use flint_sys::fmpq;
 use serde::ser::{Serialize, Serializer, SerializeTuple};
 use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{Integer, ValOrRef, IntoValOrRef};
+use crate::Integer;
 
 #[derive(Clone, Copy, Debug, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RationalField {}
@@ -91,15 +91,6 @@ impl Hash for Rational {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.numerator().hash(state);
         self.denominator().hash(state);
-    }
-}
-
-impl<'a, T> IntoValOrRef<'a, Rational> for T where
-    T: Into<Rational>
-{
-    #[inline]
-    fn val_or_ref(self) -> ValOrRef<'a, Rational> {
-        ValOrRef::Val(self.into())
     }
 }
 

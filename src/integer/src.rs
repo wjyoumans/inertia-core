@@ -26,7 +26,6 @@ use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
 use crate::{
     ops::Assign,
     ValOrRef, 
-    IntoValOrRef
 };
 
 #[derive(Clone, Copy, Debug, Hash, serde::Serialize, serde::Deserialize)]
@@ -92,11 +91,11 @@ pub struct Integer {
 }
 
 impl<'a, T> Assign<T> for Integer where
-    T: IntoValOrRef<'a, Integer>
+    T: Into<ValOrRef<'a, Integer>>
 {
     fn assign(&mut self, other: T) {
         unsafe {
-            fmpz::fmpz_set(self.as_mut_ptr(), other.val_or_ref().as_ptr());
+            fmpz::fmpz_set(self.as_mut_ptr(), other.into().as_ptr());
         }
     }
 }
@@ -143,15 +142,6 @@ impl Hash for Integer {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.get_ui_vector().hash(state);
-    }
-}
-
-impl<'a, T> IntoValOrRef<'a, Integer> for T where
-    T: Into<Integer>
-{
-    #[inline]
-    fn val_or_ref(self) -> ValOrRef<'a, Integer> {
-        ValOrRef::Val(self.into())
     }
 }
 
@@ -540,9 +530,9 @@ impl Integer {
     /// ```
     #[inline]
     pub fn invmod<'a, T>(&self, modulus: T) -> Option<Integer> where
-        T: IntoValOrRef<'a, Integer>
+        T: Into<ValOrRef<'a, Integer>>
     {
-        let modulus = &*modulus.val_or_ref();
+        let modulus = &*modulus.into();
         assert!(modulus > &0);
 
         let mut res = Integer::default();

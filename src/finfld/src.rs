@@ -17,10 +17,17 @@
 
 use std::ffi::{CStr, CString};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::sync::Arc;
 use flint_sys::fq_default as fq;
-use crate::{Integer, IntPoly, IntoValOrRef};
+use crate::{
+    Integer, 
+    IntPoly, 
+    IntModPoly,
+    IntModPolyRing,
+    ValOrRef
+};
 
 
 #[derive(Debug)]
@@ -45,12 +52,11 @@ impl std::ops::Deref for FiniteField {
     }
 }
 
-/*
 impl Hash for FiniteField {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.modulus().hash(state)
     }
-}*/
+}
 
 impl FiniteField {
     
@@ -62,10 +68,10 @@ impl FiniteField {
    
     #[inline]
     pub fn init<'a, P, K>(p: P, k: K) -> FiniteField where 
-        P: IntoValOrRef<'a, Integer>,
+        P: Into<ValOrRef<'a, Integer>>,
         K: TryInto<i64>,
     {
-        let p = &*p.val_or_ref();
+        let p = &*p.into();
         match k.try_into() {
             Ok(k) => {
                 assert!(p.is_prime());
@@ -78,7 +84,7 @@ impl FiniteField {
     }
     
     pub fn init_unchecked<'a, P, K>(p: P, k: K) -> FiniteField where 
-        P: IntoValOrRef<'a, Integer>,
+        P: Into<ValOrRef<'a, Integer>>,
         K: TryInto<i64>,
     {
         match k.try_into() {
@@ -88,7 +94,7 @@ impl FiniteField {
                 unsafe {
                     fq::fq_default_ctx_init(
                         ctx.as_mut_ptr(), 
-                        p.val_or_ref().as_ptr(), 
+                        p.into().as_ptr(), 
                         k,
                         var.as_ptr()
                     );
@@ -110,29 +116,29 @@ impl FiniteField {
 
     #[inline]
     pub fn new<'a, T>(&self, x: T) -> FinFldElem where
-        T: IntoValOrRef<'a, IntPoly>
+        T: Into<ValOrRef<'a, IntPoly>>
     {
         let mut res = self.default();
         unsafe { 
             fq::fq_default_set_fmpz_poly(
                 res.as_mut_ptr(), 
-                x.val_or_ref().as_ptr(), 
+                x.into().as_ptr(), 
                 self.ctx_as_ptr()
             ); 
         }
         res
     }
     
-    /* requires fmpz_mod_poly
     /// Return the modulus of the ring.
     #[inline]
-    pub fn modulus(&self) -> IntPoly {
-        let mut res = IntPoly::default();
+    pub fn modulus(&self) -> IntModPoly {
+        let zp = IntModPolyRing::init(self.prime(), "x");
+        let mut res = zp.default();
         unsafe {
             fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr()); 
         }
         res
-    }*/
+    }
     
     #[inline]
     pub fn prime(&self) -> Integer {
@@ -187,14 +193,13 @@ impl fmt::Display for FinFldElem {
     }
 }
 
-/*
-impl Hash for IntMod {
+impl Hash for FinFldElem {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Integer::from(self).hash(state);
-        self.modulus().hash(state);
+        self.parent().hash(state);
+        IntModPoly::from(self).hash(state);
     }
 }
-*/
+
 impl FinFldElem {
     
     /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].

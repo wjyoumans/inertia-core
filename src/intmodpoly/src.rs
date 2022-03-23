@@ -15,11 +15,14 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+
+use std::hash::{Hash, Hasher};
+use std::fmt;
 use std::mem::MaybeUninit;
 use std::sync::{Arc, RwLock};
 
 use flint_sys::{fmpz_mod, fmpz_mod_poly};
-use crate::{FmpzModCtx, Integer, IntPoly, IntModRing, IntoValOrRef};
+use crate::{FmpzModCtx, Integer, IntPoly, IntMod, IntModRing, ValOrRef};
 
 #[derive(Clone, Debug)]
 pub struct IntModPolyRing {
@@ -27,22 +30,20 @@ pub struct IntModPolyRing {
     var: Arc<RwLock<String>>
 }
 
-/*
-impl fmt::Display for IntPolyRing {
+impl fmt::Display for IntModPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Univariate polynomial ring in {} over Integer Ring", self.var())
+        write!(f, "Univariate polynomial ring in {} over {}", self.var(), self.base_ring())
     }
 }
 
-impl Hash for IntPolyRing {
+impl Hash for IntModPolyRing {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.base_ring().hash(state);
-        self.var().hash(state);
+        self.nvars().hash(state);
     }
 }
-*/
 
 impl IntModPolyRing {
 
@@ -54,11 +55,11 @@ impl IntModPolyRing {
 
     #[inline]
     pub fn init<'a, T>(n: T, var: &str) -> Self where
-        T: IntoValOrRef<'a, Integer>
+        T: Into<ValOrRef<'a, Integer>>
     {
         let mut ctx = MaybeUninit::uninit();
         unsafe{
-            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.val_or_ref().as_ptr());
+            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
             IntModPolyRing { 
                 ctx: Arc::new(FmpzModCtx(ctx.assume_init())),
                 var: Arc::new(RwLock::new(var.to_string())) 
@@ -85,11 +86,15 @@ impl IntModPolyRing {
         unsafe {
             fmpz_mod_poly::fmpz_mod_poly_set_fmpz_poly(
                 res.as_mut_ptr(), 
-                x.val_or_ref().as_ptr(), 
+                x.into().as_ptr(), 
                 self.ctx_as_ptr()
             );
         }
         res
+    }
+    
+    pub fn nvars(&self) -> i64 {
+        1
     }
     
     /// Return the variable of the polynomial as a `&str`.
@@ -145,24 +150,13 @@ impl Drop for IntModPoly {
     }
 }
 
-/*
-impl Hash for IntPoly {
+impl Hash for IntModPoly {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.parent().hash(state);
         self.coefficients().hash(state);
     }
 }
-
-impl<'a, T> IntoValOrRef<'a, IntPoly> for T where
-    T: Into<IntPoly>
-{
-    #[inline]
-    fn val_or_ref(self) -> ValOrRef<'a, IntPoly> {
-        ValOrRef::Val(self.into())
-    }
-}
-*/
 
 impl IntModPoly {
     
@@ -192,6 +186,13 @@ impl IntModPoly {
             var: Arc::clone(&self.var)
         }
     }
+    
+    #[inline]
+    pub fn base_ring(&self) -> IntModRing {
+        IntModRing {
+            ctx: Arc::clone(&self.ctx),
+        }
+    }
 
     /// Return the variable of the polynomial as a string.
     #[inline]
@@ -215,35 +216,44 @@ impl IntModPoly {
         unsafe { fmpz_mod_poly::fmpz_mod_poly_degree(self.as_ptr(), self.ctx_as_ptr())}
     }
 
-    /*
     #[inline]
-    pub fn get_coeff(&self, i: i64) -> Integer {
-        let mut res = Integer::default();
+    pub fn get_coeff(&self, i: i64) -> IntMod {
+        let mut res = self.base_ring().default();
         unsafe {
-            fmpz_poly::fmpz_poly_get_coeff_fmpz(res.as_mut_ptr(), self.as_ptr(), i);
+            fmpz_mod_poly::fmpz_mod_poly_get_coeff_fmpz(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                i, 
+                self.ctx_as_ptr()
+            );
         }
         res
     }
     
     #[inline]
     pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T) where
-        T: IntoValOrRef<'a, Integer>
+        T: Into<ValOrRef<'a, Integer>>
     {
         unsafe {
-            fmpz_poly::fmpz_poly_set_coeff_fmpz(self.as_mut_ptr(), i, coeff.val_or_ref().as_ptr());
+            fmpz_mod_poly::fmpz_mod_poly_set_coeff_fmpz(
+                self.as_mut_ptr(), 
+                i, 
+                coeff.into().as_ptr(),
+                self.ctx_as_ptr()
+            );
         }
     }
 
     #[inline]
-    pub fn coefficients(&self) -> Vec<Integer> {
+    pub fn coefficients(&self) -> Vec<IntMod> {
         let len = self.len();
 
-        let mut vec = Vec::<Integer>::with_capacity(usize::try_from(len).ok().unwrap());
+        let mut vec = Vec::with_capacity(usize::try_from(len).ok().unwrap());
         for i in 0..len {
             vec.push(self.get_coeff(i));
         }
         vec
-    }*/
+    }
 }
 
 /*

@@ -15,7 +15,16 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, IntMat, IntoValOrRef};
+use crate::{Integer, IntMat, ValOrRef};
+
+
+impl<'a, T> From<T> for ValOrRef<'a, IntMat> where
+    T: Into<IntMat>
+{
+    fn from(x: T) -> ValOrRef<'a, IntMat> {
+        ValOrRef::Val(x.into())
+    }
+}
 
 /*
 impl_from! {
@@ -32,14 +41,14 @@ impl_from! {
     String, IntMat
     {
         fn from(x: &IntMat) -> String {
-            x.get_str()
+            x.get_str_pretty()
         }
     }
 }
 
-// TODO: why can't we pass x.val_or_ref() and avoid clone?
+// TODO: why can't we pass x.into() and avoid clone?
 impl<'a, T> From<&[&[T]]> for IntMat where
-    T: IntoValOrRef<'a, Integer> + Clone
+    T: Into<ValOrRef<'a, Integer>> + Clone
 {
     fn from(mat: &[&[T]]) -> IntMat {
         let m = mat.len() as i64;
@@ -52,7 +61,7 @@ impl<'a, T> From<&[&[T]]> for IntMat where
             for (i, &row) in mat.iter().enumerate() {
                 assert_eq!(n, row.len() as i64);
                 for (j, x) in row.iter().enumerate() {
-                    res.set_entry(i as i64, j as i64, &*x.clone().val_or_ref());
+                    res.set_entry(i as i64, j as i64, &*x.clone().into());
                 }
             }
             res
@@ -61,7 +70,7 @@ impl<'a, T> From<&[&[T]]> for IntMat where
 }
 
 impl<'a, T> From<Vec<Vec<T>>> for IntMat where
-    T: IntoValOrRef<'a, Integer>
+    T: Into<ValOrRef<'a, Integer>>
 {
     fn from(mat: Vec<Vec<T>>) -> IntMat {
         let m = mat.len() as i64;
@@ -74,7 +83,7 @@ impl<'a, T> From<Vec<Vec<T>>> for IntMat where
             for (i, row) in mat.into_iter().enumerate() {
                 assert_eq!(n, row.len() as i64);
                 for (j, x) in row.into_iter().enumerate() {
-                    res.set_entry(i as i64, j as i64, &*x.val_or_ref());
+                    res.set_entry(i as i64, j as i64, &*x.into());
                 }
             }
             res

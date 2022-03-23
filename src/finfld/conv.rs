@@ -15,8 +15,16 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::FinFldElem;
+use crate::{FinFldElem, ValOrRef};
 
+
+impl<'a, T> From<T> for ValOrRef<'a, FinFldElem> where
+    T: Into<FinFldElem>
+{
+    fn from(x: T) -> ValOrRef<'a, FinFldElem> {
+        ValOrRef::Val(x.into())
+    }
+}
 
 impl_from! {
     String, FinFldElem

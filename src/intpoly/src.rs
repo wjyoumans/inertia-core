@@ -24,7 +24,12 @@ use std::sync::{Arc, RwLock};
 use flint_sys::fmpz_poly;
 use serde::ser::{Serialize, Serializer, SerializeSeq};
 use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{Integer, IntegerRing, ValOrRef, IntoValOrRef};
+use crate::{
+    ops::Assign, 
+    Integer, 
+    IntegerRing, 
+    ValOrRef, 
+};
 
 #[derive(Clone, Debug)]
 pub struct IntPolyRing {
@@ -42,7 +47,7 @@ impl Hash for IntPolyRing {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.base_ring().hash(state);
-        self.var().hash(state);
+        self.nvars().hash(state);
     }
 }
 
@@ -68,6 +73,10 @@ impl IntPolyRing {
     pub fn new<T: Into<IntPoly>>(&self, x: T) -> IntPoly {
         x.into()
     }
+
+    pub fn nvars(&self) -> i64 {
+        1
+    }
     
     /// Return the variable of the polynomial as a `&str`.
     pub fn var(&self) -> String {
@@ -88,6 +97,16 @@ impl IntPolyRing {
 pub struct IntPoly {
     inner: fmpz_poly::fmpz_poly_struct,
     var: Arc<RwLock<String>>,
+}
+
+impl<'a, T> Assign<T> for IntPoly where
+    T: Into<ValOrRef<'a, IntPoly>>
+{
+    fn assign(&mut self, other: T) {
+        unsafe {
+            fmpz_poly::fmpz_poly_set(self.as_mut_ptr(), other.into().as_ptr());
+        }
+    }
 }
 
 impl Clone for IntPoly {
@@ -135,15 +154,6 @@ impl Hash for IntPoly {
     }
 }
 
-impl<'a, T> IntoValOrRef<'a, IntPoly> for T where
-    T: Into<IntPoly>
-{
-    #[inline]
-    fn val_or_ref(self) -> ValOrRef<'a, IntPoly> {
-        ValOrRef::Val(self.into())
-    }
-}
-
 impl IntPoly {
     
     /// Returns a pointer to the inner [FLINT integer polynomial][fmpz_poly::fmpz_poly].
@@ -164,6 +174,10 @@ impl IntPoly {
         IntPolyRing {
             var: Arc::clone(&self.var)
         }
+    }
+    
+    pub fn base_ring(&self) -> IntegerRing {
+        IntegerRing {}
     }
 
     /// Return the variable of the polynomial as a string.
@@ -211,10 +225,10 @@ impl IntPoly {
     
     #[inline]
     pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T) where
-        T: IntoValOrRef<'a, Integer>
+        T: Into<ValOrRef<'a, Integer>>
     {
         unsafe {
-            fmpz_poly::fmpz_poly_set_coeff_fmpz(self.as_mut_ptr(), i, coeff.val_or_ref().as_ptr());
+            fmpz_poly::fmpz_poly_set_coeff_fmpz(self.as_mut_ptr(), i, coeff.into().as_ptr());
         }
     }
 

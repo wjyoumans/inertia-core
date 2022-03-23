@@ -45,6 +45,7 @@ pub use intmodpoly::*;
 pub use intmat::*;
 pub use finfld::*;
 
+
 /// Enum holding either a value or borrow of type T.
 pub enum ValOrRef<'a, T> {
     Val(T),
@@ -63,20 +64,13 @@ impl<'a, T> std::ops::Deref for ValOrRef<'a, T> {
     }
 }
 
-/// Define a conversion to a value or borrow of type T.
-pub trait IntoValOrRef<'a, T> {
-    /// Perform the conversion.
-    fn val_or_ref(self) -> ValOrRef<'a, T>;
-}
-
 /// Blanket implementation.
-impl<'a, T> IntoValOrRef<'a, T> for &'a T {
-    /// Perform the conversion.
-    #[inline]
-    fn val_or_ref(self) -> ValOrRef<'a, T> {
-        ValOrRef::Ref(self)
+impl<'a, T> From<&'a T> for ValOrRef<'a, T> {
+    fn from(x: &'a T) -> ValOrRef<'a, T> {
+        ValOrRef::Ref(&x)
     }
 }
+
 
 /// Expand on the operations provided in `std::ops`.
 pub mod ops {

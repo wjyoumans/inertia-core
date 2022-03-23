@@ -16,8 +16,16 @@
  */
 
 use flint_sys::fmpq;
-use crate::{Integer, Rational, IntMod, IntoValOrRef};
+use crate::{Integer, Rational, IntMod, ValOrRef};
 
+
+impl<'a, T> From<T> for ValOrRef<'a, Rational> where
+    T: Into<Rational>
+{
+    fn from(x: T) -> ValOrRef<'a, Rational> {
+        ValOrRef::Val(x.into())
+    }
+}
 
 impl_from_unsafe! {
     None
@@ -78,11 +86,11 @@ impl_from! {
 
 
 impl<'a, T: 'a> From<[T; 2]> for Rational where 
-    T: IntoValOrRef<'a, Integer> + Clone
+    T: Into<ValOrRef<'a, Integer>> + Clone
 {
     fn from(src: [T; 2]) -> Rational {
-        let n = src[0].clone().val_or_ref();
-        let d = src[1].clone().val_or_ref();
+        let n = src[0].clone().into();
+        let d = src[1].clone().into();
         assert!(!d.is_zero());
 
         let mut res = Rational::default();
@@ -98,13 +106,13 @@ impl<'a, T: 'a> From<[T; 2]> for Rational where
 }
 
 impl<'a, T: 'a> From<&[T]> for Rational where 
-    T: IntoValOrRef<'a, Integer> + Clone
+    T: Into<ValOrRef<'a, Integer>> + Clone
 {
     fn from(src: &[T]) -> Rational {
         assert_eq!(src.len(), 2);
 
-        let n = src[0].clone().val_or_ref();
-        let d = src[1].clone().val_or_ref();
+        let n = src[0].clone().into();
+        let d = src[1].clone().into();
         assert!(!d.is_zero());
 
         let mut res = Rational::default();
@@ -120,7 +128,7 @@ impl<'a, T: 'a> From<&[T]> for Rational where
 }
 
 impl<'a, T: 'a> From<Vec<T>> for Rational where 
-    T: IntoValOrRef<'a, Integer> + Clone
+    T: Into<ValOrRef<'a, Integer>> + Clone
 {
     #[inline]
     fn from(src: Vec<T>) -> Rational {

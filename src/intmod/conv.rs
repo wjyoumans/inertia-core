@@ -15,8 +15,15 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, IntMod};
+use crate::{Integer, IntMod, ValOrRef};
 
+impl<'a, T> From<T> for ValOrRef<'a, IntMod> where
+    T: Into<IntMod>
+{
+    fn from(x: T) -> ValOrRef<'a, IntMod> {
+        ValOrRef::Val(x.into())
+    }
+}
 
 impl_from! {
     String, IntMod

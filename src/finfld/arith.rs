@@ -24,6 +24,24 @@ use std::sync::Arc;
 use flint_sys::{fmpz, fmpz_mod};
 use libc::{c_long, c_ulong};
 
+impl Eq for FiniteField {}
+impl PartialEq for FiniteField {
+    fn eq(&self, other: &FiniteField) -> bool {
+        self.modulus() == other.modulus()
+    }
+}
+
+impl_cmp! {
+    eq
+    FinFldElem
+    {
+        fn eq(&self, rhs: &FinFldElem) -> bool {
+            assert_eq!(self.parent(), rhs.parent());
+            unsafe { fq::fq_default_equal(self.as_ptr(), rhs.as_ptr(), self.ctx_as_ptr()) != 0 }
+        }
+    }
+}
+
 
 // TODO: consume lhs/rhs to avoid allocation
 macro_rules! impl_binop_option {

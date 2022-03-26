@@ -15,15 +15,64 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, IntMod};
+use crate::{Integer, Rational, IntMod, IntModRing};
 use crate::ops::*;
 
 use std::ops::*;
 use std::sync::Arc;
 
-use flint_sys::{fmpz, fmpz_mod};
-use libc::{c_long, c_ulong};
+use flint_sys::{fmpz, fmpq, fmpz_mod};
+use libc::{c_int, c_long, c_ulong};
 
+impl Eq for IntModRing {}
+
+impl PartialEq for IntModRing {
+    fn eq(&self, rhs: &IntModRing) -> bool {
+        self.modulus() == rhs.modulus()
+    }
+}
+
+impl_cmp_unsafe! {
+    eq
+    IntMod
+    fmpz::fmpz_equal
+}
+
+impl_cmp_unsafe! {
+    eq
+    IntMod, Integer
+    fmpz::fmpz_equal
+}
+
+impl_cmp_unsafe! {
+    eq
+    IntMod, Rational
+    fmpz_equal_fmpq
+}
+
+impl_cmp_unsafe! {
+    eq
+    IntMod, u64 {u64 u32 u16 u8}
+    fmpz::fmpz_equal_ui
+}
+
+impl_cmp_unsafe! {
+    eq
+    IntMod, i64 {i64 i32 i16 i8}
+    fmpz::fmpz_equal_si
+}
+
+#[inline]
+unsafe fn fmpz_equal_fmpq(
+    f: *const fmpz::fmpz,
+    g: *const fmpq::fmpq) -> c_int
+{
+    if fmpq::fmpq_cmp_fmpz(g, f) == 0 {
+        1
+    } else {
+        0
+    }
+}
 
 // TODO: consume lhs/rhs to avoid allocation
 macro_rules! impl_binop_option {

@@ -15,13 +15,58 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::cmp::Ordering::{self, Less, Greater, Equal};
 use std::mem::MaybeUninit;
 use std::ops::*;
 use flint_sys::{fmpz, fmpq};
 use libc::{c_long, c_ulong};
-use crate::{Integer, Rational};
+use crate::{Integer, IntegerRing, Rational};
 use crate::ops::*;
 
+
+impl Eq for IntegerRing {}
+
+impl PartialEq for IntegerRing {
+    fn eq(&self, _rhs: &IntegerRing) -> bool {
+        true
+    }
+}
+
+impl_cmp_unsafe! {
+    eq
+    Integer
+    fmpz::fmpz_equal
+}
+
+impl_cmp_unsafe! {
+    ord
+    Integer
+    fmpz::fmpz_cmp
+}
+
+impl_cmp_unsafe! {
+    eq
+    Integer, u64 {u64 u32 u16 u8}
+    fmpz::fmpz_equal_ui
+}
+
+impl_cmp_unsafe! {
+    ord
+    Integer, u64 {u64 u32 u16 u8}
+    fmpz::fmpz_cmp_ui
+}
+
+impl_cmp_unsafe! {
+    eq
+    Integer, i64 {i64 i32 i16 i8}
+    fmpz::fmpz_equal_si
+}
+
+impl_cmp_unsafe! {
+    ord
+    Integer, i64 {i64 i32 i16 i8}
+    fmpz::fmpz_cmp_si
+}
 
 impl_unop_unsafe! {
     None

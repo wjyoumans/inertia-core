@@ -28,6 +28,13 @@ use crate::Integer;
 pub struct RationalField {}
 pub type Rationals = RationalField;
 
+impl fmt::Display for RationalField {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Rational field")
+    }
+}
+
 impl RationalField {
     #[inline]
     pub fn init() -> Self {
@@ -180,21 +187,19 @@ impl<'de> Deserialize<'de> for Rational {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_seq(RationalVisitor::new())
+        deserializer.deserialize_tuple(2, RationalVisitor::new())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Integer, Rational};
+    use crate::Rational;
 
     #[test]
     fn serde() {
-        let n = Integer::from("18446744073709551616");
-        let d = Integer::from("2");
-        let x = Rational::from([n, d]);
+        let x = Rational::from([1, 2]);
         let ser = bincode::serialize(&x).unwrap();
-        let y: Integer = bincode::deserialize(&ser).unwrap();
+        let y: Rational = bincode::deserialize(&ser).unwrap();
         assert_eq!(x, y);
     }
 }

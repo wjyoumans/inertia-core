@@ -46,11 +46,10 @@ impl_from! {
     }
 }
 
-// TODO: why can't we pass x.into() and avoid clone?
-impl<'a, T> From<&[&[T]]> for IntMat where
-    T: Into<ValOrRef<'a, Integer>> + Clone
+impl<'a, T: 'a> From<&[&'a [T]]> for IntMat where
+    &'a T: Into<ValOrRef<'a, Integer>>
 {
-    fn from(mat: &[&[T]]) -> IntMat {
+    fn from(mat: &[&'a [T]]) -> IntMat {
         let m = mat.len() as i64;
         let n = mat.first().unwrap_or(&vec![].as_slice()).len() as i64;
 
@@ -61,11 +60,19 @@ impl<'a, T> From<&[&[T]]> for IntMat where
             for (i, &row) in mat.iter().enumerate() {
                 assert_eq!(n, row.len() as i64);
                 for (j, x) in row.iter().enumerate() {
-                    res.set_entry(i as i64, j as i64, &*x.clone().into());
+                    res.set_entry(i as i64, j as i64, &*x.into());
                 }
             }
             res
         }
+    }
+}
+
+impl<'a, T: 'a> From<Vec<&'a [T]>> for IntMat where
+    &'a T: Into<ValOrRef<'a, Integer>>
+{
+    fn from(mat: Vec<&'a [T]>) -> IntMat {
+        IntMat::from(mat.as_slice())
     }
 }
 
@@ -83,7 +90,7 @@ impl<'a, T> From<Vec<Vec<T>>> for IntMat where
             for (i, row) in mat.into_iter().enumerate() {
                 assert_eq!(n, row.len() as i64);
                 for (j, x) in row.into_iter().enumerate() {
-                    res.set_entry(i as i64, j as i64, &*x.into());
+                    res.set_entry(i as i64, j as i64, x);
                 }
             }
             res

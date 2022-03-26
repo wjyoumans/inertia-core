@@ -20,8 +20,8 @@ use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
 use flint_sys::{fmpz, fmpz_mat};
-//use serde::ser::{Serialize, Serializer, SerializeSeq};
-//use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
+use serde::ser::{Serialize, Serializer, SerializeSeq};
+use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
 use crate::{
     ops::Assign,
     Integer,
@@ -65,10 +65,25 @@ impl IntMatSpace {
     }
     
     #[inline]
-    pub fn new<T>(&self, x: T) -> IntMat where
-        T: Into<IntMat>
+    pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> IntMat where
+        &'a T: Into<ValOrRef<'a, Integer>>
     {
-        x.into()
+        let nrows = self.nrows() as usize;
+        let ncols = self.ncols() as usize;
+        assert_eq!(entries.len(), nrows*ncols);
+
+        let mut row = 0;
+        let mut col;
+        let mut res = self.default();
+        for (i, x) in entries.iter().enumerate() {
+            col = (i % ncols) as i64;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+
+            res.set_entry(row, col, x);
+        }
+        res
     }
 
     #[inline]
@@ -254,14 +269,16 @@ impl IntMat {
     }
 }
 
-/*
 impl Serialize for IntMat {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let entries = self.entries();
-        let mut seq = serializer.serialize_seq(Some(entries.len()))?;
+        let mut seq = serializer.serialize_seq(Some(entries.len()+2))?;
+
+        seq.serialize_element(&self.nrows())?;
+        seq.serialize_element(&self.ncols())?;
         for e in entries.iter() {
             seq.serialize_element(e)?;
         }
@@ -289,11 +306,15 @@ impl<'de> Visitor<'de> for IntMatVisitor {
         A: SeqAccess<'de>,
     {
         let mut entries: Vec<Integer> = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        let nrows = access.next_element()?.unwrap();
+        let ncols = access.next_element()?.unwrap();
+
         while let Some(x) = access.next_element()? {
             entries.push(x);
         }
 
-        Ok(IntMat::from(entries))
+        let zm = IntMatSpace::init(nrows, ncols);
+        Ok(zm.new(&entries))
     }
 }
 
@@ -312,9 +333,9 @@ mod tests {
 
     #[test]
     fn serde() {
-        let x = IntMat::from(vec![1, 0, 0, 2, 1]);
+        let x = IntMat::from(vec![vec![1, 0], vec![0, 2]]);
         let ser = bincode::serialize(&x).unwrap();
         let y: IntMat = bincode::deserialize(&ser).unwrap();
         assert_eq!(x, y);
     }
-}*/
+}

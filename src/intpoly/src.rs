@@ -39,7 +39,7 @@ pub struct IntPolyRing {
 impl fmt::Display for IntPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Univariate polynomial ring in {} over Integer Ring", self.var())
+        write!(f, "Univariate polynomial ring in {} over {}", self.var(), self.base_ring())
     }
 }
 

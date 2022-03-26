@@ -238,7 +238,7 @@ impl<'de> Deserialize<'de> for IntMod {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_seq(IntModVisitor::new())
+        deserializer.deserialize_tuple(2, IntModVisitor::new())
     }
 }
 

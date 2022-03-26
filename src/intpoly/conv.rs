@@ -114,12 +114,12 @@ impl_from! {
     }
 }
 
-impl<'a, T: 'a> From<&[T]> for IntPoly where 
-    T: Into<ValOrRef<'a, Integer>> + Clone
+impl<'a, T: 'a> From<&'a [T]> for IntPoly where 
+    &'a T: Into<ValOrRef<'a, Integer>>
 {
-    fn from(src: &[T]) -> IntPoly {
+    fn from(src: &'a [T]) -> IntPoly {
         let mut res = IntPoly::default();
-        for (i, x) in src.iter().cloned().enumerate() {
+        for (i, x) in src.iter().enumerate() {
             res.set_coeff(i as i64, x);
         }
         res
@@ -127,11 +127,14 @@ impl<'a, T: 'a> From<&[T]> for IntPoly where
 }
 
 impl<'a, T: 'a> From<Vec<T>> for IntPoly where 
-    T: Into<ValOrRef<'a, Integer>> + Clone
+    T: Into<ValOrRef<'a, Integer>>
 {
     #[inline]
     fn from(src: Vec<T>) -> IntPoly {
-        IntPoly::from(src.as_slice())
+        let mut res = IntPoly::default();
+        for (i, x) in src.into_iter().enumerate() {
+            res.set_coeff(i as i64, x);
+        }
+        res
     }
-
 }

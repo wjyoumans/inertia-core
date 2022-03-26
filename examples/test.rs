@@ -19,7 +19,10 @@ fn main() {
     println!("{}", &p);
 
     let mm = IntMatSpace::init(2, 2);
-    let m = mm.new(vec![vec![1, 2], vec![3, 4]]);
+    let m = mm.new(&[
+                   1, 2, 
+                   3, 4
+            ]);
     println!("{}", m);
 }
 

@@ -247,7 +247,7 @@ impl FinFldElem {
         }
     }
 
-    /// Return the parent [ring of integers mod `n`][IntModRing].
+    /// Return the parent [finite field][FiniteField].
     #[inline]
     pub fn parent(&self) -> FiniteField {
         FiniteField { ctx: Arc::clone(&self.ctx) }

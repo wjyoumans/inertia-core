@@ -31,6 +31,7 @@ pub mod integer;
 pub mod rational;
 pub mod intmod;
 pub mod intpoly;
+pub mod ratpoly;
 pub mod intmodpoly;
 //pub mod intmpoly;
 pub mod intmat;
@@ -40,11 +41,42 @@ pub use integer::*;
 pub use rational::*;
 pub use intmod::*;
 pub use intpoly::*;
+pub use ratpoly::*;
 pub use intmodpoly::*;
 //pub use intmpoly::*;
 pub use intmat::*;
 pub use finfld::*;
 
+use std::io;
+use std::fs::File;
+use serde::{ser, de};
+
+pub trait ReadWriteBincode: Sized {
+    fn read_bincode(filename: &str) -> io::Result<Self>;
+    fn write_bincode(self, filename: &str) -> io::Result<()>;
+}
+
+impl<T> ReadWriteBincode for T where
+    T: ser::Serialize + for<'de> de::Deserialize<'de>
+{
+    fn read_bincode(filename: &str) -> io::Result<Self> {
+        let f = io::BufReader::new(File::open(filename)?);
+        //let x: T = bincode::deserialize_from(f).unwrap();
+        //Ok(x)
+        match bincode::deserialize_from(f) {
+            Err(e) => panic!("{}", e),
+            Ok(x) => Ok(x)
+        }
+    }
+    
+    fn write_bincode(self, filename: &str) -> io::Result<()> {
+        let mut f = io::BufWriter::new(File::create(filename)?);
+        match bincode::serialize_into(&mut f, &self) {
+            Err(e) => panic!("{}", e),
+            Ok(x) => Ok(x)
+        }
+    }
+}
 
 /// Enum holding either a value or borrow of type T.
 pub enum ValOrRef<'a, T> {

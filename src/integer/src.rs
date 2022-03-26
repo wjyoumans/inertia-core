@@ -32,6 +32,13 @@ use crate::{
 pub struct IntegerRing {}
 pub type Integers = IntegerRing;
 
+impl fmt::Display for IntegerRing {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Integer ring")
+    }
+}
+
 impl IntegerRing {
 
     /// Initialize an `IntegerRing`.
@@ -547,16 +554,15 @@ impl Integer {
         }
     }
     
-    // a = 4, a = 6. a.is_prime() == true??
     /// Returns true if `self` is a prime.
     ///
     /// ```
-    /// use inertia::prelude::*;
+    /// use inertia_core::Integer;
     ///
-    /// let a = int!(3);
+    /// let a = Integer::from(3);
     /// assert!(a.is_prime());
     ///
-    /// let b = int!(4);
+    /// let b = Integer::from(6);
     /// assert!(!b.is_prime());
     /// ```
     #[inline]

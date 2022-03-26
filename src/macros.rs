@@ -25,7 +25,7 @@ macro_rules! default {
 
     // Unary ops
     (Neg, matrix, $out_ty:ident, $in:ident) => {
-        $out_ty::zero($in.nrows(), $in.ncols())
+        $out_ty::new($in.nrows(), $in.ncols())
     };
     (Neg, matrix_mod, $out_ty:ident, $in:ident) => {
         $out_ty::zero($in.nrows(), $in.ncols(), &$in.modulus())
@@ -39,19 +39,19 @@ macro_rules! default {
 
     // Binary ops
     (Add, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::zero($lhs.nrows(), $lhs.ncols())
+        $out_ty::new($lhs.nrows(), $lhs.ncols())
     };
     (Sub, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::zero($lhs.nrows(), $lhs.ncols())
+        $out_ty::new($lhs.nrows(), $lhs.ncols())
     };
     (Mul, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::zero($lhs.nrows(), $rhs.ncols())
+        $out_ty::new($lhs.nrows(), $rhs.ncols())
     };
     ($op:ident, lhs_scalar, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::zero($rhs.nrows(), $rhs.ncols())
+        $out_ty::new($rhs.nrows(), $rhs.ncols())
     };
     ($op:ident, rhs_scalar, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::zero($lhs.nrows(), $lhs.ncols())
+        $out_ty::new($lhs.nrows(), $lhs.ncols())
     };
     ($op:ident, ctx, $out_ty:ident, $lhs:ident, $rhs:ident) => {
         $lhs.parent().default()

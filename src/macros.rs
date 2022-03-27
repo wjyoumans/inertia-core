@@ -78,8 +78,9 @@ macro_rules! call_unsafe {
 
     // Binary ops
     (ctx, $func:path, $out:ident, $lhs:ident, $rhs:ident) => {
+        // leave to op guard
         //assert!(Arc::ptr_eq(&*$lhs.parent(), &*$rhs.parent()) || $lhs.parent() == $rhs.parent());
-        assert!(Arc::ptr_eq(&*$lhs.parent(), &*$rhs.parent()));
+        //assert!(Arc::ptr_eq(&*$lhs.parent(), &*$rhs.parent()));
         unsafe { $func($out.as_mut_ptr(), $lhs.as_ptr(), $rhs.as_ptr(), $lhs.ctx_as_ptr()); }
     };
     (ctx_lhs, $func:path, $out:ident, $lhs:ident, $rhs:ident) => {

@@ -32,6 +32,14 @@ use crate::{
 pub struct IntegerRing {}
 pub type Integers = IntegerRing;
 
+impl Eq for IntegerRing {}
+
+impl PartialEq for IntegerRing {
+    fn eq(&self, _rhs: &IntegerRing) -> bool {
+        true
+    }
+}
+
 impl fmt::Display for IntegerRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

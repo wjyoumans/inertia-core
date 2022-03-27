@@ -28,6 +28,14 @@ use crate::Integer;
 pub struct RationalField {}
 pub type Rationals = RationalField;
 
+impl Eq for RationalField {}
+
+impl PartialEq for RationalField {
+    fn eq(&self, _rhs: &RationalField) -> bool {
+        true
+    }
+}
+
 impl fmt::Display for RationalField {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

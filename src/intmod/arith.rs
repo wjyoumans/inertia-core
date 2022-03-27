@@ -15,22 +15,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, Rational, IntMod, IntModRing};
-use crate::ops::*;
 
 use std::ops::*;
-use std::sync::Arc;
-
 use flint_sys::{fmpz, fmpq, fmpz_mod};
 use libc::{c_int, c_long, c_ulong};
-
-impl Eq for IntModRing {}
-
-impl PartialEq for IntModRing {
-    fn eq(&self, rhs: &IntModRing) -> bool {
-        self.modulus() == rhs.modulus()
-    }
-}
+use crate::{Integer, Rational, IntMod};
+use crate::ops::*;
 
 impl_cmp_unsafe! {
     eq

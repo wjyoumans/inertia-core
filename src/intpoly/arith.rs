@@ -19,16 +19,8 @@ use std::mem::MaybeUninit;
 use std::ops::*;
 use flint_sys::{fmpz, fmpq, fmpz_poly};
 use libc::{c_int, c_long, c_ulong};
-use crate::{Integer, Rational, IntPoly, IntPolyRing};
+use crate::{Integer, Rational, IntPoly};
 use crate::ops::*;
-
-impl Eq for IntPolyRing {}
-
-impl PartialEq for IntPolyRing {
-    fn eq(&self, rhs: &IntPolyRing) -> bool {
-        self.var() == rhs.var()
-    }
-}
 
 impl_cmp_unsafe! {
     eq

@@ -40,12 +40,11 @@ pub struct IntModRing {
     pub ctx: Arc<FmpzModCtx>
 }
 
-// TODO: get rid of this. Used for checking Arc::ptr_eq to see if two rings point to the same
-// location in memory. Replace with new Eq type? StrictEq etc.?
-impl std::ops::Deref for IntModRing {
-    type Target = Arc<FmpzModCtx>;
-    fn deref(&self) -> &Self::Target {
-        &self.ctx
+impl Eq for IntModRing {}
+
+impl PartialEq for IntModRing {
+    fn eq(&self, rhs: &IntModRing) -> bool {
+        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus() 
     }
 }
 

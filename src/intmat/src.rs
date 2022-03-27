@@ -35,6 +35,18 @@ pub struct IntMatSpace {
     ncols: i64
 }
 
+impl Eq for IntMatSpace {}
+
+impl PartialEq for IntMatSpace {
+    fn eq(&self, other: &IntMatSpace) -> bool {
+        if self.nrows() == other.nrows() && self.ncols() == other.ncols() {
+            true
+        } else {
+            false
+        }
+    }
+}
+
 impl fmt::Display for IntMatSpace {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

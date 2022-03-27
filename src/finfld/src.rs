@@ -44,11 +44,11 @@ pub struct FiniteField {
     ctx: Arc<FqCtx>
 }
 
-// TODO: get rid of this. see intmod.
-impl std::ops::Deref for FiniteField {
-    type Target = Arc<FqCtx>;
-    fn deref(&self) -> &Self::Target {
-        &self.ctx
+impl Eq for FiniteField {}
+
+impl PartialEq for FiniteField {
+    fn eq(&self, rhs: &FiniteField) -> bool {
+        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.order() == rhs.order()
     }
 }
 
@@ -129,7 +129,6 @@ impl FiniteField {
         res
     }
     
-    /// Return the modulus of the ring.
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
         let zp = IntModPolyRing::init(self.prime(), "x");

@@ -16,74 +16,82 @@
  */
 
 use std::ops::*;
-use flint_sys::{fmpz, fmpz_poly};
-use libc::{c_long, c_ulong};
-use crate::{Integer, IntPoly};
+use flint_sys::fmpz_mod_poly;
+use crate::IntModPoly;
 use crate::ops::*;
 
+impl_cmp! {
+    eq
+    IntModPoly
+    {
+        fn eq(&self, rhs: &IntModPoly) -> bool {
+            assert_eq!(self.parent(), rhs.parent());
+            unsafe { 
+                fmpz_mod_poly::fmpz_mod_poly_equal(
+                    self.as_ptr(), 
+                    rhs.as_ptr(), 
+                    self.ctx_as_ptr()
+                ) != 0 
+            }
+        }
+    }
+}
+
 impl_unop_unsafe! {
-    None
-    IntPoly
+    ctx
+    IntModPoly
     Neg {neg}
     NegAssign {neg_assign}
-    fmpz_poly::fmpz_poly_neg
+    fmpz_mod_poly::fmpz_mod_poly_neg
 }
 
 impl_binop_unsafe! {
-    None
-    IntPoly, IntPoly, IntPoly
+    ctx
+    IntModPoly, IntModPoly, IntModPoly
     
     Add {add}
     AddAssign {add_assign}
     AddFrom {add_from}
     AssignAdd {assign_add}
-    fmpz_poly::fmpz_poly_add;
+    fmpz_mod_poly::fmpz_mod_poly_add;
     
     Sub {sub}
     SubAssign {sub_assign}
     SubFrom {sub_from}
     AssignSub {assign_sub}
-    fmpz_poly::fmpz_poly_sub;
+    fmpz_mod_poly::fmpz_mod_poly_sub;
     
     Mul {mul}
     MulAssign {mul_assign}
     MulFrom {mul_from}
     AssignMul {assign_mul}
-    fmpz_poly::fmpz_poly_mul;
-    
-    Rem {rem}
-    RemAssign {rem_assign}
-    RemFrom {rem_from}
-    AssignRem {assign_rem}
-    fmpz_poly::fmpz_poly_rem;
+    fmpz_mod_poly::fmpz_mod_poly_mul;
 }
 
+/*
 impl_binop_unsafe! {
-    None
+    ctx
     op_assign
-    IntPoly, Integer, IntPoly
+    IntModPoly, Integer, IntModPoly
    
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
-    fmpz_poly::fmpz_poly_add_fmpz;
+    fmpz_mod_poly::fmpz_mod_poly_add_fmpz;
 
     Sub {sub}
     SubAssign {sub_assign}
     AssignSub {assign_sub}
-    fmpz_poly::fmpz_poly_sub_fmpz;
+    fmpz_mod_poly::fmpz_mod_poly_sub_fmpz;
     
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
-    fmpz_poly::fmpz_poly_scalar_mul_fmpz;
-    
-    Rem {rem}
-    RemAssign {rem_assign}
-    AssignRem {assign_rem}
-    fmpz_poly::fmpz_poly_scalar_mod_fmpz;
+    fmpz_mod_poly::fmpz_mod_poly_scalar_mul_fmpz;
 }
+*/
 
+/*
 impl_binop_unsafe! {
     None
     op_from
@@ -372,4 +380,4 @@ unsafe fn fmpz_poly_si_scalar_mod(
 {
     fmpz_poly::fmpz_poly_set_si(res, f);
     fmpz_poly::fmpz_poly_rem(res, res, g);
-}
+}*/

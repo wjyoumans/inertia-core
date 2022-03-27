@@ -20,17 +20,9 @@ use std::mem::MaybeUninit;
 use std::ops::*;
 use flint_sys::{fmpz, fmpq};
 use libc::{c_long, c_ulong};
-use crate::{Integer, IntegerRing, Rational};
+use crate::{Integer, Rational};
 use crate::ops::*;
 
-
-impl Eq for IntegerRing {}
-
-impl PartialEq for IntegerRing {
-    fn eq(&self, _rhs: &IntegerRing) -> bool {
-        true
-    }
-}
 
 impl_cmp_unsafe! {
     eq

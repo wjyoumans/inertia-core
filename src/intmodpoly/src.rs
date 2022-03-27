@@ -22,12 +22,22 @@ use std::mem::MaybeUninit;
 use std::sync::{Arc, RwLock};
 
 use flint_sys::{fmpz_mod, fmpz_mod_poly};
+use serde::ser::{Serialize, Serializer, SerializeSeq};
+use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess};
 use crate::{FmpzModCtx, Integer, IntPoly, IntMod, IntModRing, ValOrRef};
 
 #[derive(Clone, Debug)]
 pub struct IntModPolyRing {
     ctx: Arc<FmpzModCtx>,
     var: Arc<RwLock<String>>
+}
+
+impl Eq for IntModPolyRing {}
+
+impl PartialEq for IntModPolyRing {
+    fn eq(&self, rhs: &IntModPolyRing) -> bool {
+        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus() 
+    }
 }
 
 impl fmt::Display for IntModPolyRing {
@@ -93,22 +103,31 @@ impl IntModPolyRing {
         res
     }
     
+    #[inline]
     pub fn nvars(&self) -> i64 {
         1
     }
     
     /// Return the variable of the polynomial as a `&str`.
+    #[inline]
     pub fn var(&self) -> String {
         self.var.read().unwrap().to_string()
     }
     
     /// Change the variable of the polynomial.
+    #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
         *self.var.write().unwrap() = var.as_ref().to_string()
     }
 
+    #[inline]
     pub fn base_ring(&self) -> IntModRing {
         IntModRing { ctx: Arc::clone(&self.ctx) }
+    }
+
+    #[inline]
+    pub fn modulus(&self) -> Integer {
+        self.base_ring().modulus()
     }
 }
 
@@ -193,6 +212,11 @@ impl IntModPoly {
             ctx: Arc::clone(&self.ctx),
         }
     }
+    
+    #[inline]
+    pub fn modulus(&self) -> Integer {
+        self.base_ring().modulus()
+    }
 
     /// Return the variable of the polynomial as a string.
     #[inline]
@@ -256,14 +280,14 @@ impl IntModPoly {
     }
 }
 
-/*
-impl Serialize for IntPoly {
+impl Serialize for IntModPoly {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let coeffs = self.coefficients();
-        let mut seq = serializer.serialize_seq(Some(coeffs.len()))?;
+        let coeffs = self.coefficients().iter().map(|x| Integer::from(x)).collect::<Vec<_>>();
+        let mut seq = serializer.serialize_seq(Some(coeffs.len()+1))?;
+        seq.serialize_element(&self.modulus())?;
         for e in coeffs.iter() {
             seq.serialize_element(e)?;
         }
@@ -271,19 +295,19 @@ impl Serialize for IntPoly {
     }
 }
 
-struct IntPolyVisitor {}
+struct IntModPolyVisitor {}
 
-impl IntPolyVisitor {
+impl IntModPolyVisitor {
     fn new() -> Self {
-        IntPolyVisitor {}
+        IntModPolyVisitor {}
     }
 }
 
-impl<'de> Visitor<'de> for IntPolyVisitor {
-    type Value = IntPoly;
+impl<'de> Visitor<'de> for IntModPolyVisitor {
+    type Value = IntModPoly;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an IntPoly")
+        formatter.write_str("an IntModPoly")
     }
 
     fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
@@ -291,32 +315,35 @@ impl<'de> Visitor<'de> for IntPolyVisitor {
         A: SeqAccess<'de>,
     {
         let mut coeffs: Vec<Integer> = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        let m: Integer = access.next_element()?
+            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
         while let Some(x) = access.next_element()? {
             coeffs.push(x);
         }
-
-        Ok(IntPoly::from(coeffs))
+        let zn = IntModPolyRing::init(m, "x");
+        Ok(zn.new(coeffs))
     }
 }
 
-impl<'de> Deserialize<'de> for IntPoly {
+impl<'de> Deserialize<'de> for IntModPoly {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_seq(IntPolyVisitor::new())
+        deserializer.deserialize_seq(IntModPolyVisitor::new())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::IntPoly;
+    use crate::{IntModPoly, IntModPolyRing};
 
     #[test]
     fn serde() {
-        let x = IntPoly::from(vec![1, 0, 0, 2, 1]);
+        let zn = IntModPolyRing::init(72u32, "x");
+        let x = zn.new(vec![1, 0, 0, 2, -19]);
         let ser = bincode::serialize(&x).unwrap();
-        let y: IntPoly = bincode::deserialize(&ser).unwrap();
+        let y: IntModPoly = bincode::deserialize(&ser).unwrap();
         assert_eq!(x, y);
     }
-}*/
+}

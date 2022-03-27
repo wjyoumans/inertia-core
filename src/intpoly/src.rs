@@ -36,6 +36,14 @@ pub struct IntPolyRing {
     var: Arc<RwLock<String>>
 }
 
+impl Eq for IntPolyRing {}
+
+impl PartialEq for IntPolyRing {
+    fn eq(&self, rhs: &IntPolyRing) -> bool {
+        self.var() == rhs.var()
+    }
+}
+
 impl fmt::Display for IntPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

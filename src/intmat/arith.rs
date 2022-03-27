@@ -19,21 +19,9 @@ use std::mem::MaybeUninit;
 use std::ops::*;
 use flint_sys::{fmpz, fmpz_mat};
 use libc::{c_long, c_ulong};
-use crate::{Integer, IntMat, IntMatSpace};
+use crate::{Integer, IntMat};
 use crate::ops::*;
 
-
-impl Eq for IntMatSpace {}
-
-impl PartialEq for IntMatSpace {
-    fn eq(&self, other: &IntMatSpace) -> bool {
-        if self.nrows() == other.nrows() && self.ncols() == other.ncols() {
-            true
-        } else {
-            false
-        }
-    }
-}
 
 impl_cmp_unsafe! {
     eq

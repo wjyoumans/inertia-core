@@ -24,13 +24,6 @@ use std::sync::Arc;
 use flint_sys::{fmpz, fmpz_mod};
 use libc::{c_long, c_ulong};
 
-impl Eq for FiniteField {}
-impl PartialEq for FiniteField {
-    fn eq(&self, other: &FiniteField) -> bool {
-        self.modulus() == other.modulus()
-    }
-}
-
 impl_cmp! {
     eq
     FinFldElem

@@ -20,16 +20,8 @@ use std::mem::MaybeUninit;
 use std::ops::*;
 use flint_sys::{fmpz, fmpq};
 use libc::{c_int, c_long, c_ulong};
-use crate::{Integer, Rational, RationalField};
+use crate::{Integer, Rational};
 use crate::ops::*;
-
-impl Eq for RationalField {}
-
-impl PartialEq for RationalField {
-    fn eq(&self, _rhs: &RationalField) -> bool {
-        true
-    }
-}
 
 impl_cmp_unsafe! {
     eq

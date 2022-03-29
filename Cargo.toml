@@ -1,6 +1,6 @@
 [package]
 name = "inertia-core"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["William Youmans <wyoumans@usf.edu>"]
 description = "Core functionality of the Inertia crate."
@@ -15,7 +15,7 @@ readme = "README.md"
 
 [dependencies]
 libc = "0.2" 
-flint-sys = {version = "0.6.2", features = ["disable-make-check"] }
+flint-sys = {version = "0.6.3", features = ["disable-make-check"] }
 arb-sys = {version = "0.3", features = ["disable-make-check"] }
 antic-sys = {version = "0.3", features = ["disable-make-check"] }
 serde = { version = "1.0", features = ["derive"] }

@@ -16,8 +16,9 @@
  */
 
 use std::ops::*;
-use flint_sys::fmpz_mod_poly;
-use crate::IntModPoly;
+use flint_sys::{fmpz, fmpz_mod, fmpz_mod_poly};
+use libc::c_ulong;
+use crate::{Integer, IntMod, IntModPoly};
 use crate::ops::*;
 
 impl_cmp! {
@@ -33,6 +34,17 @@ impl_cmp! {
                     self.ctx_as_ptr()
                 ) != 0 
             }
+        }
+    }
+}
+
+impl_cmp! {
+    eq
+    IntModPoly, IntMod
+    {
+        fn eq(&self, rhs: &IntMod) -> bool {
+            assert_eq!(self.modulus(), rhs.modulus());
+            self.degree() == 0 && self.get_coeff(0) == rhs
         }
     }
 }
@@ -68,7 +80,6 @@ impl_binop_unsafe! {
     fmpz_mod_poly::fmpz_mod_poly_mul;
 }
 
-/*
 impl_binop_unsafe! {
     ctx
     op_assign
@@ -89,87 +100,73 @@ impl_binop_unsafe! {
     AssignMul {assign_mul}
     fmpz_mod_poly::fmpz_mod_poly_scalar_mul_fmpz;
 }
-*/
 
-/*
 impl_binop_unsafe! {
-    None
+    ctx_rhs
     op_from
-    Integer, IntPoly, IntPoly
+    Integer, IntModPoly, IntModPoly
    
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
-    fmpz_poly_fmpz_add;
+    fmpz_mod_poly_fmpz_add;
 
     Sub {sub}
     SubFrom {sub_from}
     AssignSub {assign_sub}
-    fmpz_poly::fmpz_poly_fmpz_sub;
+    fmpz_mod_poly::fmpz_mod_poly_fmpz_sub;
     
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
-    fmpz_poly_fmpz_scalar_mul;
+    fmpz_mod_poly_fmpz_scalar_mul;
+}
+
+impl_binop_unsafe! {
+    ctx_lhs
+    op_assign
+    IntModPoly, u64 {u64 u32 u16 u8}, IntModPoly
+   
+    Add {add}
+    AddAssign {add_assign}
+    AssignAdd {assign_add}
+    fmpz_mod_poly_add_ui;
+
+    Sub {sub}
+    SubAssign {sub_assign}
+    AssignSub {assign_sub}
+    fmpz_mod_poly_sub_ui;
     
-    Rem {rem}
-    RemFrom {rem_from}
-    AssignRem {assign_rem}
-    fmpz_poly_fmpz_scalar_mod;
+    Mul {mul}
+    MulAssign {mul_assign}
+    AssignMul {assign_mul}
+    fmpz_mod_poly::fmpz_mod_poly_scalar_mul_ui;
 }
 
 impl_binop_unsafe! {
     None
     op_assign
-    IntPoly, u64 {u64 u32 u16 u8}, IntPoly
+    IntModPoly, i64 {i64 i32 i16 i8}, IntModPoly
    
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
-    fmpz_poly_add_ui;
+    fmpz_mod_poly::fmpz_mod_poly_add_si;
 
     Sub {sub}
     SubAssign {sub_assign}
     AssignSub {assign_sub}
-    fmpz_poly_sub_ui;
+    fmpz_mod_poly::fmpz_mod_poly_sub_si;
     
+    /*
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
-    fmpz_poly::fmpz_poly_scalar_mul_ui;
-    
-    Rem {rem}
-    RemAssign {rem_assign}
-    AssignRem {assign_rem}
-    fmpz_poly_scalar_mod_ui;
+    fmpz_mod_poly::fmpz_mod_poly_scalar_mul_si;
+    */
 }
 
-impl_binop_unsafe! {
-    None
-    op_assign
-    IntPoly, i64 {i64 i32 i16 i8}, IntPoly
-   
-    Add {add}
-    AddAssign {add_assign}
-    AssignAdd {assign_add}
-    fmpz_poly::fmpz_poly_add_si;
-
-    Sub {sub}
-    SubAssign {sub_assign}
-    AssignSub {assign_sub}
-    fmpz_poly::fmpz_poly_sub_si;
-    
-    Mul {mul}
-    MulAssign {mul_assign}
-    AssignMul {assign_mul}
-    fmpz_poly::fmpz_poly_scalar_mul_si;
-    
-    Rem {rem}
-    RemAssign {rem_assign}
-    AssignRem {assign_rem}
-    fmpz_poly_scalar_mod_si;
-}
-
+/*
 impl_binop_unsafe! {
     None
     op_from
@@ -223,28 +220,6 @@ impl_binop_unsafe! {
 }
 
 #[inline]
-unsafe fn fmpz_poly_add_ui(
-    res: *mut fmpz_poly::fmpz_poly_struct,
-    f: *const fmpz_poly::fmpz_poly_struct,
-    x: c_ulong,
-    )
-{
-    fmpz_poly::fmpz_poly_set_ui(res, x);
-    fmpz_poly::fmpz_poly_add(res, f, res);
-}
-
-#[inline]
-unsafe fn fmpz_poly_sub_ui(
-    res: *mut fmpz_poly::fmpz_poly_struct,
-    f: *const fmpz_poly::fmpz_poly_struct,
-    x: c_ulong,
-    )
-{
-    fmpz_poly::fmpz_poly_set_ui(res, x);
-    fmpz_poly::fmpz_poly_sub(res, f, res);
-}
-
-#[inline]
 unsafe fn fmpz_poly_scalar_mod_ui(
     res: *mut fmpz_poly::fmpz_poly_struct,
     f: *const fmpz_poly::fmpz_poly_struct,
@@ -266,25 +241,6 @@ unsafe fn fmpz_poly_scalar_mod_si(
     fmpz_poly::fmpz_poly_rem(res, f, res);
 }
 
-#[inline]
-unsafe fn fmpz_poly_fmpz_add(
-    res: *mut fmpz_poly::fmpz_poly_struct,
-    f: *const fmpz::fmpz,
-    g: *const fmpz_poly::fmpz_poly_struct,
-    )
-{
-    fmpz_poly::fmpz_poly_add_fmpz(res, g, f);
-}
-
-#[inline]
-unsafe fn fmpz_poly_fmpz_scalar_mul(
-    res: *mut fmpz_poly::fmpz_poly_struct,
-    f: *const fmpz::fmpz,
-    g: *const fmpz_poly::fmpz_poly_struct,
-    )
-{
-    fmpz_poly::fmpz_poly_scalar_mul_fmpz(res, g, f);
-}
 
 #[inline]
 unsafe fn fmpz_poly_fmpz_scalar_mod(
@@ -381,3 +337,60 @@ unsafe fn fmpz_poly_si_scalar_mod(
     fmpz_poly::fmpz_poly_set_si(res, f);
     fmpz_poly::fmpz_poly_rem(res, res, g);
 }*/
+
+#[inline]
+unsafe fn fmpz_mod_poly_fmpz_add(
+    res: *mut fmpz_mod_poly::fmpz_mod_poly_struct,
+    f: *const fmpz::fmpz,
+    g: *const fmpz_mod_poly::fmpz_mod_poly_struct,
+    ctx: *const fmpz_mod::fmpz_mod_ctx_struct,
+    )
+{
+    fmpz_mod_poly::fmpz_mod_poly_add_fmpz(res, g, f, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_poly_fmpz_scalar_mul(
+    res: *mut fmpz_mod_poly::fmpz_mod_poly_struct,
+    f: *const fmpz::fmpz,
+    g: *const fmpz_mod_poly::fmpz_mod_poly_struct,
+    ctx: *const fmpz_mod::fmpz_mod_ctx_struct
+    )
+{
+    fmpz_mod_poly::fmpz_mod_poly_scalar_mul_fmpz(res, g, f, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_poly_add_ui(
+    res: *mut fmpz_mod_poly::fmpz_mod_poly_struct,
+    f: *const fmpz_mod_poly::fmpz_mod_poly_struct,
+    x: c_ulong,
+    ctx: *const fmpz_mod::fmpz_mod_ctx_struct,
+    )
+{
+    fmpz_mod_poly::fmpz_mod_poly_set_ui(res, x, ctx);
+    fmpz_mod_poly::fmpz_mod_poly_add(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_poly_sub_ui(
+    res: *mut fmpz_mod_poly::fmpz_mod_poly_struct,
+    f: *const fmpz_mod_poly::fmpz_mod_poly_struct,
+    x: c_ulong,
+    ctx: *const fmpz_mod::fmpz_mod_ctx_struct,
+    )
+{
+    fmpz_mod_poly::fmpz_mod_poly_set_ui(res, x, ctx);
+    fmpz_mod_poly::fmpz_mod_poly_sub(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_poly_scalar_mul_ui(
+    res: *mut fmpz_mod_poly::fmpz_mod_poly_struct,
+    f: c_ulong,
+    g: *const fmpz_mod_poly::fmpz_mod_poly_struct,
+    )
+{
+    fmpz_mod_poly::fmpz_mod_poly_set_ui(res, f, g.ctx);
+    fmpz_mod_poly::fmpz_mod_poly_rem(res, res, g, g.ctx);
+}

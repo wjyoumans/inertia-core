@@ -37,6 +37,14 @@ pub struct RatPolyRing {
     var: Arc<RwLock<String>>
 }
 
+impl Eq for RatPolyRing {}
+
+impl PartialEq for RatPolyRing {
+    fn eq(&self, rhs: &RatPolyRing) -> bool {
+        self.var() == rhs.var()
+    }
+}
+
 impl fmt::Display for RatPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -296,6 +304,7 @@ impl<'de> Deserialize<'de> for RatPoly {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use crate::RatPoly;
@@ -307,4 +316,4 @@ mod tests {
         let y: RatPoly = bincode::deserialize(&ser).unwrap();
         assert_eq!(x, y);
     }
-}
+}*/

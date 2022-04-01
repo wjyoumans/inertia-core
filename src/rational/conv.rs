@@ -15,6 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::str::FromStr;
 use flint_sys::fmpq;
 use crate::{Integer, Rational, IntMod, ValOrRef};
 
@@ -24,6 +25,18 @@ impl<'a, T> From<T> for ValOrRef<'a, Rational> where
 {
     fn from(x: T) -> ValOrRef<'a, Rational> {
         ValOrRef::Val(x.into())
+    }
+}
+
+impl FromStr for Rational {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let r = s.split("/").collect::<Vec<_>>();
+        match r.len() {
+            1 => Ok(Rational::from(Integer::from_str(r[0])?)),
+            2 => Ok(Rational::from([Integer::from_str(r[0])?, Integer::from_str(r[1])?])),
+            _ => Err("Input is not a rational.")
+        }
     }
 }
 

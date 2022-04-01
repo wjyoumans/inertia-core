@@ -79,7 +79,7 @@ impl IntegerRing {
         Integer::default()
     }
     
-    /// Initialize an `Integer`.
+    /// Initialize an `Integer` from an integer ring.
     ///
     /// ```
     /// use inertia_core::IntegerRing;
@@ -88,9 +88,6 @@ impl IntegerRing {
     ///
     /// let z = zz.new(2);
     /// assert_eq!(z, 2);
-    ///
-    /// let z = zz.new("3");
-    /// assert_eq!(z, 3);
     /// ```
     #[inline]
     pub fn new<T>(&self, x: T) -> Integer where
@@ -257,7 +254,7 @@ impl Integer {
     /// ```
     /// use inertia_core::Integer;
     ///
-    /// let z = Integer::from("18446744073709551616");
+    /// let z: Integer = "18446744073709551616".parse().unwrap();
     /// assert_eq!(2, z.size());
     /// ```
     #[inline]
@@ -284,7 +281,7 @@ impl Integer {
     /// ```
     /// use inertia_core::Integer;
     ///
-    /// let z = Integer::from("18446744073709551616");
+    /// let z: Integer = "18446744073709551616".parse().unwrap();
     /// assert_eq!(z.fits_si(), false);
     /// ```
     #[inline]
@@ -297,7 +294,7 @@ impl Integer {
     /// ```
     /// use inertia_core::Integer;
     ///
-    /// let z = Integer::from("18446744073709551614");
+    /// let z: Integer = "18446744073709551614".parse().unwrap();
     /// assert_eq!(z.abs_fits_ui(), true);
     /// ```
     #[inline]
@@ -364,7 +361,7 @@ impl Integer {
     /// t.set_ui_vector(v);
     /// assert_eq!(z, t);
     ///
-    /// let x = Integer::from("18446744073709551616");
+    /// let x: Integer = "18446744073709551616".parse().unwrap();
     /// let v = x.get_ui_vector();
     /// let mut t = Integer::default();
     /// t.set_ui_vector(v);
@@ -641,7 +638,7 @@ mod tests {
 
     #[test]
     fn serde() {
-        let x = Integer::from("18446744073709551616");
+        let x: Integer = "18446744073709551616".parse().unwrap();
         let ser = bincode::serialize(&x).unwrap();
         let y: Integer = bincode::deserialize(&ser).unwrap();
         assert_eq!(x, y);

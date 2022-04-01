@@ -13,3 +13,8 @@ More precisely, we simply multiply 2^64 by 2^64^x for x = 1, 2, 4, and 8 (expone
 
 Note that rug integers are a high-level wrapper for the [GMP](https://crates.io/crates/rug) library, so the performance comparison here is essentially between num, GMP, and FLINT integer multiplication.
 ![Figure 1](/../bench/Integer-mul/report/lines.svg?raw=true&sanitize=true)
+
+## Todo
+
+- finish basic FLINT, Arb, and Antic wrapper types
+- move functionality behing features (serialization and FLINT, Arb, Antic types)

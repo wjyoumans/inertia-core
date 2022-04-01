@@ -17,8 +17,15 @@
 
 use std::convert::TryFrom;
 use std::ffi::CString;
+use std::str::FromStr;
 use flint_sys::fmpz;
-use crate::{Integer, Rational, IntMod, ValOrRef};
+use crate::{
+    util::is_digit, 
+    Integer, 
+    Rational, 
+    IntMod, 
+    ValOrRef
+};
 
 impl<'a, T> From<T> for ValOrRef<'a, Integer> where
     T: Into<Integer>
@@ -28,16 +35,26 @@ impl<'a, T> From<T> for ValOrRef<'a, Integer> where
     }
 }
 
-impl From<&str> for Integer {
-    fn from(s: &str) -> Integer {
-        let c_str = CString::new(s).expect("String contains 0 byte.");
-
-        let mut z = Integer::default();
-        unsafe {
-            let res = flint_sys::fmpz::fmpz_set_str(z.as_mut_ptr(), c_str.as_ptr(), 10);
-            assert_eq!(res, 0);
+impl FromStr for Integer {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !s.chars().all(is_digit) {
+            return Err("Input is not an integer.")
         }
-        z
+
+        if let Ok(c_str) = CString::new(s) {
+            let mut z = Integer::default();
+            unsafe {
+                let res = flint_sys::fmpz::fmpz_set_str(z.as_mut_ptr(), c_str.as_ptr(), 10);
+                if res == 0 {
+                    Ok(z)
+                } else {
+                    Err("Error in conversion.")
+                }
+            }
+        } else {
+            Err("String contains 0 byte.")
+        }
     }
 }
 

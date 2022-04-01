@@ -248,7 +248,7 @@ mod tests {
     #[test]
     fn serde() {
         let zn = IntModRing::init(12);
-        let x = zn.new("18446744073709551616");
+        let x = zn.new("18446744073709551616".parse::<Integer>().unwrap());
         let ser = bincode::serialize(&x).unwrap();
         let y: Integer = bincode::deserialize(&ser).unwrap();
         assert_eq!(x, y);

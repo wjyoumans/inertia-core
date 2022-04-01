@@ -30,7 +30,7 @@ fn bench_mul_inertia(n: &Integer, m: &Integer) {
 fn bench_mul(c: &mut Criterion) {
     let mut group = c.benchmark_group("Integer-mul");
         
-    let n_inertia = Integer::from(S64);
+    let n_inertia = Integer::from_str(S64).unwrap();
     let n_num = BigInt::from_str(S64).unwrap();
     let n_rug = rug::Integer::from_str(S64).unwrap();
 

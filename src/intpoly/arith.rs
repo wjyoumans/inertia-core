@@ -90,6 +90,8 @@ impl_unop_unsafe! {
     fmpz_poly::fmpz_poly_neg
 }
 
+// Inv: requires rational function
+
 impl_binop_unsafe! {
     None
     IntPoly, IntPoly, IntPoly
@@ -195,6 +197,11 @@ impl_binop_unsafe! {
     RemAssign {rem_assign}
     AssignRem {assign_rem}
     fmpz_poly_scalar_mod_ui;
+
+    Pow {pow}
+    PowAssign {pow_assign}
+    AssignPow {assign_pow}
+    fmpz_poly::fmpz_poly_pow;
 }
 
 impl_binop_unsafe! {

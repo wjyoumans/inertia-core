@@ -15,13 +15,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef};
-use flint_sys::fq_default as fq;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
-use std::sync::Arc;
+use std::rc::Rc;
+use flint_sys::fq_default as fq;
+use crate::{IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef};
 
 #[derive(Debug)]
 pub struct FqCtx(fq::fq_default_ctx_struct);
@@ -36,14 +36,14 @@ impl Drop for FqCtx {
 
 #[derive(Clone, Debug)]
 pub struct FiniteField {
-    ctx: Arc<FqCtx>,
+    ctx: Rc<FqCtx>,
 }
 
 impl Eq for FiniteField {}
 
 impl PartialEq for FiniteField {
     fn eq(&self, rhs: &FiniteField) -> bool {
-        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.order() == rhs.order()
+        Rc::ptr_eq(&self.ctx, &rhs.ctx) || self.order() == rhs.order()
     }
 }
 
@@ -90,7 +90,7 @@ impl FiniteField {
                 unsafe {
                     fq::fq_default_ctx_init(ctx.as_mut_ptr(), p.into().as_ptr(), k, var.as_ptr());
                     FiniteField {
-                        ctx: Arc::new(FqCtx(ctx.assume_init())),
+                        ctx: Rc::new(FqCtx(ctx.assume_init())),
                     }
                 }
             }
@@ -105,7 +105,7 @@ impl FiniteField {
             fq::fq_default_init(z.as_mut_ptr(), self.ctx_as_ptr());
             FinFldElem {
                 inner: z.assume_init(),
-                ctx: Arc::clone(&self.ctx),
+                ctx: Rc::clone(&self.ctx),
             }
         }
     }
@@ -159,7 +159,7 @@ impl FiniteField {
 #[derive(Debug)]
 pub struct FinFldElem {
     inner: fq::fq_default_struct,
-    ctx: Arc<FqCtx>,
+    ctx: Rc<FqCtx>,
 }
 
 impl Clone for FinFldElem {
@@ -238,7 +238,7 @@ impl FinFldElem {
     #[inline]
     pub fn parent(&self) -> FiniteField {
         FiniteField {
-            ctx: Arc::clone(&self.ctx),
+            ctx: Rc::clone(&self.ctx),
         }
     }
 

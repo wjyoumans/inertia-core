@@ -15,12 +15,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
-use std::sync::{Arc, RwLock};
-
+use std::rc::Rc;
 use flint_sys::fmpz_mpoly;
 //use serde::ser::{Serialize, Serializer, SerializeSeq};
 //use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
@@ -40,8 +40,8 @@ impl Drop for FmpzMPolyCtx {
 
 #[derive(Clone, Debug)]
 pub struct IntMPolyRing {
-    ctx: Arc<FmpzMPolyCtx>,
-    vars: Arc<RwLock<Vec<String>>>,
+    ctx: Rc<FmpzMPolyCtx>,
+    vars: Rc<RefCell<Vec<String>>>,
 }
 
 /*
@@ -80,8 +80,8 @@ impl IntMPolyRing {
         unsafe {
             fmpz_mpoly::fmpz_mpoly_ctx_init(ctx.as_mut_ptr(), nvars, ORD_MPOLY);
             IntMPolyRing {
-                ctx: Arc::new(FmpzMPolyCtx(ctx.assume_init())),
-                vars: Arc::new(RwLock::new(vars)),
+                ctx: Rc::new(FmpzMPolyCtx(ctx.assume_init())),
+                vars: Rc::new(RefCell::new(vars)),
             }
         }
     }
@@ -93,8 +93,8 @@ impl IntMPolyRing {
             fmpz_mpoly::fmpz_mpoly_init(z.as_mut_ptr(), self.ctx_as_ptr());
             IntMPoly {
                 inner: z.assume_init(),
-                ctx: Arc::clone(&self.ctx),
-                vars: Arc::clone(&self.vars),
+                ctx: Rc::clone(&self.ctx),
+                vars: Rc::clone(&self.vars),
             }
         }
     }
@@ -123,8 +123,8 @@ impl IntMPolyRing {
 #[derive(Debug)]
 pub struct IntMPoly {
     inner: fmpz_mpoly::fmpz_mpoly_struct,
-    ctx: Arc<FmpzMPolyCtx>,
-    vars: Arc<RwLock<Vec<String>>>,
+    ctx: Rc<FmpzMPolyCtx>,
+    vars: Rc<RefCell<Vec<String>>>,
 }
 
 /*
@@ -214,15 +214,15 @@ impl IntMPoly {
     #[inline]
     pub fn parent(&self) -> IntMPolyRing {
         IntMPolyRing {
-            ctx: Arc::clone(&self.ctx),
-            vars: Arc::clone(&self.vars),
+            ctx: Rc::clone(&self.ctx),
+            vars: Rc::clone(&self.vars),
         }
     }
 
     /// Return the variables of the polynomial as strings.
     #[inline]
     pub fn vars(&self) -> Vec<String> {
-        self.vars.read().unwrap()
+        self.vars.borrow().to_owned()
     }
     
     /*

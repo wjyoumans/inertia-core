@@ -15,27 +15,27 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
-use std::sync::{Arc, RwLock};
-
-use crate::{ops::Assign, Integer, Rational, RationalField, ValOrRef};
+use std::rc::Rc;
 use flint_sys::fmpq_poly;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
+use crate::{ops::Assign, Integer, Rational, RationalField, ValOrRef};
 
 #[derive(Clone, Debug)]
 pub struct RatPolyRing {
-    var: Arc<RwLock<String>>,
+    var: Rc<RefCell<String>>,
 }
 
 impl Eq for RatPolyRing {}
 
 impl PartialEq for RatPolyRing {
-    fn eq(&self, rhs: &RatPolyRing) -> bool {
-        self.var() == rhs.var()
+    fn eq(&self, _: &RatPolyRing) -> bool {
+        true
     }
 }
 
@@ -63,7 +63,7 @@ impl RatPolyRing {
     #[inline]
     pub fn init(var: &str) -> Self {
         RatPolyRing {
-            var: Arc::new(RwLock::new(var.to_string())),
+            var: Rc::new(RefCell::new(var.to_string())),
         }
     }
 
@@ -74,7 +74,7 @@ impl RatPolyRing {
             fmpq_poly::fmpq_poly_init(z.as_mut_ptr());
             RatPoly {
                 inner: z.assume_init(),
-                var: Arc::clone(&self.var),
+                var: Rc::clone(&self.var),
             }
         }
     }
@@ -90,12 +90,12 @@ impl RatPolyRing {
 
     /// Return the variable of the polynomial as a `&str`.
     pub fn var(&self) -> String {
-        self.var.read().unwrap().to_string()
+        self.var.borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
-        *self.var.write().unwrap() = var.as_ref().to_string()
+        self.var.replace(var.as_ref().to_string());
     }
 
     pub fn base_ring(&self) -> RationalField {
@@ -106,7 +106,7 @@ impl RatPolyRing {
 #[derive(Debug)]
 pub struct RatPoly {
     inner: fmpq_poly::fmpq_poly_struct,
-    var: Arc<RwLock<String>>,
+    var: Rc<RefCell<String>>,
 }
 
 impl<'a, T> Assign<T> for RatPoly
@@ -139,7 +139,7 @@ impl Default for RatPoly {
             fmpq_poly::fmpq_poly_init(z.as_mut_ptr());
             RatPoly {
                 inner: z.assume_init(),
-                var: Arc::new(RwLock::new("x".to_owned())),
+                var: Rc::new(RefCell::new("x".to_owned())),
             }
         }
     }
@@ -184,7 +184,7 @@ impl RatPoly {
     #[inline]
     pub fn parent(&self) -> RatPolyRing {
         RatPolyRing {
-            var: Arc::clone(&self.var),
+            var: Rc::clone(&self.var),
         }
     }
 
@@ -195,13 +195,13 @@ impl RatPoly {
     /// Return the variable of the polynomial as a string.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.read().unwrap().to_string()
+        self.var.borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
-        *self.var.write().unwrap() = var.as_ref().to_string()
+        self.var.replace(var.as_ref().to_string());
     }
 
     /// Return a pretty-printed string representation of a rational polynomial.

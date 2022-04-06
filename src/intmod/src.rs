@@ -18,12 +18,11 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
-use std::sync::Arc;
-
-use crate::{Integer, ValOrRef};
+use std::rc::Rc;
 use flint_sys::{fmpz, fmpz_mod};
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeTuple, Serializer};
+use crate::{Integer, ValOrRef};
 
 #[derive(Debug)]
 pub struct FmpzModCtx(pub fmpz_mod::fmpz_mod_ctx_struct);
@@ -38,14 +37,14 @@ impl Drop for FmpzModCtx {
 
 #[derive(Clone, Debug)]
 pub struct IntModRing {
-    pub ctx: Arc<FmpzModCtx>,
+    pub ctx: Rc<FmpzModCtx>,
 }
 
 impl Eq for IntModRing {}
 
 impl PartialEq for IntModRing {
     fn eq(&self, rhs: &IntModRing) -> bool {
-        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus()
+        Rc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus()
     }
 }
 
@@ -78,7 +77,7 @@ impl IntModRing {
         unsafe {
             fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
             IntModRing {
-                ctx: Arc::new(FmpzModCtx(ctx.assume_init())),
+                ctx: Rc::new(FmpzModCtx(ctx.assume_init())),
             }
         }
     }
@@ -103,7 +102,7 @@ impl IntModRing {
             fmpz::fmpz_init(z.as_mut_ptr());
             IntMod {
                 inner: z.assume_init(),
-                ctx: Arc::clone(&self.ctx),
+                ctx: Rc::clone(&self.ctx),
             }
         }
     }
@@ -123,7 +122,7 @@ impl IntModRing {
 #[derive(Debug)]
 pub struct IntMod {
     inner: fmpz::fmpz,
-    ctx: Arc<FmpzModCtx>,
+    ctx: Rc<FmpzModCtx>,
 }
 
 impl Clone for IntMod {
@@ -178,7 +177,7 @@ impl IntMod {
     #[inline]
     pub fn parent(&self) -> IntModRing {
         IntModRing {
-            ctx: Arc::clone(&self.ctx),
+            ctx: Rc::clone(&self.ctx),
         }
     }
 

@@ -15,27 +15,27 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::cell::RefCell;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
-use std::sync::{Arc, RwLock};
-
-use crate::{FmpzModCtx, IntMod, IntModRing, IntPoly, Integer, ValOrRef};
+use std::rc::Rc;
 use flint_sys::{fmpz_mod, fmpz_mod_poly};
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
+use crate::{FmpzModCtx, IntMod, IntModRing, IntPoly, Integer, ValOrRef};
 
 #[derive(Clone, Debug)]
 pub struct IntModPolyRing {
-    ctx: Arc<FmpzModCtx>,
-    var: Arc<RwLock<String>>,
+    ctx: Rc<FmpzModCtx>,
+    var: Rc<RefCell<String>>,
 }
 
 impl Eq for IntModPolyRing {}
 
 impl PartialEq for IntModPolyRing {
     fn eq(&self, rhs: &IntModPolyRing) -> bool {
-        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus()
+        Rc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus()
     }
 }
 
@@ -75,8 +75,8 @@ impl IntModPolyRing {
         unsafe {
             fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
             IntModPolyRing {
-                ctx: Arc::new(FmpzModCtx(ctx.assume_init())),
-                var: Arc::new(RwLock::new(var.to_string())),
+                ctx: Rc::new(FmpzModCtx(ctx.assume_init())),
+                var: Rc::new(RefCell::new(var.to_string())),
             }
         }
     }
@@ -88,8 +88,8 @@ impl IntModPolyRing {
             fmpz_mod_poly::fmpz_mod_poly_init(z.as_mut_ptr(), self.ctx_as_ptr());
             IntModPoly {
                 inner: z.assume_init(),
-                ctx: Arc::clone(&self.ctx),
-                var: Arc::clone(&self.var),
+                ctx: Rc::clone(&self.ctx),
+                var: Rc::clone(&self.var),
             }
         }
     }
@@ -115,19 +115,19 @@ impl IntModPolyRing {
     /// Return the variable of the polynomial as a `&str`.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.read().unwrap().to_string()
+        self.var.borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
-        *self.var.write().unwrap() = var.as_ref().to_string()
+        self.var.replace(var.as_ref().to_string());
     }
 
     #[inline]
     pub fn base_ring(&self) -> IntModRing {
         IntModRing {
-            ctx: Arc::clone(&self.ctx),
+            ctx: Rc::clone(&self.ctx),
         }
     }
 
@@ -140,8 +140,8 @@ impl IntModPolyRing {
 #[derive(Debug)]
 pub struct IntModPoly {
     inner: fmpz_mod_poly::fmpz_mod_poly_struct,
-    ctx: Arc<FmpzModCtx>,
-    var: Arc<RwLock<String>>,
+    ctx: Rc<FmpzModCtx>,
+    var: Rc<RefCell<String>>,
 }
 
 impl Clone for IntModPoly {
@@ -202,15 +202,15 @@ impl IntModPoly {
     #[inline]
     pub fn parent(&self) -> IntModPolyRing {
         IntModPolyRing {
-            ctx: Arc::clone(&self.ctx),
-            var: Arc::clone(&self.var),
+            ctx: Rc::clone(&self.ctx),
+            var: Rc::clone(&self.var),
         }
     }
 
     #[inline]
     pub fn base_ring(&self) -> IntModRing {
         IntModRing {
-            ctx: Arc::clone(&self.ctx),
+            ctx: Rc::clone(&self.ctx),
         }
     }
 
@@ -222,13 +222,13 @@ impl IntModPoly {
     /// Return the variable of the polynomial as a string.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.read().unwrap().to_string()
+        self.var.borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
-        *self.var.write().unwrap() = var.as_ref().to_string()
+        self.var.replace(var.as_ref().to_string());
     }
 
     #[inline]

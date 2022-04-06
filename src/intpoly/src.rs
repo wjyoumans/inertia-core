@@ -15,20 +15,20 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
-use std::sync::{Arc, RwLock};
-
-use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
+use std::rc::Rc;
 use flint_sys::fmpz_poly;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
+use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
 
 #[derive(Clone, Debug)]
 pub struct IntPolyRing {
-    var: Arc<RwLock<String>>,
+    var: Rc<RefCell<String>>,
 }
 
 impl Eq for IntPolyRing {}
@@ -64,7 +64,7 @@ impl IntPolyRing {
     #[inline]
     pub fn init(var: &str) -> Self {
         IntPolyRing {
-            var: Arc::new(RwLock::new(var.to_string())),
+            var: Rc::new(RefCell::new(var.to_string())),
         }
     }
 
@@ -75,7 +75,7 @@ impl IntPolyRing {
             fmpz_poly::fmpz_poly_init(z.as_mut_ptr());
             IntPoly {
                 inner: z.assume_init(),
-                var: Arc::clone(&self.var),
+                var: Rc::clone(&self.var),
             }
         }
     }
@@ -93,13 +93,13 @@ impl IntPolyRing {
     /// Return the variable of the polynomial as a `&str`.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.read().unwrap().to_string()
+        self.var.borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
-        *self.var.write().unwrap() = var.as_ref().to_string()
+        self.var.replace(var.as_ref().to_string());
     }
 
     #[inline]
@@ -111,7 +111,7 @@ impl IntPolyRing {
 #[derive(Debug)]
 pub struct IntPoly {
     inner: fmpz_poly::fmpz_poly_struct,
-    var: Arc<RwLock<String>>,
+    var: Rc<RefCell<String>>,
 }
 
 impl<'a, T> Assign<T> for IntPoly
@@ -144,7 +144,7 @@ impl Default for IntPoly {
             fmpz_poly::fmpz_poly_init(z.as_mut_ptr());
             IntPoly {
                 inner: z.assume_init(),
-                var: Arc::new(RwLock::new("x".to_owned())),
+                var: Rc::new(RefCell::new("x".to_owned())),
             }
         }
     }
@@ -189,7 +189,7 @@ impl IntPoly {
     #[inline]
     pub fn parent(&self) -> IntPolyRing {
         IntPolyRing {
-            var: Arc::clone(&self.var),
+            var: Rc::clone(&self.var),
         }
     }
 
@@ -200,13 +200,13 @@ impl IntPoly {
     /// Return the variable of the polynomial as a string.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.read().unwrap().to_string()
+        self.var.borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
-        *self.var.write().unwrap() = var.as_ref().to_string()
+        self.var.replace(var.as_ref().to_string());
     }
 
     /// Return a pretty-printed string representation of an integer polynomial.

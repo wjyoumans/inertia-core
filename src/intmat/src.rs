@@ -18,11 +18,10 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
-
-use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
 use flint_sys::{fmpz, fmpz_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
+use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct IntMatSpace {

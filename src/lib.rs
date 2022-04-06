@@ -22,7 +22,7 @@
 //! [Inertia](https://github.com/wjyoumans/inertia) crate, providing high-level wrappers for the 
 //! [FLINT](https://flintlib.org/doc/), [Arb](https://arblib.org/), and 
 //! [Antic](https://github.com/wbhart/antic) C libraries.
-
+use std::borrow::Borrow;
 
 #[macro_use]
 pub mod macros;
@@ -38,30 +38,48 @@ pub mod intmat;
 pub mod finfld;
 
 
-/// Enum holding either a value or borrow of type T.
-pub enum ValOrRef<'a, T> {
-    Val(T),
+
+/// Enum holding either an owned or borrowed T. Nearly identical to [std::borrow::Cow] but we add
+/// blanket implementations of some conversions.
+pub enum ValOrRef<'a, T> where
+    T: 'a + ToOwned + ?Sized
+{
     Ref(&'a T),
+    Val(<T as ToOwned>::Owned),
 }
 
 /// Dereference a `ValOrRef<T>` to get a borrow of type T.
-impl<'a, T> std::ops::Deref for ValOrRef<'a, T> {
+impl<T: ?Sized + ToOwned> std::ops::Deref for ValOrRef<'_, T> where
+    T::Owned: Borrow<T>
+{
     type Target = T;
     #[inline]
-    fn deref(&self) -> &Self::Target {
-        match self {
-            ValOrRef::Val(x) => x,
+    fn deref(&self) -> &T {
+        match *self {
+            ValOrRef::Val(ref x) => x.borrow(),
             ValOrRef::Ref(x) => x,
         }
     }
 }
 
-/// Blanket implementation.
-impl<'a, T> From<&'a T> for ValOrRef<'a, T> {
-    fn from(x: &'a T) -> ValOrRef<'a, T> {
+/// Blanket implementation of conversion from borrows.
+impl<'a, T> From<&'a T> for ValOrRef<'a, T> where
+    T: 'a + ToOwned + ?Sized
+{
+    fn from(x: &'a T) -> Self {
         ValOrRef::Ref(&x)
     }
 }
+
+/*
+/// Blanket implementation of conversion from vectors.
+impl<'a, T> From<Vec<T>> for ValOrRef<'a, [T]> where
+    [T]: 'a + ToOwned<Owned = Vec<T>>
+{
+    fn from(x: Vec<T>) -> Self {
+        ValOrRef::Val(x)
+    }
+}*/
 
 pub mod util {
     #[must_use]

@@ -19,10 +19,10 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
-use flint_sys::fmpq;
-use serde::ser::{Serialize, Serializer, SerializeTuple};
-use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess};
 use crate::Integer;
+use flint_sys::fmpq;
+use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeTuple, Serializer};
 
 #[derive(Clone, Copy, Debug, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RationalField {}
@@ -69,7 +69,9 @@ impl Clone for Rational {
     #[inline]
     fn clone(&self) -> Self {
         let mut res = Rational::default();
-        unsafe { fmpq::fmpq_set(res.as_mut_ptr(), self.as_ptr()); }
+        unsafe {
+            fmpq::fmpq_set(res.as_mut_ptr(), self.as_ptr());
+        }
         res
     }
 }
@@ -81,7 +83,7 @@ impl Default for Rational {
         unsafe {
             fmpq::fmpq_init(z.as_mut_ptr());
             Rational {
-                inner: z.assume_init()
+                inner: z.assume_init(),
             }
         }
     }
@@ -97,7 +99,7 @@ impl fmt::Display for Rational {
 impl Drop for Rational {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpq::fmpq_clear(self.as_mut_ptr())}
+        unsafe { fmpq::fmpq_clear(self.as_mut_ptr()) }
     }
 }
 
@@ -110,7 +112,6 @@ impl Hash for Rational {
 }
 
 impl Rational {
-    
     /// Returns a pointer to the inner [FLINT rational][fmpq::fmpq].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpq::fmpq {
@@ -122,7 +123,7 @@ impl Rational {
     pub fn as_mut_ptr(&mut self) -> *mut fmpq::fmpq {
         &mut self.inner
     }
-    
+
     /// Returns the numerator of a rational number as an [Integer].
     ///
     /// ```
@@ -135,7 +136,7 @@ impl Rational {
     pub fn numerator(&self) -> Integer {
         Integer::from_raw(self.inner.num)
     }
-    
+
     /// Returns the denominator of a rational number as an [Integer].
     ///
     /// ```
@@ -181,9 +182,11 @@ impl<'de> Visitor<'de> for RationalVisitor {
     where
         A: SeqAccess<'de>,
     {
-        let num: Integer = access.next_element()?
+        let num: Integer = access
+            .next_element()?
             .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-        let den: Integer = access.next_element()?
+        let den: Integer = access
+            .next_element()?
             .ok_or_else(|| de::Error::invalid_length(1, &self))?;
 
         Ok(Rational::from([num, den]))

@@ -15,13 +15,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::mem::MaybeUninit;
-use std::ops::*;
+use crate::ops::*;
+use crate::{IntMat, Integer};
 use flint_sys::{fmpz, fmpz_mat};
 use libc::{c_long, c_ulong};
-use crate::{Integer, IntMat};
-use crate::ops::*;
-
+use std::mem::MaybeUninit;
+use std::ops::*;
 
 impl_cmp_unsafe! {
     eq
@@ -46,13 +45,13 @@ impl_binop_unsafe! {
     AddFrom {add_from}
     AssignAdd {assign_add}
     fmpz_mat::fmpz_mat_add;
-    
+
     Sub {sub}
     SubAssign {sub_assign}
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fmpz_mat::fmpz_mat_sub;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     MulFrom {mul_from}
@@ -69,7 +68,7 @@ impl_binop_unsafe! {
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mat::fmpz_mat_scalar_mul_fmpz;
-    
+
     Rem {rem}
     RemAssign {rem_assign}
     AssignRem {assign_rem}
@@ -84,7 +83,7 @@ impl_binop_unsafe! {
     Div {div}
     AssignDiv {assign_div}
     fmpq_mat::fmpq_mat_set_fmpz_mat_div_fmpz;
-    
+
     Pow {div}
     AssignDiv {assign_div}
     fmpq_mat::fmpq_mat_set_fmpz_mat_div_fmpz;
@@ -99,7 +98,7 @@ impl_binop_unsafe! {
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mat::fmpz_mat_scalar_mul_ui;
-    
+
     Rem {rem}
     RemAssign {rem_assign}
     AssignRem {assign_rem}
@@ -147,7 +146,7 @@ impl_binop_unsafe! {
     DivAssign {div_assign}
     AssignDiv {assign_div}
     fmpz_mat_scalar_div_fmpz;
-    
+
     Pow {div}
     DivAssign {div_assign}
     AssignDiv {assign_div}
@@ -164,7 +163,6 @@ impl_binop_unsafe! {
     AssignMul {assign_mul}
     fmpz_mat_fmpz_scalar_mul;
 }
-
 
 impl_binop_unsafe! {
     lhs_scalar
@@ -192,8 +190,8 @@ impl_binop_unsafe! {
 unsafe fn fmpz_mat_fmpz_scalar_mul(
     res: *mut fmpz_mat::fmpz_mat_struct,
     f: *const fmpz::fmpz,
-    g: *const fmpz_mat::fmpz_mat_struct)
-{
+    g: *const fmpz_mat::fmpz_mat_struct,
+) {
     fmpz_mat::fmpz_mat_scalar_mul_fmpz(res, g, f);
 }
 
@@ -201,8 +199,8 @@ unsafe fn fmpz_mat_fmpz_scalar_mul(
 unsafe fn fmpz_mat_ui_scalar_mul(
     res: *mut fmpz_mat::fmpz_mat_struct,
     f: c_ulong,
-    g: *const fmpz_mat::fmpz_mat_struct)
-{
+    g: *const fmpz_mat::fmpz_mat_struct,
+) {
     fmpz_mat::fmpz_mat_scalar_mul_ui(res, g, f);
 }
 
@@ -210,8 +208,8 @@ unsafe fn fmpz_mat_ui_scalar_mul(
 unsafe fn fmpz_mat_si_scalar_mul(
     res: *mut fmpz_mat::fmpz_mat_struct,
     f: c_long,
-    g: *const fmpz_mat::fmpz_mat_struct)
-{
+    g: *const fmpz_mat::fmpz_mat_struct,
+) {
     fmpz_mat::fmpz_mat_scalar_mul_si(res, g, f);
 }
 
@@ -219,8 +217,8 @@ unsafe fn fmpz_mat_si_scalar_mul(
 unsafe fn fmpz_mat_scalar_mod_ui(
     res: *mut fmpz_mat::fmpz_mat_struct,
     f: *const fmpz_mat::fmpz_mat_struct,
-    g: c_ulong)
-{
+    g: c_ulong,
+) {
     let mut z = MaybeUninit::uninit();
     fmpz::fmpz_init_set_ui(z.as_mut_ptr(), g);
     fmpz_mat::fmpz_mat_scalar_mod_fmpz(res, f, z.as_ptr());
@@ -231,8 +229,8 @@ unsafe fn fmpz_mat_scalar_mod_ui(
 unsafe fn fmpz_mat_scalar_mod_si(
     res: *mut fmpz_mat::fmpz_mat_struct,
     f: *const fmpz_mat::fmpz_mat_struct,
-    g: c_long)
-{
+    g: c_long,
+) {
     let mut z = MaybeUninit::uninit();
     fmpz::fmpz_init_set_si(z.as_mut_ptr(), g);
     fmpz_mat::fmpz_mat_scalar_mod_fmpz(res, f, z.as_ptr());

@@ -15,11 +15,11 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{IntPoly, IntModPoly, IntModPolyRing, FinFldElem, ValOrRef};
+use crate::{FinFldElem, IntModPoly, IntModPolyRing, IntPoly, ValOrRef};
 
-
-impl<'a, T> From<T> for ValOrRef<'a, IntModPoly> where
-    T: Into<IntModPoly>
+impl<'a, T> From<T> for ValOrRef<'a, IntModPoly>
+where
+    T: Into<IntModPoly>,
 {
     fn from(x: T) -> ValOrRef<'a, IntModPoly> {
         ValOrRef::Val(x.into())
@@ -41,7 +41,7 @@ impl_from! {
         fn from(x: &FinFldElem) -> IntModPoly {
             let zp = IntModPolyRing::init(x.prime(), "x");
             let mut res = zp.default();
-            unsafe { 
+            unsafe {
                 flint_sys::fq_default::fq_default_get_fmpz_mod_poly(
                     res.as_mut_ptr(),
                     x.as_ptr(),

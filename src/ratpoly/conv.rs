@@ -15,21 +15,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::{FinFldElem, IntMod, IntModPoly, IntPoly, Integer, RatPoly, Rational, ValOrRef};
 use flint_sys::fmpq_poly;
-use crate::{
-    Integer, 
-    Rational, 
-    IntMod, 
-    IntPoly, 
-    RatPoly, 
-    IntModPoly, 
-    FinFldElem, 
-    ValOrRef
-};
 
-
-impl<'a, T> From<T> for ValOrRef<'a, RatPoly> where
-    T: Into<RatPoly>
+impl<'a, T> From<T> for ValOrRef<'a, RatPoly>
+where
+    T: Into<RatPoly>,
 {
     fn from(x: T) -> ValOrRef<'a, RatPoly> {
         ValOrRef::Val(x.into())
@@ -110,7 +101,6 @@ impl_from! {
     }
 }*/
 
-
 impl_from! {
     String, RatPoly
     {
@@ -120,8 +110,9 @@ impl_from! {
     }
 }
 
-impl<'a, T: 'a> From<&[T]> for RatPoly where 
-    T: Into<ValOrRef<'a, Rational>> + Clone
+impl<'a, T: 'a> From<&[T]> for RatPoly
+where
+    T: Into<ValOrRef<'a, Rational>> + Clone,
 {
     fn from(src: &[T]) -> RatPoly {
         let mut res = RatPoly::default();
@@ -132,12 +123,12 @@ impl<'a, T: 'a> From<&[T]> for RatPoly where
     }
 }
 
-impl<'a, T: 'a> From<Vec<T>> for RatPoly where 
-    T: Into<ValOrRef<'a, Rational>> + Clone
+impl<'a, T: 'a> From<Vec<T>> for RatPoly
+where
+    T: Into<ValOrRef<'a, Rational>> + Clone,
 {
     #[inline]
     fn from(src: Vec<T>) -> RatPoly {
         RatPoly::from(src.as_slice())
     }
-
 }

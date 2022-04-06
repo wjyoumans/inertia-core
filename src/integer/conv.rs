@@ -15,20 +15,15 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::{util::is_digit, IntMod, Integer, Rational, ValOrRef};
+use flint_sys::fmpz;
 use std::convert::TryFrom;
 use std::ffi::CString;
 use std::str::FromStr;
-use flint_sys::fmpz;
-use crate::{
-    util::is_digit, 
-    Integer, 
-    Rational, 
-    IntMod, 
-    ValOrRef
-};
 
-impl<'a, T> From<T> for ValOrRef<'a, Integer> where
-    T: Into<Integer>
+impl<'a, T> From<T> for ValOrRef<'a, Integer>
+where
+    T: Into<Integer>,
 {
     fn from(x: T) -> ValOrRef<'a, Integer> {
         ValOrRef::Val(x.into())
@@ -39,7 +34,7 @@ impl FromStr for Integer {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if !s.chars().all(is_digit) {
-            return Err("Input is not an integer.")
+            return Err("Input is not an integer.");
         }
 
         if let Ok(c_str) = CString::new(s) {
@@ -128,7 +123,7 @@ mod tests {
         assert_eq!(Integer::from(1u64), 1);
         assert_eq!(Integer::from(1usize), 1);
     }
-    
+
     #[test]
     fn integer_from_si() {
         assert_eq!(Integer::from(-1i8), -1);
@@ -137,7 +132,7 @@ mod tests {
         assert_eq!(Integer::from(-1i64), -1);
         assert_eq!(Integer::from(-1isize), -1);
     }
- 
+
     /*
     #[test]
     fn integer_from_intmod() {
@@ -145,12 +140,10 @@ mod tests {
         let z = zn.new(11);
         assert_eq!(Integer::from(z), 1);
     }*/
-    
+
     #[test]
-    fn integer_from_str() {
-    }
-    
+    fn integer_from_str() {}
+
     #[test]
-    fn string_from_integer() {
-    }
+    fn string_from_integer() {}
 }

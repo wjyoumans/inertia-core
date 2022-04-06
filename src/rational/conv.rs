@@ -15,13 +15,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::str::FromStr;
+use crate::{IntMod, Integer, Rational, ValOrRef};
 use flint_sys::fmpq;
-use crate::{Integer, Rational, IntMod, ValOrRef};
+use std::str::FromStr;
 
-
-impl<'a, T> From<T> for ValOrRef<'a, Rational> where
-    T: Into<Rational>
+impl<'a, T> From<T> for ValOrRef<'a, Rational>
+where
+    T: Into<Rational>,
 {
     fn from(x: T) -> ValOrRef<'a, Rational> {
         ValOrRef::Val(x.into())
@@ -34,8 +34,11 @@ impl FromStr for Rational {
         let r = s.split("/").collect::<Vec<_>>();
         match r.len() {
             1 => Ok(Rational::from(Integer::from_str(r[0])?)),
-            2 => Ok(Rational::from([Integer::from_str(r[0])?, Integer::from_str(r[1])?])),
-            _ => Err("Input is not a rational.")
+            2 => Ok(Rational::from([
+                Integer::from_str(r[0])?,
+                Integer::from_str(r[1])?,
+            ])),
+            _ => Err("Input is not a rational."),
         }
     }
 }
@@ -97,9 +100,9 @@ impl_from! {
     }
 }
 
-
-impl<'a, T: 'a> From<[T; 2]> for Rational where 
-    T: Into<ValOrRef<'a, Integer>> + Clone
+impl<'a, T: 'a> From<[T; 2]> for Rational
+where
+    T: Into<ValOrRef<'a, Integer>> + Clone,
 {
     fn from(src: [T; 2]) -> Rational {
         let n = src[0].clone().into();
@@ -107,19 +110,16 @@ impl<'a, T: 'a> From<[T; 2]> for Rational where
         assert!(!d.is_zero());
 
         let mut res = Rational::default();
-        unsafe { 
-            fmpq::fmpq_set_fmpz_frac(
-                res.as_mut_ptr(), 
-                n.as_ptr(),
-                d.as_ptr()
-            ); 
+        unsafe {
+            fmpq::fmpq_set_fmpz_frac(res.as_mut_ptr(), n.as_ptr(), d.as_ptr());
         }
         res
     }
 }
 
-impl<'a, T: 'a> From<&[T]> for Rational where 
-    T: Into<ValOrRef<'a, Integer>> + Clone
+impl<'a, T: 'a> From<&[T]> for Rational
+where
+    T: Into<ValOrRef<'a, Integer>> + Clone,
 {
     fn from(src: &[T]) -> Rational {
         assert_eq!(src.len(), 2);
@@ -129,29 +129,25 @@ impl<'a, T: 'a> From<&[T]> for Rational where
         assert!(!d.is_zero());
 
         let mut res = Rational::default();
-        unsafe { 
-            fmpq::fmpq_set_fmpz_frac(
-                res.as_mut_ptr(), 
-                n.as_ptr(),
-                d.as_ptr()
-            ); 
+        unsafe {
+            fmpq::fmpq_set_fmpz_frac(res.as_mut_ptr(), n.as_ptr(), d.as_ptr());
         }
         res
     }
 }
 
-impl<'a, T: 'a> From<Vec<T>> for Rational where 
-    T: Into<ValOrRef<'a, Integer>> + Clone
+impl<'a, T: 'a> From<Vec<T>> for Rational
+where
+    T: Into<ValOrRef<'a, Integer>> + Clone,
 {
     #[inline]
     fn from(src: Vec<T>) -> Rational {
         Rational::from(src.as_slice())
     }
-
 }
 
 /*
-impl<'a, T: 'a> From<Vec<T>> for IntPoly where 
+impl<'a, T: 'a> From<Vec<T>> for IntPoly where
     T: IntoValOrRef<'a, Integer> + Clone
 {
     #[inline]
@@ -176,12 +172,12 @@ impl From<[&Integer; 2]> for Rational {
     fn from(src: [&Integer; 2]) -> Rational {
         assert!(!src[1].is_zero());
         let mut res = Rational::default();
-        unsafe { 
+        unsafe {
             fmpq::fmpq_set_fmpz_frac(
-                res.as_mut_ptr(), 
+                res.as_mut_ptr(),
                 src[0].as_ptr(),
                 src[1].as_ptr()
-            ); 
+            );
         }
         res
     }
@@ -205,10 +201,10 @@ mod tests {
         assert_eq!(Rational::from(-1i32), -1);
         assert_eq!(Rational::from(-1i64), -1);
         assert_eq!(Rational::from(-1isize), -1);
-    /*
-        let zn = IntModRing::init(10);
-        let z = zn.new(11);
-        assert_eq!(Rational::from(z), 1);
-    */
+        /*
+            let zn = IntModRing::init(10);
+            let z = zn.new(11);
+            assert_eq!(Rational::from(z), 1);
+        */
     }
 }

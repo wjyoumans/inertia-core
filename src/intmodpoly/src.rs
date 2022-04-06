@@ -15,35 +15,39 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-use std::hash::{Hash, Hasher};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::sync::{Arc, RwLock};
 
+use crate::{FmpzModCtx, IntMod, IntModRing, IntPoly, Integer, ValOrRef};
 use flint_sys::{fmpz_mod, fmpz_mod_poly};
-use serde::ser::{Serialize, Serializer, SerializeSeq};
-use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{FmpzModCtx, Integer, IntPoly, IntMod, IntModRing, ValOrRef};
+use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 
 #[derive(Clone, Debug)]
 pub struct IntModPolyRing {
     ctx: Arc<FmpzModCtx>,
-    var: Arc<RwLock<String>>
+    var: Arc<RwLock<String>>,
 }
 
 impl Eq for IntModPolyRing {}
 
 impl PartialEq for IntModPolyRing {
     fn eq(&self, rhs: &IntModPolyRing) -> bool {
-        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus() 
+        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus()
     }
 }
 
 impl fmt::Display for IntModPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Univariate polynomial ring in {} over {}", self.var(), self.base_ring())
+        write!(
+            f,
+            "Univariate polynomial ring in {} over {}",
+            self.var(),
+            self.base_ring()
+        )
     }
 }
 
@@ -56,7 +60,6 @@ impl Hash for IntModPolyRing {
 }
 
 impl IntModPolyRing {
-
     /// Returns a pointer to the [FLINT context][fmpz_mod::fmpz_mod_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
@@ -64,15 +67,16 @@ impl IntModPolyRing {
     }
 
     #[inline]
-    pub fn init<'a, T>(n: T, var: &str) -> Self where
-        T: Into<ValOrRef<'a, Integer>>
+    pub fn init<'a, T>(n: T, var: &str) -> Self
+    where
+        T: Into<ValOrRef<'a, Integer>>,
     {
         let mut ctx = MaybeUninit::uninit();
-        unsafe{
+        unsafe {
             fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
-            IntModPolyRing { 
+            IntModPolyRing {
                 ctx: Arc::new(FmpzModCtx(ctx.assume_init())),
-                var: Arc::new(RwLock::new(var.to_string())) 
+                var: Arc::new(RwLock::new(var.to_string())),
             }
         }
     }
@@ -95,25 +99,25 @@ impl IntModPolyRing {
         let mut res = self.default();
         unsafe {
             fmpz_mod_poly::fmpz_mod_poly_set_fmpz_poly(
-                res.as_mut_ptr(), 
-                x.into().as_ptr(), 
-                self.ctx_as_ptr()
+                res.as_mut_ptr(),
+                x.into().as_ptr(),
+                self.ctx_as_ptr(),
             );
         }
         res
     }
-    
+
     #[inline]
     pub fn nvars(&self) -> i64 {
         1
     }
-    
+
     /// Return the variable of the polynomial as a `&str`.
     #[inline]
     pub fn var(&self) -> String {
         self.var.read().unwrap().to_string()
     }
-    
+
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
@@ -122,7 +126,9 @@ impl IntModPolyRing {
 
     #[inline]
     pub fn base_ring(&self) -> IntModRing {
-        IntModRing { ctx: Arc::clone(&self.ctx) }
+        IntModRing {
+            ctx: Arc::clone(&self.ctx),
+        }
     }
 
     #[inline]
@@ -142,12 +148,8 @@ impl Clone for IntModPoly {
     #[inline]
     fn clone(&self) -> Self {
         let mut res = self.parent().default();
-        unsafe { 
-            fmpz_mod_poly::fmpz_mod_poly_set(
-                res.as_mut_ptr(), 
-                self.as_ptr(), 
-                self.ctx_as_ptr()
-            ); 
+        unsafe {
+            fmpz_mod_poly::fmpz_mod_poly_set(res.as_mut_ptr(), self.as_ptr(), self.ctx_as_ptr());
         }
         res
     }
@@ -165,7 +167,7 @@ impl fmt::Display for IntModPoly {
 impl Drop for IntModPoly {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz_mod_poly::fmpz_mod_poly_clear(self.as_mut_ptr(), self.ctx_as_ptr())}
+        unsafe { fmpz_mod_poly::fmpz_mod_poly_clear(self.as_mut_ptr(), self.ctx_as_ptr()) }
     }
 }
 
@@ -178,7 +180,6 @@ impl Hash for IntModPoly {
 }
 
 impl IntModPoly {
-    
     /// Returns a pointer to the inner [FLINT integer polynomial][fmpz_poly::fmpz_poly].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz_mod_poly::fmpz_mod_poly_struct {
@@ -190,29 +191,29 @@ impl IntModPoly {
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_mod_poly::fmpz_mod_poly_struct {
         &mut self.inner
     }
-    
+
     /// Returns a pointer to the [FLINT context][fmpz_mod::fmpz_mod_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
     }
-  
+
     /// Return the parent [ring of polynomials with integer coefficients][IntPolyRing].
     #[inline]
     pub fn parent(&self) -> IntModPolyRing {
         IntModPolyRing {
             ctx: Arc::clone(&self.ctx),
-            var: Arc::clone(&self.var)
+            var: Arc::clone(&self.var),
         }
     }
-    
+
     #[inline]
     pub fn base_ring(&self) -> IntModRing {
         IntModRing {
             ctx: Arc::clone(&self.ctx),
         }
     }
-    
+
     #[inline]
     pub fn modulus(&self) -> Integer {
         self.base_ring().modulus()
@@ -223,21 +224,21 @@ impl IntModPoly {
     pub fn var(&self) -> String {
         self.var.read().unwrap().to_string()
     }
-    
+
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
         *self.var.write().unwrap() = var.as_ref().to_string()
     }
-    
+
     #[inline]
     pub fn len(&self) -> i64 {
-        unsafe { fmpz_mod_poly::fmpz_mod_poly_length(self.as_ptr(), self.ctx_as_ptr())}
+        unsafe { fmpz_mod_poly::fmpz_mod_poly_length(self.as_ptr(), self.ctx_as_ptr()) }
     }
 
     #[inline]
     pub fn degree(&self) -> i64 {
-        unsafe { fmpz_mod_poly::fmpz_mod_poly_degree(self.as_ptr(), self.ctx_as_ptr())}
+        unsafe { fmpz_mod_poly::fmpz_mod_poly_degree(self.as_ptr(), self.ctx_as_ptr()) }
     }
 
     #[inline]
@@ -245,25 +246,26 @@ impl IntModPoly {
         let mut res = self.base_ring().default();
         unsafe {
             fmpz_mod_poly::fmpz_mod_poly_get_coeff_fmpz(
-                res.as_mut_ptr(), 
-                self.as_ptr(), 
-                i, 
-                self.ctx_as_ptr()
+                res.as_mut_ptr(),
+                self.as_ptr(),
+                i,
+                self.ctx_as_ptr(),
             );
         }
         res
     }
-    
+
     #[inline]
-    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T) where
-        T: Into<ValOrRef<'a, Integer>>
+    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
+    where
+        T: Into<ValOrRef<'a, Integer>>,
     {
         unsafe {
             fmpz_mod_poly::fmpz_mod_poly_set_coeff_fmpz(
-                self.as_mut_ptr(), 
-                i, 
+                self.as_mut_ptr(),
+                i,
                 coeff.into().as_ptr(),
-                self.ctx_as_ptr()
+                self.ctx_as_ptr(),
             );
         }
     }
@@ -285,8 +287,12 @@ impl Serialize for IntModPoly {
     where
         S: Serializer,
     {
-        let coeffs = self.coefficients().iter().map(|x| Integer::from(x)).collect::<Vec<_>>();
-        let mut seq = serializer.serialize_seq(Some(coeffs.len()+1))?;
+        let coeffs = self
+            .coefficients()
+            .iter()
+            .map(|x| Integer::from(x))
+            .collect::<Vec<_>>();
+        let mut seq = serializer.serialize_seq(Some(coeffs.len() + 1))?;
         seq.serialize_element(&self.modulus())?;
         for e in coeffs.iter() {
             seq.serialize_element(e)?;
@@ -315,7 +321,8 @@ impl<'de> Visitor<'de> for IntModPolyVisitor {
         A: SeqAccess<'de>,
     {
         let mut coeffs: Vec<Integer> = Vec::with_capacity(access.size_hint().unwrap_or(0));
-        let m: Integer = access.next_element()?
+        let m: Integer = access
+            .next_element()?
             .ok_or_else(|| de::Error::invalid_length(0, &self))?;
         while let Some(x) = access.next_element()? {
             coeffs.push(x);

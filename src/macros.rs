@@ -70,10 +70,14 @@ macro_rules! default {
 macro_rules! call_unsafe {
     // Unary ops
     (ctx, $func:path, $out:ident, $in:ident) => {
-        unsafe { $func($out.as_mut_ptr(), $in.as_ptr(), $in.ctx_as_ptr()); }
+        unsafe {
+            $func($out.as_mut_ptr(), $in.as_ptr(), $in.ctx_as_ptr());
+        }
     };
     ($kw:ident, $func:path, $out:ident, $in:ident) => {
-        unsafe { $func($out.as_mut_ptr(), $in.as_ptr()); }
+        unsafe {
+            $func($out.as_mut_ptr(), $in.as_ptr());
+        }
     };
 
     // Binary ops
@@ -81,30 +85,71 @@ macro_rules! call_unsafe {
         // leave to op guard
         //assert!(Arc::ptr_eq(&*$lhs.parent(), &*$rhs.parent()) || $lhs.parent() == $rhs.parent());
         //assert!(Arc::ptr_eq(&*$lhs.parent(), &*$rhs.parent()));
-        unsafe { $func($out.as_mut_ptr(), $lhs.as_ptr(), $rhs.as_ptr(), $lhs.ctx_as_ptr()); }
+        unsafe {
+            $func(
+                $out.as_mut_ptr(),
+                $lhs.as_ptr(),
+                $rhs.as_ptr(),
+                $lhs.ctx_as_ptr(),
+            );
+        }
     };
     (ctx_lhs, $func:path, $out:ident, $lhs:ident, $rhs:ident) => {
-        unsafe { $func($out.as_mut_ptr(), $lhs.as_ptr(), $rhs.as_ptr(), $lhs.ctx_as_ptr()); }
+        unsafe {
+            $func(
+                $out.as_mut_ptr(),
+                $lhs.as_ptr(),
+                $rhs.as_ptr(),
+                $lhs.ctx_as_ptr(),
+            );
+        }
     };
     (ctx_rhs, $func:path, $out:ident, $lhs:ident, $rhs:ident) => {
-        unsafe { $func($out.as_mut_ptr(), $lhs.as_ptr(), $rhs.as_ptr(), $rhs.ctx_as_ptr()); }
+        unsafe {
+            $func(
+                $out.as_mut_ptr(),
+                $lhs.as_ptr(),
+                $rhs.as_ptr(),
+                $rhs.ctx_as_ptr(),
+            );
+        }
     };
     ($kw:ident, $func:path, $out:ident, $lhs:ident, $rhs:ident) => {
-        unsafe { $func($out.as_mut_ptr(), $lhs.as_ptr(), $rhs.as_ptr()); }
+        unsafe {
+            $func($out.as_mut_ptr(), $lhs.as_ptr(), $rhs.as_ptr());
+        }
     };
 
     // Binary ops with primitive types
     (cast_rhs ctx_lhs, $func:path, $cast:ty, $out:ident, $lhs:ident, $rhs:ident) => {
-        unsafe { $func($out.as_mut_ptr(), $lhs.as_ptr(), *$rhs as $cast, $lhs.ctx_as_ptr()); }
+        unsafe {
+            $func(
+                $out.as_mut_ptr(),
+                $lhs.as_ptr(),
+                *$rhs as $cast,
+                $lhs.ctx_as_ptr(),
+            );
+        }
     };
     (cast_rhs $kw:ident, $func:path, $cast:ty, $out:ident, $lhs:ident, $rhs:ident) => {
-        unsafe { $func($out.as_mut_ptr(), $lhs.as_ptr(), *$rhs as $cast); }
+        unsafe {
+            $func($out.as_mut_ptr(), $lhs.as_ptr(), *$rhs as $cast);
+        }
     };
     (cast_lhs ctx_rhs, $func:path, $cast:ty, $out:ident, $lhs:ident, $rhs:ident) => {
-        unsafe { $func($out.as_mut_ptr(), *$lhs as $cast, $rhs.as_ptr(), $rhs.ctx_as_ptr()); }
+        unsafe {
+            $func(
+                $out.as_mut_ptr(),
+                *$lhs as $cast,
+                $rhs.as_ptr(),
+                $rhs.ctx_as_ptr(),
+            );
+        }
     };
     (cast_lhs $kw:ident, $func:path, $cast:ty, $out:ident, $lhs:ident, $rhs:ident) => {
-        unsafe { $func($out.as_mut_ptr(), *$lhs as $cast, $rhs.as_ptr()); }
+        unsafe {
+            $func($out.as_mut_ptr(), *$lhs as $cast, $rhs.as_ptr());
+        }
     };
 }
 
@@ -119,7 +164,7 @@ macro_rules! impl_cmp {
         }
     ) => {
         impl Eq for $t {}
-        
+
         //impl Eq for &$t {}
 
         impl PartialEq for $t {
@@ -133,7 +178,7 @@ macro_rules! impl_cmp {
                 rhs.eq(&self)
             }
         }
-        
+
         impl PartialEq<$t> for &$t {
             #[inline]
             fn eq(&self, rhs: &$t) -> bool {
@@ -153,7 +198,7 @@ macro_rules! impl_cmp {
             #[inline]
             $($code)*
         }
-        
+
         impl PartialOrd for $t {
             #[inline]
             fn partial_cmp(&self, rhs: &$t) -> Option<Ordering> {
@@ -180,7 +225,7 @@ macro_rules! impl_cmp {
                 (&self).eq(rhs)
             }
         }
-        
+
         impl PartialEq<$t2> for &$t1 {
             #[inline]
             fn eq(&self, rhs: &$t2) -> bool {
@@ -369,7 +414,6 @@ macro_rules! impl_cmp_unsafe {
     )+)
 }
 
-
 /// Macros for overloading unary operators.
 macro_rules! impl_unop {
     (
@@ -392,7 +436,7 @@ macro_rules! impl_unop {
                 self
             }
         }
-        
+
         impl $op for &$t {
             type Output = $t;
             #[inline]
@@ -417,7 +461,7 @@ macro_rules! impl_unop {
             #[inline]
             $($code)*
         }
-        
+
         impl $op for &$t {
             type Output = $out;
             #[inline]
@@ -437,7 +481,7 @@ macro_rules! impl_unop {
             #[inline]
             $($code)*
         }
-        
+
         impl $op for &$t {
             type Output = Option<$out>;
             #[inline]
@@ -455,7 +499,6 @@ macro_rules! impl_unop_unsafe {
         $op_assign:ident {$meth_assign:ident}
         $func:path
     ) => {
-
         impl_unop! {
             $t
             $op {$meth}
@@ -482,7 +525,6 @@ macro_rules! impl_unop_unsafe {
         $op:ident {$meth:ident}
         $func:path
     ) => {
-
         impl_unop! {
             $t, $out
             $op {$meth}
@@ -495,7 +537,7 @@ macro_rules! impl_unop_unsafe {
                 }
             }
         }
-    }
+    };
 }
 
 /// Macros for overloading binary operators.
@@ -521,7 +563,7 @@ macro_rules! impl_binop {
                 $($assign_code:tt)*
             }
         )*
-    ) => ($( 
+    ) => ($(
 
         impl $op<&$t2> for &$t1 {
             type Output = $out;
@@ -537,7 +579,7 @@ macro_rules! impl_binop {
                 rhs
             }
         }
-        
+
         impl $op<&$t2> for $t1 {
             type Output = $out;
             #[inline]
@@ -546,7 +588,7 @@ macro_rules! impl_binop {
                 self
             }
         }
-        
+
         impl $op<$t2> for $t1 {
             type Output = $out;
             #[inline]
@@ -555,7 +597,7 @@ macro_rules! impl_binop {
                 self
             }
         }
-       
+
         impl_binop! {@op_assign
             $t1, $t2, $out
             $op_assign {$meth_assign}
@@ -563,7 +605,7 @@ macro_rules! impl_binop {
                 $($code_assign)*
             }
         }
-        
+
         impl_binop! {@op_from
             $t1, $t2, $out
             $op_from {$meth_from}
@@ -571,7 +613,7 @@ macro_rules! impl_binop {
                 $($code_from)*
             }
         }
-       
+
         impl_binop! {@assign_op
             $t1, $t2, $out
             $assign_op {$assign_meth}
@@ -598,8 +640,8 @@ macro_rules! impl_binop {
                 $($assign_code:tt)*
             }
         )*
-    ) => ($( 
-        
+    ) => ($(
+
         impl $op<&$t2> for &$t1 {
             type Output = $out;
             #[inline]
@@ -613,7 +655,7 @@ macro_rules! impl_binop {
                 self.$meth(&rhs)
             }
         }
-        
+
         impl $op<&$t2> for $t1 {
             type Output = $out;
             #[inline]
@@ -622,7 +664,7 @@ macro_rules! impl_binop {
                 self
             }
         }
-        
+
         impl $op<$t2> for $t1 {
             type Output = $out;
             #[inline]
@@ -631,7 +673,7 @@ macro_rules! impl_binop {
                 self
             }
         }
-        
+
         impl_binop! {@op_assign
             $t1, $t2, $out
             $op_assign {$meth_assign}
@@ -639,7 +681,7 @@ macro_rules! impl_binop {
                 $($code_assign)*
             }
         }
-        
+
         impl_binop! {@assign_op
             $t1, $t2, $out
             $assign_op {$assign_meth}
@@ -666,7 +708,7 @@ macro_rules! impl_binop {
                 $($assign_code:tt)*
             }
         )*
-    ) => ($( 
+    ) => ($(
 
         impl $op<&$t2> for &$t1 {
             type Output = $out;
@@ -682,7 +724,7 @@ macro_rules! impl_binop {
                 rhs
             }
         }
-        
+
         impl $op<&$t2> for $t1 {
             type Output = $out;
             #[inline]
@@ -690,7 +732,7 @@ macro_rules! impl_binop {
                 (&self).$meth(rhs)
             }
         }
-        
+
         impl $op<$t2> for $t1 {
             type Output = $out;
             #[inline]
@@ -699,7 +741,7 @@ macro_rules! impl_binop {
                 rhs
             }
         }
-        
+
         impl_binop! {@op_from
             $t1, $t2, $out
             $op_from {$meth_from}
@@ -728,13 +770,13 @@ macro_rules! impl_binop {
                 $($assign_code:tt)*
             }
         )*
-    ) => ($( 
+    ) => ($(
         impl $op<&$t2> for &$t1 {
             type Output = $out;
             #[inline]
             $($code)*
         }
-        
+
         impl $op<$t2> for &$t1 {
             type Output = $out;
             #[inline]
@@ -742,7 +784,7 @@ macro_rules! impl_binop {
                 self.$meth(&rhs)
             }
         }
-        
+
         impl $op<&$t2> for $t1 {
             type Output = $out;
             #[inline]
@@ -750,7 +792,7 @@ macro_rules! impl_binop {
                 (&self).$meth(rhs)
             }
         }
-        
+
         impl $op<$t2> for $t1 {
             type Output = $out;
             #[inline]
@@ -758,7 +800,7 @@ macro_rules! impl_binop {
                 (&self).$meth(&rhs)
             }
         }
-        
+
         impl_binop! {@assign_op
             $t1, $t2, $out
             $assign_op {$assign_meth}
@@ -819,21 +861,21 @@ macro_rules! impl_binop {
             #[inline]
             $($assign_code)*
         }
-        
+
         impl $assign_op<$t1, &$t2> for $out {
             #[inline]
             fn $assign_meth(&mut self, lhs: $t1, rhs: &$t2) {
                 self.$assign_meth(&lhs, rhs);
             }
         }
-        
+
         impl $assign_op<&$t1, $t2> for $out {
             #[inline]
             fn $assign_meth(&mut self, lhs: &$t1, rhs: $t2) {
                 self.$assign_meth(lhs, &rhs);
             }
         }
-        
+
         impl $assign_op<$t1, $t2> for $out {
             #[inline]
             fn $assign_meth(&mut self, lhs: $t1, rhs: $t2) {
@@ -934,9 +976,9 @@ macro_rules! impl_binop_unsafe {
     (
         // a + b = a, b primitive
         $kw:ident
-        op_assign    
+        op_assign
         $t1:ident, $cast:ty {$($t2:ident)+}, $out:ident
-        
+
         $op:ident {$meth:ident}
         $op_assign:ident {$meth_assign:ident}
         $assign_op:ident {$assign_meth:ident}
@@ -948,7 +990,7 @@ macro_rules! impl_binop_unsafe {
             $kw
             op_assign
             $t1, $cast {$t2}, $out
-            
+
             $op {$meth}
             $op_assign {$meth_assign}
             $assign_op {$assign_meth}
@@ -1051,7 +1093,7 @@ macro_rules! impl_binop_unsafe {
         $kw:ident
         op_from
         $cast:ty {$($t1:ident)+}, $t2:ident, $out:ident
-        
+
         $op:ident {$meth:ident}
         $op_from:ident {$meth_from:ident}
         $assign_op:ident {$assign_meth:ident}
@@ -1063,7 +1105,7 @@ macro_rules! impl_binop_unsafe {
             $kw
             op_from
             $cast {$t1}, $t2, $out
-            
+
             $op {$meth}
             $op_from {$meth_from}
             $assign_op {$assign_meth}
@@ -1155,7 +1197,7 @@ macro_rules! impl_binop_unsafe {
         // a + b = c, a primitive
         $kw:ident
         $cast:ty {$($t1:ident)+}, $t2:ident, $out:ident
-        
+
         $op:ident {$meth:ident}
         $assign_op:ident {$assign_meth:ident}
         $func:path;
@@ -1165,7 +1207,7 @@ macro_rules! impl_binop_unsafe {
         impl_binop_unsafe! {@inner
             $kw
             $cast {$t1}, $t2, $out
-            
+
             $op {$meth}
             $assign_op {$assign_meth}
             $func;
@@ -1214,7 +1256,7 @@ macro_rules! impl_binop_unsafe {
         // a + b = c, b primitive
         $kw:ident
         $t1:ident, $cast:ty {$($t2:ident)+}, $out:ident
-        
+
         $op:ident {$meth:ident}
         $assign_op:ident {$assign_meth:ident}
         $func:path;
@@ -1224,7 +1266,7 @@ macro_rules! impl_binop_unsafe {
         impl_binop_unsafe! {@inner
             $kw
             $t1, $cast {$t2}, $out
-            
+
             $op {$meth}
             $assign_op {$assign_meth}
             $func;
@@ -1305,7 +1347,7 @@ macro_rules! impl_from {
                 res
             }
         }
-        
+
         impl From<Vec<$t2>> for $t1 {
             #[inline]
             fn from(src: Vec<$t2>) -> $t1 {
@@ -1317,7 +1359,7 @@ macro_rules! impl_from {
         matrix
         $t1:ident, $cast:ident {$($t2:ident)*}
     ) => ($(
-        
+
         impl From<&[&[$t2]]> for $t1 {
             fn from(mat: &[&[$t2]]) -> $t1 {
                 let m = mat.len() as c_long;
@@ -1332,7 +1374,7 @@ macro_rules! impl_from {
                 res
             }
         }
-        
+
         impl From<&[Vec<$t2>]> for $t1 {
             fn from(mat: &[Vec<$t2>]) -> $t1 {
                 let m = mat.len() as c_long;
@@ -1347,14 +1389,14 @@ macro_rules! impl_from {
                 res
             }
         }
-        
+
         impl From<Vec<&[$t2]>> for $t1 {
             #[inline]
             fn from(mat: Vec<&[$t2]>) -> $t1 {
                 <$t1>::from(mat.as_slice())
             }
         }
-       
+
         impl From<Vec<Vec<$t2>>> for $t1 {
             #[inline]
             fn from(mat: Vec<Vec<$t2>>) -> $t1 {
@@ -1401,7 +1443,7 @@ macro_rules! impl_tryfrom {
                 res
             }
         }
-        
+
         impl From<Vec<$t2>> for $t1 {
             #[inline]
             fn from(src: Vec<$t2>) -> $t1 {
@@ -1413,7 +1455,7 @@ macro_rules! impl_tryfrom {
         matrix
         $t1:ident, $cast:ident {$($t2:ident)*}
     ) => ($(
-        
+
         impl From<&[&[$t2]]> for $t1 {
             fn from(mat: &[&[$t2]]) -> $t1 {
                 let m = mat.len() as c_long;
@@ -1428,7 +1470,7 @@ macro_rules! impl_tryfrom {
                 res
             }
         }
-        
+
         impl From<&[Vec<$t2>]> for $t1 {
             fn from(mat: &[Vec<$t2>]) -> $t1 {
                 let m = mat.len() as c_long;
@@ -1443,14 +1485,14 @@ macro_rules! impl_tryfrom {
                 res
             }
         }
-        
+
         impl From<Vec<&[$t2]>> for $t1 {
             #[inline]
             fn from(mat: Vec<&[$t2]>) -> $t1 {
                 <$t1>::from(mat.as_slice())
             }
         }
-       
+
         impl From<Vec<Vec<$t2>>> for $t1 {
             #[inline]
             fn from(mat: Vec<Vec<$t2>>) -> $t1 {

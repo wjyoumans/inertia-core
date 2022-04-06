@@ -21,33 +21,34 @@ use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::sync::{Arc, RwLock};
 
+use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
 use flint_sys::fmpz_poly;
-use serde::ser::{Serialize, Serializer, SerializeSeq};
-use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{
-    ops::Assign, 
-    Integer, 
-    IntegerRing, 
-    ValOrRef, 
-};
+use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 
 #[derive(Clone, Debug)]
 pub struct IntPolyRing {
-    var: Arc<RwLock<String>>
+    var: Arc<RwLock<String>>,
 }
 
 impl Eq for IntPolyRing {}
 
 impl PartialEq for IntPolyRing {
-    fn eq(&self, rhs: &IntPolyRing) -> bool {
-        self.var() == rhs.var()
+    #[inline]
+    fn eq(&self, _: &IntPolyRing) -> bool {
+        true
     }
 }
 
 impl fmt::Display for IntPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Univariate polynomial ring in {} over {}", self.var(), self.base_ring())
+        write!(
+            f,
+            "Univariate polynomial ring in {} over {}",
+            self.var(),
+            self.base_ring()
+        )
     }
 }
 
@@ -62,7 +63,9 @@ impl Hash for IntPolyRing {
 impl IntPolyRing {
     #[inline]
     pub fn init(var: &str) -> Self {
-        IntPolyRing { var: Arc::new(RwLock::new(var.to_string())) }
+        IntPolyRing {
+            var: Arc::new(RwLock::new(var.to_string())),
+        }
     }
 
     #[inline]
@@ -82,20 +85,24 @@ impl IntPolyRing {
         x.into()
     }
 
+    #[inline]
     pub fn nvars(&self) -> i64 {
         1
     }
-    
+
     /// Return the variable of the polynomial as a `&str`.
+    #[inline]
     pub fn var(&self) -> String {
         self.var.read().unwrap().to_string()
     }
-    
+
     /// Change the variable of the polynomial.
+    #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
         *self.var.write().unwrap() = var.as_ref().to_string()
     }
 
+    #[inline]
     pub fn base_ring(&self) -> IntegerRing {
         IntegerRing {}
     }
@@ -107,8 +114,9 @@ pub struct IntPoly {
     var: Arc<RwLock<String>>,
 }
 
-impl<'a, T> Assign<T> for IntPoly where
-    T: Into<ValOrRef<'a, IntPoly>>
+impl<'a, T> Assign<T> for IntPoly
+where
+    T: Into<ValOrRef<'a, IntPoly>>,
 {
     fn assign(&mut self, other: T) {
         unsafe {
@@ -121,7 +129,9 @@ impl Clone for IntPoly {
     #[inline]
     fn clone(&self) -> Self {
         let mut res = self.parent().default();
-        unsafe { fmpz_poly::fmpz_poly_set(res.as_mut_ptr(), self.as_ptr()); }
+        unsafe {
+            fmpz_poly::fmpz_poly_set(res.as_mut_ptr(), self.as_ptr());
+        }
         res
     }
 }
@@ -132,9 +142,9 @@ impl Default for IntPoly {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz_poly::fmpz_poly_init(z.as_mut_ptr());
-            IntPoly { 
-                inner: z.assume_init(), 
-                var: Arc::new(RwLock::new("x".to_owned())) 
+            IntPoly {
+                inner: z.assume_init(),
+                var: Arc::new(RwLock::new("x".to_owned())),
             }
         }
     }
@@ -150,7 +160,7 @@ impl fmt::Display for IntPoly {
 impl Drop for IntPoly {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz_poly::fmpz_poly_clear(self.as_mut_ptr())}
+        unsafe { fmpz_poly::fmpz_poly_clear(self.as_mut_ptr()) }
     }
 }
 
@@ -163,7 +173,6 @@ impl Hash for IntPoly {
 }
 
 impl IntPoly {
-    
     /// Returns a pointer to the inner [FLINT integer polynomial][fmpz_poly::fmpz_poly].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz_poly::fmpz_poly_struct {
@@ -175,15 +184,15 @@ impl IntPoly {
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_poly::fmpz_poly_struct {
         &mut self.inner
     }
-  
+
     /// Return the parent [ring of polynomials with integer coefficients][IntPolyRing].
     #[inline]
     pub fn parent(&self) -> IntPolyRing {
         IntPolyRing {
-            var: Arc::clone(&self.var)
+            var: Arc::clone(&self.var),
         }
     }
-    
+
     pub fn base_ring(&self) -> IntegerRing {
         IntegerRing {}
     }
@@ -193,13 +202,13 @@ impl IntPoly {
     pub fn var(&self) -> String {
         self.var.read().unwrap().to_string()
     }
-    
+
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
         *self.var.write().unwrap() = var.as_ref().to_string()
     }
-    
+
     /// Return a pretty-printed string representation of an integer polynomial.
     pub fn get_str_pretty(&self) -> String {
         let v = CString::new(self.var()).unwrap();
@@ -207,19 +216,19 @@ impl IntPoly {
             let s = fmpz_poly::fmpz_poly_get_str_pretty(self.as_ptr(), v.as_ptr());
             match CStr::from_ptr(s).to_str() {
                 Ok(s) => s.to_owned(),
-                Err(_) => panic!("Flint returned invalid UTF-8!")
+                Err(_) => panic!("Flint returned invalid UTF-8!"),
             }
         }
     }
-    
+
     #[inline]
     pub fn len(&self) -> i64 {
-        unsafe { fmpz_poly::fmpz_poly_length(self.as_ptr())}
+        unsafe { fmpz_poly::fmpz_poly_length(self.as_ptr()) }
     }
 
     #[inline]
     pub fn degree(&self) -> i64 {
-        unsafe { fmpz_poly::fmpz_poly_degree(self.as_ptr())}
+        unsafe { fmpz_poly::fmpz_poly_degree(self.as_ptr()) }
     }
 
     #[inline]
@@ -230,10 +239,11 @@ impl IntPoly {
         }
         res
     }
-    
+
     #[inline]
-    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T) where
-        T: Into<ValOrRef<'a, Integer>>
+    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
+    where
+        T: Into<ValOrRef<'a, Integer>>,
     {
         unsafe {
             fmpz_poly::fmpz_poly_set_coeff_fmpz(self.as_mut_ptr(), i, coeff.into().as_ptr());

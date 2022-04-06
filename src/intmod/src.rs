@@ -20,31 +20,32 @@ use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::sync::Arc;
 
-use flint_sys::{fmpz, fmpz_mod};
-use serde::ser::{Serialize, Serializer, SerializeTuple};
-use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess};
 use crate::{Integer, ValOrRef};
-
+use flint_sys::{fmpz, fmpz_mod};
+use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeTuple, Serializer};
 
 #[derive(Debug)]
 pub struct FmpzModCtx(pub fmpz_mod::fmpz_mod_ctx_struct);
 
 impl Drop for FmpzModCtx {
     fn drop(&mut self) {
-        unsafe { fmpz_mod::fmpz_mod_ctx_clear(&mut self.0); }
+        unsafe {
+            fmpz_mod::fmpz_mod_ctx_clear(&mut self.0);
+        }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct IntModRing {
-    pub ctx: Arc<FmpzModCtx>
+    pub ctx: Arc<FmpzModCtx>,
 }
 
 impl Eq for IntModRing {}
 
 impl PartialEq for IntModRing {
     fn eq(&self, rhs: &IntModRing) -> bool {
-        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus() 
+        Arc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus()
     }
 }
 
@@ -62,30 +63,33 @@ impl Hash for IntModRing {
 }
 
 impl IntModRing {
-
     /// Returns a pointer to the [FLINT context][fmpz_mod::fmpz_mod_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
     }
-   
+
     #[inline]
-    pub fn init<'a, T>(n: T) -> IntModRing where 
-        T: Into<ValOrRef<'a, Integer>>
+    pub fn init<'a, T>(n: T) -> IntModRing
+    where
+        T: Into<ValOrRef<'a, Integer>>,
     {
         let mut ctx = MaybeUninit::uninit();
         unsafe {
             fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
-            IntModRing { ctx: Arc::new(FmpzModCtx(ctx.assume_init())) }
+            IntModRing {
+                ctx: Arc::new(FmpzModCtx(ctx.assume_init())),
+            }
         }
     }
 
     #[inline]
-    pub fn new<'a, T>(&self, x: T) -> IntMod where
-        T: Into<ValOrRef<'a, Integer>>
+    pub fn new<'a, T>(&self, x: T) -> IntMod
+    where
+        T: Into<ValOrRef<'a, Integer>>,
     {
         let mut res = self.default();
-        unsafe { 
+        unsafe {
             fmpz::fmpz_set(res.as_mut_ptr(), x.into().as_ptr());
             fmpz::fmpz_mod(res.as_mut_ptr(), res.as_ptr(), self.modulus().as_ptr());
         }
@@ -97,7 +101,10 @@ impl IntModRing {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz::fmpz_init(z.as_mut_ptr());
-            IntMod { inner: z.assume_init(), ctx: Arc::clone(&self.ctx) }
+            IntMod {
+                inner: z.assume_init(),
+                ctx: Arc::clone(&self.ctx),
+            }
         }
     }
 
@@ -106,7 +113,7 @@ impl IntModRing {
     pub fn modulus(&self) -> Integer {
         let mut res = Integer::default();
         unsafe {
-            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()); 
+            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
             fmpz::fmpz_set(res.as_mut_ptr(), n);
         }
         res
@@ -122,12 +129,8 @@ pub struct IntMod {
 impl Clone for IntMod {
     fn clone(&self) -> Self {
         let mut res = self.parent().default();
-        unsafe { 
-            fmpz_mod::fmpz_mod_set_fmpz(
-                res.as_mut_ptr(), 
-                self.as_ptr(), 
-                self.ctx_as_ptr()
-            ); 
+        unsafe {
+            fmpz_mod::fmpz_mod_set_fmpz(res.as_mut_ptr(), self.as_ptr(), self.ctx_as_ptr());
         }
         res
     }
@@ -141,7 +144,7 @@ impl fmt::Display for IntMod {
 
 impl Drop for IntMod {
     fn drop(&mut self) {
-        unsafe { fmpz::fmpz_clear(self.as_mut_ptr())}
+        unsafe { fmpz::fmpz_clear(self.as_mut_ptr()) }
     }
 }
 
@@ -153,7 +156,6 @@ impl Hash for IntMod {
 }
 
 impl IntMod {
-    
     /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz::fmpz {
@@ -165,7 +167,7 @@ impl IntMod {
     pub fn as_mut_ptr(&mut self) -> *mut fmpz::fmpz {
         &mut self.inner
     }
-    
+
     /// Returns a pointer to the [FLINT context][fmpz_mod::fmpz_mod_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
@@ -175,21 +177,22 @@ impl IntMod {
     /// Return the parent [ring of integers mod `n`][IntModRing].
     #[inline]
     pub fn parent(&self) -> IntModRing {
-        IntModRing { ctx: Arc::clone(&self.ctx) }
+        IntModRing {
+            ctx: Arc::clone(&self.ctx),
+        }
     }
-    
+
     /// Return the modulus of the ring.
     #[inline]
     pub fn modulus(&self) -> Integer {
         let mut res = Integer::default();
         unsafe {
-            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()); 
+            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
             fmpz::fmpz_set(res.as_mut_ptr(), n);
         }
         res
     }
 }
-
 
 impl Serialize for IntMod {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -222,9 +225,11 @@ impl<'de> Visitor<'de> for IntModVisitor {
     where
         A: SeqAccess<'de>,
     {
-        let val: Integer = access.next_element()?
+        let val: Integer = access
+            .next_element()?
             .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-        let modulus: Integer = access.next_element()?
+        let modulus: Integer = access
+            .next_element()?
             .ok_or_else(|| de::Error::invalid_length(1, &self))?;
 
         let zn = IntModRing::init(modulus);
@@ -243,7 +248,7 @@ impl<'de> Deserialize<'de> for IntMod {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Integer, IntModRing};
+    use crate::{IntModRing, Integer};
 
     #[test]
     fn serde() {

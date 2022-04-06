@@ -17,9 +17,9 @@
 
 use crate::{FinFldElem, ValOrRef};
 
-
-impl<'a, T> From<T> for ValOrRef<'a, FinFldElem> where
-    T: Into<FinFldElem>
+impl<'a, T> From<T> for ValOrRef<'a, FinFldElem>
+where
+    T: Into<FinFldElem>,
 {
     fn from(x: T) -> ValOrRef<'a, FinFldElem> {
         ValOrRef::Val(x.into())

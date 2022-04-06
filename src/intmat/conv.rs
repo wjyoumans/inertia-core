@@ -15,11 +15,11 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, IntMat, ValOrRef};
+use crate::{IntMat, Integer, ValOrRef};
 
-
-impl<'a, T> From<T> for ValOrRef<'a, IntMat> where
-    T: Into<IntMat>
+impl<'a, T> From<T> for ValOrRef<'a, IntMat>
+where
+    T: Into<IntMat>,
 {
     fn from(x: T) -> ValOrRef<'a, IntMat> {
         ValOrRef::Val(x.into())
@@ -46,8 +46,9 @@ impl_from! {
     }
 }
 
-impl<'a, T: 'a> From<&[&'a [T]]> for IntMat where
-    &'a T: Into<ValOrRef<'a, Integer>>
+impl<'a, T: 'a> From<&[&'a [T]]> for IntMat
+where
+    &'a T: Into<ValOrRef<'a, Integer>>,
 {
     fn from(mat: &[&'a [T]]) -> IntMat {
         let m = mat.len() as i64;
@@ -68,16 +69,18 @@ impl<'a, T: 'a> From<&[&'a [T]]> for IntMat where
     }
 }
 
-impl<'a, T: 'a> From<Vec<&'a [T]>> for IntMat where
-    &'a T: Into<ValOrRef<'a, Integer>>
+impl<'a, T: 'a> From<Vec<&'a [T]>> for IntMat
+where
+    &'a T: Into<ValOrRef<'a, Integer>>,
 {
     fn from(mat: Vec<&'a [T]>) -> IntMat {
         IntMat::from(mat.as_slice())
     }
 }
 
-impl<'a, T> From<Vec<Vec<T>>> for IntMat where
-    T: Into<ValOrRef<'a, Integer>>
+impl<'a, T> From<Vec<Vec<T>>> for IntMat
+where
+    T: Into<ValOrRef<'a, Integer>>,
 {
     fn from(mat: Vec<Vec<T>>) -> IntMat {
         let m = mat.len() as i64;

@@ -15,12 +15,11 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-use std::ops::*;
-use flint_sys::{fmpz, fmpq, fmpz_mod};
-use libc::{c_int, c_long, c_ulong};
-use crate::{Integer, Rational, IntMod};
 use crate::ops::*;
+use crate::{IntMod, Integer, Rational};
+use flint_sys::{fmpq, fmpz, fmpz_mod};
+use libc::{c_int, c_long, c_ulong};
+use std::ops::*;
 
 impl_cmp_unsafe! {
     eq
@@ -53,10 +52,7 @@ impl_cmp_unsafe! {
 }
 
 #[inline]
-unsafe fn fmpz_equal_fmpq(
-    f: *const fmpz::fmpz,
-    g: *const fmpq::fmpq) -> c_int
-{
+unsafe fn fmpz_equal_fmpq(f: *const fmpz::fmpz, g: *const fmpq::fmpq) -> c_int {
     if fmpq::fmpq_cmp_fmpz(g, f) == 0 {
         1
     } else {
@@ -78,7 +74,7 @@ macro_rules! impl_binop_option {
             #[inline]
             $($code)*
         }
-        
+
         impl $op<$rhs> for &$lhs {
             type Output = Option<$out>;
             #[inline]
@@ -86,13 +82,13 @@ macro_rules! impl_binop_option {
                 self.$meth(&rhs)
             }
         }
-        
+
         impl $op<&$rhs> for $lhs {
             type Output = Option<$out>;
             #[inline]
             $($code)*
         }
-        
+
         impl $op<$rhs> for $lhs {
             type Output = Option<$out>;
             #[inline]
@@ -119,8 +115,8 @@ impl_unop! {
             let mut res = self.parent().default();
             unsafe {
                 let b = fmpz::fmpz_invmod(
-                    res.as_mut_ptr(), 
-                    self.as_ptr(), 
+                    res.as_mut_ptr(),
+                    self.as_ptr(),
                     self.modulus().as_ptr()
                 );
                 if b == 0 {
@@ -141,7 +137,7 @@ impl_binop_option! {
             let mut res = self.parent().default();
             unsafe {
                 let b = fmpz_mod::fmpz_mod_pow_fmpz(
-                    res.as_mut_ptr(), 
+                    res.as_mut_ptr(),
                     self.as_ptr(),
                     pow.as_ptr(),
                     self.ctx_as_ptr()
@@ -232,19 +228,19 @@ impl_binop_option! {
 impl_binop_unsafe! {
     ctx
     IntMod, IntMod, IntMod
-    
+
     Add {add}
     AddAssign {add_assign}
     AddFrom {add_from}
     AssignAdd {assign_add}
     fmpz_mod::fmpz_mod_add;
-    
+
     Sub {sub}
     SubAssign {sub_assign}
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_sub;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     MulFrom {mul_from}
@@ -256,7 +252,7 @@ impl_binop_unsafe! {
     ctx_lhs
     op_assign
     IntMod, Integer, IntMod
-   
+
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
@@ -266,7 +262,7 @@ impl_binop_unsafe! {
     SubAssign {sub_assign}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_sub_fmpz;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
@@ -277,7 +273,7 @@ impl_binop_unsafe! {
     ctx_rhs
     op_from
     Integer, IntMod, IntMod
-   
+
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
@@ -287,7 +283,7 @@ impl_binop_unsafe! {
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_sub_fmpz;
-    
+
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
@@ -298,7 +294,7 @@ impl_binop_unsafe! {
     ctx_lhs
     op_assign
     IntMod, u64 {u64 u32 u16 u8}, IntMod
-   
+
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
@@ -308,12 +304,12 @@ impl_binop_unsafe! {
     SubAssign {sub_assign}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_sub_ui;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul_ui;
-    
+
     Pow {pow}
     PowAssign {pow_assign}
     AssignPow {assign_pow}
@@ -324,7 +320,7 @@ impl_binop_unsafe! {
     ctx_lhs
     op_assign
     IntMod, i64 {i64 i32 i16 i8}, IntMod
-   
+
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
@@ -334,7 +330,7 @@ impl_binop_unsafe! {
     SubAssign {sub_assign}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_sub_si;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
@@ -345,7 +341,7 @@ impl_binop_unsafe! {
     ctx_rhs
     op_from
     u64 {u64 u32 u16 u8}, IntMod, IntMod
-   
+
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
@@ -355,7 +351,7 @@ impl_binop_unsafe! {
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_ui_sub;
-    
+
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
@@ -366,7 +362,7 @@ impl_binop_unsafe! {
     ctx_rhs
     op_from
     i64 {i64 i32 i16 i8}, IntMod, IntMod
-   
+
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
@@ -376,21 +372,20 @@ impl_binop_unsafe! {
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_si_sub;
-    
+
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod_si_mul;
 }
 
-
 #[inline]
 unsafe fn fmpz_mod_ui_add(
     res: *mut fmpz::fmpz,
     f: c_ulong,
     g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
     fmpz_mod::fmpz_mod_add_ui(res, g, f, ctx);
 }
 
@@ -399,8 +394,8 @@ unsafe fn fmpz_mod_si_add(
     res: *mut fmpz::fmpz,
     f: c_long,
     g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
     fmpz_mod::fmpz_mod_add_si(res, g, f, ctx);
 }
 
@@ -409,8 +404,8 @@ unsafe fn fmpz_mod_ui_mul(
     res: *mut fmpz::fmpz,
     f: c_ulong,
     g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
     fmpz_mod::fmpz_mod_mul_ui(res, g, f, ctx);
 }
 
@@ -419,7 +414,7 @@ unsafe fn fmpz_mod_si_mul(
     res: *mut fmpz::fmpz,
     f: c_long,
     g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
     fmpz_mod::fmpz_mod_mul_si(res, g, f, ctx);
 }

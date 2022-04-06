@@ -19,20 +19,15 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
+use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
 use flint_sys::{fmpz, fmpz_mat};
-use serde::ser::{Serialize, Serializer, SerializeSeq};
-use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{
-    ops::Assign,
-    Integer,
-    IntegerRing,
-    ValOrRef, 
-};
+use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct IntMatSpace {
     nrows: i64,
-    ncols: i64
+    ncols: i64,
 }
 
 impl Eq for IntMatSpace {}
@@ -50,7 +45,11 @@ impl PartialEq for IntMatSpace {
 impl fmt::Display for IntMatSpace {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Space of {} by {} matrices over Integer Ring", self.nrows, self.ncols)
+        write!(
+            f,
+            "Space of {} by {} matrices over Integer Ring",
+            self.nrows, self.ncols
+        )
     }
 }
 
@@ -64,7 +63,6 @@ impl Hash for IntMatSpace {
 }
 
 impl IntMatSpace {
-
     /// Initialize the space of matrices with the given number of rows and columns.
     #[inline]
     pub fn init(nrows: i64, ncols: i64) -> Self {
@@ -75,14 +73,15 @@ impl IntMatSpace {
     pub fn default(&self) -> IntMat {
         IntMat::new(self.nrows, self.ncols)
     }
-    
+
     #[inline]
-    pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> IntMat where
-        &'a T: Into<ValOrRef<'a, Integer>>
+    pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> IntMat
+    where
+        &'a T: Into<ValOrRef<'a, Integer>>,
     {
         let nrows = self.nrows() as usize;
         let ncols = self.ncols() as usize;
-        assert_eq!(entries.len(), nrows*ncols);
+        assert_eq!(entries.len(), nrows * ncols);
 
         let mut row = 0;
         let mut col;
@@ -102,7 +101,7 @@ impl IntMatSpace {
     pub fn nrows(&self) -> i64 {
         self.nrows
     }
-    
+
     #[inline]
     pub fn ncols(&self) -> i64 {
         self.ncols
@@ -119,8 +118,9 @@ pub struct IntMat {
     inner: fmpz_mat::fmpz_mat_struct,
 }
 
-impl<'a, T> Assign<T> for IntMat where
-    T: Into<ValOrRef<'a, IntMat>>
+impl<'a, T> Assign<T> for IntMat
+where
+    T: Into<ValOrRef<'a, IntMat>>,
 {
     fn assign(&mut self, other: T) {
         let x = other.into();
@@ -136,9 +136,11 @@ impl Clone for IntMat {
     #[inline]
     fn clone(&self) -> Self {
         let mut z = MaybeUninit::uninit();
-        unsafe { 
-            fmpz_mat::fmpz_mat_init_set(z.as_mut_ptr(), self.as_ptr()); 
-            IntMat { inner: z.assume_init() }
+        unsafe {
+            fmpz_mat::fmpz_mat_init_set(z.as_mut_ptr(), self.as_ptr());
+            IntMat {
+                inner: z.assume_init(),
+            }
         }
     }
 }
@@ -153,7 +155,7 @@ impl fmt::Display for IntMat {
 impl Drop for IntMat {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz_mat::fmpz_mat_clear(self.as_mut_ptr())}
+        unsafe { fmpz_mat::fmpz_mat_clear(self.as_mut_ptr()) }
     }
 }
 
@@ -165,7 +167,6 @@ impl Hash for IntMat {
 }
 
 impl IntMat {
-    
     /// Returns a pointer to the inner [FLINT integer matrix][fmpz_mat::fmpz_mat].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz_mat::fmpz_mat_struct {
@@ -177,19 +178,24 @@ impl IntMat {
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_mat::fmpz_mat_struct {
         &mut self.inner
     }
- 
+
     #[inline]
     pub fn new(nrows: i64, ncols: i64) -> IntMat {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz_mat::fmpz_mat_init(z.as_mut_ptr(), nrows, ncols);
-            IntMat { inner: z.assume_init() }
+            IntMat {
+                inner: z.assume_init(),
+            }
         }
     }
 
     #[inline]
     pub fn parent(&self) -> IntMatSpace {
-        IntMatSpace { nrows: self.nrows(), ncols: self.ncols() }
+        IntMatSpace {
+            nrows: self.nrows(),
+            ncols: self.ncols(),
+        }
     }
 
     /// Return the number of rows of the integer matrix.
@@ -203,7 +209,7 @@ impl IntMat {
     pub fn ncols(&self) -> i64 {
         unsafe { fmpz_mat::fmpz_mat_ncols(self.as_ptr()) }
     }
-    
+
     #[inline]
     pub fn is_empty(&self) -> bool {
         unsafe { fmpz_mat::fmpz_mat_is_empty(self.as_ptr()) != 0 }
@@ -213,7 +219,7 @@ impl IntMat {
     pub fn is_square(&self) -> bool {
         unsafe { fmpz_mat::fmpz_mat_is_square(self.as_ptr()) != 0 }
     }
-    
+
     #[inline]
     pub fn is_zero(&self) -> bool {
         unsafe { fmpz_mat::fmpz_mat_is_zero(self.as_ptr()) != 0 }
@@ -223,7 +229,7 @@ impl IntMat {
     pub fn is_one(&self) -> bool {
         unsafe { fmpz_mat::fmpz_mat_is_one(self.as_ptr()) != 0 }
     }
-    
+
     /// Get the `(i, j)`-th entry of an integer matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> Integer {
@@ -234,18 +240,19 @@ impl IntMat {
         }
         res
     }
-    
+
     /// Set the `(i, j)`-th entry of an integer matrix.
     #[inline]
-    pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T) where
-        T: Into<ValOrRef<'a, Integer>>
+    pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
+    where
+        T: Into<ValOrRef<'a, Integer>>,
     {
         unsafe {
             let x = fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j);
             fmpz::fmpz_set(x, e.into().as_ptr());
         }
     }
-    
+
     pub fn get_str_pretty(&self) -> String {
         let r = self.nrows();
         let c = self.ncols();
@@ -257,7 +264,7 @@ impl IntMat {
             for j in 0..c {
                 row.push(format!(" {} ", self.get_entry(i, j)));
             }
-            if i == r-1 {
+            if i == r - 1 {
                 row.push("]".to_string());
             } else {
                 row.push("]\n".to_string());
@@ -270,7 +277,7 @@ impl IntMat {
     pub fn entries(&self) -> Vec<Integer> {
         let r = self.nrows();
         let c = self.ncols();
-        let mut out = Vec::with_capacity(usize::try_from(r*c).ok().unwrap());
+        let mut out = Vec::with_capacity(usize::try_from(r * c).ok().unwrap());
 
         for i in 0..r {
             for j in 0..c {
@@ -287,7 +294,7 @@ impl Serialize for IntMat {
         S: Serializer,
     {
         let entries = self.entries();
-        let mut seq = serializer.serialize_seq(Some(entries.len()+2))?;
+        let mut seq = serializer.serialize_seq(Some(entries.len() + 2))?;
 
         seq.serialize_element(&self.nrows())?;
         seq.serialize_element(&self.ncols())?;

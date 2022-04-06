@@ -16,11 +16,11 @@
  */
 
 #![allow(unused_macros)]
-//! Inertia is a (WIP) computational mathematics library for Rust. 
+//! Inertia is a (WIP) computational mathematics library for Rust.
 //!
-//! Inertia-core contains the core functionality of the 
-//! [Inertia](https://github.com/wjyoumans/inertia) crate, providing high-level wrappers for the 
-//! [FLINT](https://flintlib.org/doc/), [Arb](https://arblib.org/), and 
+//! Inertia-core contains the core functionality of the
+//! [Inertia](https://github.com/wjyoumans/inertia) crate, providing high-level wrappers for the
+//! [FLINT](https://flintlib.org/doc/), [Arb](https://arblib.org/), and
 //! [Antic](https://github.com/wbhart/antic) C libraries.
 use std::borrow::Borrow;
 
@@ -28,29 +28,29 @@ use std::borrow::Borrow;
 pub mod macros;
 
 pub mod integer;
-pub mod rational;
 pub mod intmod;
-pub mod intpoly;
-pub mod ratpoly;
 pub mod intmodpoly;
+pub mod intpoly;
+pub mod rational;
+pub mod ratpoly;
 //pub mod intmpoly;
-pub mod intmat;
 pub mod finfld;
-
-
+pub mod intmat;
 
 /// Enum holding either an owned or borrowed T. Nearly identical to [std::borrow::Cow] but we add
 /// blanket implementations of some conversions.
-pub enum ValOrRef<'a, T> where
-    T: 'a + ToOwned + ?Sized
+pub enum ValOrRef<'a, T>
+where
+    T: 'a + ToOwned + ?Sized,
 {
     Ref(&'a T),
     Val(<T as ToOwned>::Owned),
 }
 
 /// Dereference a `ValOrRef<T>` to get a borrow of type T.
-impl<T: ?Sized + ToOwned> std::ops::Deref for ValOrRef<'_, T> where
-    T::Owned: Borrow<T>
+impl<T: ?Sized + ToOwned> std::ops::Deref for ValOrRef<'_, T>
+where
+    T::Owned: Borrow<T>,
 {
     type Target = T;
     #[inline]
@@ -63,8 +63,9 @@ impl<T: ?Sized + ToOwned> std::ops::Deref for ValOrRef<'_, T> where
 }
 
 /// Blanket implementation of conversion from borrows.
-impl<'a, T> From<&'a T> for ValOrRef<'a, T> where
-    T: 'a + ToOwned + ?Sized
+impl<'a, T> From<&'a T> for ValOrRef<'a, T>
+where
+    T: 'a + ToOwned + ?Sized,
 {
     fn from(x: &'a T) -> Self {
         ValOrRef::Ref(&x)
@@ -103,7 +104,7 @@ pub mod ops {
         type Output;
         fn inv(self) -> Self::Output;
     }
-    
+
     /// Inverse with assignment.
     pub trait InvAssign {
         fn inv_assign(&mut self);
@@ -113,12 +114,12 @@ pub mod ops {
     pub trait NegAssign {
         fn neg_assign(&mut self);
     }
-    
+
     /// Complement with assignment.
     pub trait NotAssign {
         fn not_assign(&mut self);
     }
-    
+
     /// Bitwise `and` with assignment to the rhs operand.
     pub trait BitAndFrom<Lhs = Self> {
         fn bitand_from(&mut self, lhs: Lhs);
@@ -128,7 +129,7 @@ pub mod ops {
     pub trait AssignBitAnd<Lhs = Self, Rhs = Self> {
         fn assign_bitand(&mut self, lhs: Lhs, rhs: Rhs);
     }
-    
+
     /// Bitwise `or` with assignment to the rhs operand.
     pub trait BitOrFrom<Lhs = Self> {
         fn bitor_from(&mut self, lhs: Lhs);
@@ -138,7 +139,7 @@ pub mod ops {
     pub trait AssignBitOr<T, U> {
         fn assign_bitor(&mut self, lhs: T, rhs: U);
     }
-    
+
     /// Bitwise `xor` with assignment to the rhs operand.
     pub trait BitXorFrom<Lhs = Self> {
         fn bitxor_from(&mut self, lhs: Lhs);
@@ -148,7 +149,7 @@ pub mod ops {
     pub trait AssignBitXor<T, U> {
         fn assign_bitxor(&mut self, lhs: T, rhs: U);
     }
-    
+
     /// Addition with assignment to the rhs operand.
     pub trait AddFrom<Lhs = Self> {
         fn add_from(&mut self, lhs: Lhs);
@@ -158,7 +159,7 @@ pub mod ops {
     pub trait AssignAdd<T, U> {
         fn assign_add(&mut self, lhs: T, rhs: U);
     }
-    
+
     /// Subtraction with assignment to the rhs operand.
     pub trait SubFrom<Lhs = Self> {
         fn sub_from(&mut self, lhs: Lhs);
@@ -168,7 +169,7 @@ pub mod ops {
     pub trait AssignSub<T, U> {
         fn assign_sub(&mut self, lhs: T, rhs: U);
     }
-    
+
     /// Multiplication with assignment to the rhs operand.
     pub trait MulFrom<Lhs = Self> {
         fn mul_from(&mut self, lhs: Lhs);
@@ -178,7 +179,7 @@ pub mod ops {
     pub trait AssignMul<T, U> {
         fn assign_mul(&mut self, lhs: T, rhs: U);
     }
-    
+
     /// Division with assignment to the rhs operand.
     pub trait DivFrom<Lhs = Self> {
         fn div_from(&mut self, lhs: Lhs);
@@ -188,18 +189,18 @@ pub mod ops {
     pub trait AssignDiv<T, U> {
         fn assign_div(&mut self, lhs: T, rhs: U);
     }
-    
+
     /// Exponentiation.
     pub trait Pow<Rhs = Self> {
         type Output;
         fn pow(self, rhs: Rhs) -> Self::Output;
     }
-    
+
     /// Exponentiation with assignment.
     pub trait PowAssign<Rhs = Self> {
         fn pow_assign(&mut self, rhs: Rhs);
     }
-    
+
     /// Exponentiation with assignment to the rhs operand.
     pub trait PowFrom<Lhs = Self> {
         fn pow_from(&mut self, lhs: Lhs);
@@ -209,7 +210,7 @@ pub mod ops {
     pub trait AssignPow<T, U> {
         fn assign_pow(&mut self, lhs: T, rhs: U);
     }
-    
+
     /// Remainder with assignment to the rhs operand.
     pub trait RemFrom<Lhs = Self> {
         fn rem_from(&mut self, lhs: Lhs);
@@ -233,13 +234,13 @@ pub mod ops {
     }
 }
 
-pub use ops::*;
 pub use integer::*;
-pub use rational::*;
 pub use intmod::*;
-pub use intpoly::*;
-pub use ratpoly::*;
 pub use intmodpoly::*;
+pub use intpoly::*;
+pub use ops::*;
+pub use rational::*;
+pub use ratpoly::*;
 //pub use intmpoly::*;
-pub use intmat::*;
 pub use finfld::*;
+pub use intmat::*;

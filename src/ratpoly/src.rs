@@ -21,20 +21,14 @@ use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::sync::{Arc, RwLock};
 
+use crate::{ops::Assign, Integer, Rational, RationalField, ValOrRef};
 use flint_sys::fmpq_poly;
-use serde::ser::{Serialize, Serializer, SerializeSeq};
-use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{
-    ops::Assign, 
-    Integer, 
-    Rational,
-    RationalField,
-    ValOrRef, 
-};
+use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 
 #[derive(Clone, Debug)]
 pub struct RatPolyRing {
-    var: Arc<RwLock<String>>
+    var: Arc<RwLock<String>>,
 }
 
 impl Eq for RatPolyRing {}
@@ -48,7 +42,12 @@ impl PartialEq for RatPolyRing {
 impl fmt::Display for RatPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Univariate polynomial ring in {} over {}", self.var(), self.base_ring())
+        write!(
+            f,
+            "Univariate polynomial ring in {} over {}",
+            self.var(),
+            self.base_ring()
+        )
     }
 }
 
@@ -63,7 +62,9 @@ impl Hash for RatPolyRing {
 impl RatPolyRing {
     #[inline]
     pub fn init(var: &str) -> Self {
-        RatPolyRing { var: Arc::new(RwLock::new(var.to_string())) }
+        RatPolyRing {
+            var: Arc::new(RwLock::new(var.to_string())),
+        }
     }
 
     #[inline]
@@ -86,12 +87,12 @@ impl RatPolyRing {
     pub fn nvars(&self) -> i64 {
         1
     }
-    
+
     /// Return the variable of the polynomial as a `&str`.
     pub fn var(&self) -> String {
         self.var.read().unwrap().to_string()
     }
-    
+
     /// Change the variable of the polynomial.
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
         *self.var.write().unwrap() = var.as_ref().to_string()
@@ -108,8 +109,9 @@ pub struct RatPoly {
     var: Arc<RwLock<String>>,
 }
 
-impl<'a, T> Assign<T> for RatPoly where
-    T: Into<ValOrRef<'a, RatPoly>>
+impl<'a, T> Assign<T> for RatPoly
+where
+    T: Into<ValOrRef<'a, RatPoly>>,
 {
     fn assign(&mut self, other: T) {
         unsafe {
@@ -122,7 +124,9 @@ impl Clone for RatPoly {
     #[inline]
     fn clone(&self) -> Self {
         let mut res = self.parent().default();
-        unsafe { fmpq_poly::fmpq_poly_set(res.as_mut_ptr(), self.as_ptr()); }
+        unsafe {
+            fmpq_poly::fmpq_poly_set(res.as_mut_ptr(), self.as_ptr());
+        }
         res
     }
 }
@@ -133,9 +137,9 @@ impl Default for RatPoly {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpq_poly::fmpq_poly_init(z.as_mut_ptr());
-            RatPoly { 
-                inner: z.assume_init(), 
-                var: Arc::new(RwLock::new("x".to_owned())) 
+            RatPoly {
+                inner: z.assume_init(),
+                var: Arc::new(RwLock::new("x".to_owned())),
             }
         }
     }
@@ -151,7 +155,7 @@ impl fmt::Display for RatPoly {
 impl Drop for RatPoly {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpq_poly::fmpq_poly_clear(self.as_mut_ptr())}
+        unsafe { fmpq_poly::fmpq_poly_clear(self.as_mut_ptr()) }
     }
 }
 
@@ -164,7 +168,6 @@ impl Hash for RatPoly {
 }
 
 impl RatPoly {
-    
     /// Returns a pointer to the inner [FLINT rational polynomial][fmpq_poly::fmpq_poly].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpq_poly::fmpq_poly_struct {
@@ -176,15 +179,15 @@ impl RatPoly {
     pub fn as_mut_ptr(&mut self) -> *mut fmpq_poly::fmpq_poly_struct {
         &mut self.inner
     }
-  
+
     /// Return the parent [ring of polynomials with rational coefficients][RatPolyRing].
     #[inline]
     pub fn parent(&self) -> RatPolyRing {
         RatPolyRing {
-            var: Arc::clone(&self.var)
+            var: Arc::clone(&self.var),
         }
     }
-    
+
     pub fn base_ring(&self) -> RationalField {
         RationalField {}
     }
@@ -194,13 +197,13 @@ impl RatPoly {
     pub fn var(&self) -> String {
         self.var.read().unwrap().to_string()
     }
-    
+
     /// Change the variable of the polynomial.
     #[inline]
     pub fn set_var<T: AsRef<String>>(&self, var: T) {
         *self.var.write().unwrap() = var.as_ref().to_string()
     }
-    
+
     /// Return a pretty-printed string representation of a rational polynomial.
     pub fn get_str_pretty(&self) -> String {
         let v = CString::new(self.var()).unwrap();
@@ -208,19 +211,19 @@ impl RatPoly {
             let s = fmpq_poly::fmpq_poly_get_str_pretty(self.as_ptr(), v.as_ptr());
             match CStr::from_ptr(s).to_str() {
                 Ok(s) => s.to_owned(),
-                Err(_) => panic!("Flint returned invalid UTF-8!")
+                Err(_) => panic!("Flint returned invalid UTF-8!"),
             }
         }
     }
-    
+
     #[inline]
     pub fn len(&self) -> i64 {
-        unsafe { fmpq_poly::fmpq_poly_length(self.as_ptr())}
+        unsafe { fmpq_poly::fmpq_poly_length(self.as_ptr()) }
     }
 
     #[inline]
     pub fn degree(&self) -> i64 {
-        unsafe { fmpq_poly::fmpq_poly_degree(self.as_ptr())}
+        unsafe { fmpq_poly::fmpq_poly_degree(self.as_ptr()) }
     }
 
     #[inline]
@@ -231,10 +234,11 @@ impl RatPoly {
         }
         res
     }
-    
+
     #[inline]
-    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T) where
-        T: Into<ValOrRef<'a, Rational>>
+    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
+    where
+        T: Into<ValOrRef<'a, Rational>>,
     {
         unsafe {
             fmpq_poly::fmpq_poly_set_coeff_fmpq(self.as_mut_ptr(), i, coeff.into().as_ptr());

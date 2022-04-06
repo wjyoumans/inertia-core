@@ -15,12 +15,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::{FinFldElem, IntMod, IntModPoly, IntPoly, Integer, ValOrRef};
 use flint_sys::fmpz_poly;
-use crate::{Integer, IntMod, IntPoly, IntModPoly, FinFldElem, ValOrRef};
 
-
-impl<'a, T> From<T> for ValOrRef<'a, IntPoly> where
-    T: Into<IntPoly>
+impl<'a, T> From<T> for ValOrRef<'a, IntPoly>
+where
+    T: Into<IntPoly>,
 {
     fn from(x: T) -> ValOrRef<'a, IntPoly> {
         ValOrRef::Val(x.into())
@@ -63,7 +63,7 @@ impl_from! {
     {
         fn from(x: &IntModPoly) -> IntPoly {
             let mut res = IntPoly::default();
-            unsafe { 
+            unsafe {
                 flint_sys::fmpz_mod_poly::fmpz_mod_poly_get_fmpz_poly(
                     res.as_mut_ptr(),
                     x.as_ptr(),
@@ -82,8 +82,8 @@ impl_from! {
             let mut res = IntPoly::default();
             unsafe {
                 flint_sys::fq_default::fq_default_get_fmpz_poly(
-                    res.as_mut_ptr(), 
-                    x.as_ptr(), 
+                    res.as_mut_ptr(),
+                    x.as_ptr(),
                     x.ctx_as_ptr()
                 );
             }
@@ -104,7 +104,6 @@ impl_from! {
     }
 }*/
 
-
 impl_from! {
     String, IntPoly
     {
@@ -114,8 +113,22 @@ impl_from! {
     }
 }
 
-impl<'a, T: 'a> From<&'a [T]> for IntPoly where 
-    &'a T: Into<ValOrRef<'a, Integer>>
+/* TODO: improve conversions.
+impl<'a, T> From<T> for IntPoly where
+    T: Into<ValOrRef<'a, [Integer]>>
+{
+    fn from(src: T) -> IntPoly {
+        let mut res = IntPoly::default();
+        for (i, x) in src.into().iter().enumerate() {
+            res.set_coeff(i as i64, x);
+        }
+        res
+    }
+}
+*/
+impl<'a, T: 'a> From<&'a [T]> for IntPoly
+where
+    &'a T: Into<ValOrRef<'a, Integer>>,
 {
     fn from(src: &'a [T]) -> IntPoly {
         let mut res = IntPoly::default();
@@ -126,8 +139,9 @@ impl<'a, T: 'a> From<&'a [T]> for IntPoly where
     }
 }
 
-impl<'a, T: 'a> From<Vec<T>> for IntPoly where 
-    T: Into<ValOrRef<'a, Integer>>
+impl<'a, T: 'a> From<Vec<T>> for IntPoly
+where
+    T: Into<ValOrRef<'a, Integer>>,
 {
     #[inline]
     fn from(src: Vec<T>) -> IntPoly {

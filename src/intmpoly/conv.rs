@@ -16,9 +16,8 @@
  */
 
 use std::ffi::{CStr, CString};
-use std::str::FromStr;
 use flint_sys::fmpz_mpoly;
-use crate::{Integer, IntMod, IntPoly, IntMPoly, ValOrRef};
+use crate::IntMPoly;
 
 
 impl_from! {

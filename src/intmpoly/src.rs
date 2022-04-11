@@ -16,7 +16,6 @@
  */
 
 use std::cell::RefCell;
-use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
@@ -159,24 +158,14 @@ impl Drop for IntMPoly {
 }
 
 /*
-impl Hash for IntPoly {
+impl Hash for IntMPoly {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.parent().hash(state);
         self.coefficients().hash(state);
     }
 }
-
-impl<'a, T> IntoValOrRef<'a, IntPoly> for T where
-    T: Into<IntPoly>
-{
-    #[inline]
-    fn val_or_ref(self) -> ValOrRef<'a, IntPoly> {
-        ValOrRef::Val(self.into())
-    }
-}
 */
-
 
 impl IntMPoly {
     
@@ -221,27 +210,6 @@ impl IntMPoly {
         self.vars.replace(vars.iter().map(|x| x.as_ref().to_owned()).collect());
     }
     
-    /*
-    /// Change the variables of the polynomial.
-    #[inline]
-    pub fn set_vars<T: AsRef<str>>(&self, vars: &[T]) {
-        *self.vars.write().unwrap() = var.as_ref().to_string()
-    }
-    
-    /// Return a pretty-printed string representation of an integer polynomial.
-    pub fn get_str_pretty(&self) -> String {
-        let v = CString::new(self.var()).unwrap();
-        unsafe {
-            let s = fmpz_poly::fmpz_poly_get_str_pretty(self.as_ptr(), v.as_ptr());
-            match CStr::from_ptr(s).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(_) => panic!("Flint returned invalid UTF-8!")
-            }
-        }
-    }
-    */
-
-    /*
     /// Return the number of terms in the polynomial. If in canonical form, this will be the number
     /// of nonzero coefficients.
     #[inline]
@@ -249,38 +217,54 @@ impl IntMPoly {
         unsafe { fmpz_mpoly::fmpz_mpoly_length(self.as_ptr(), self.ctx_as_ptr())}
     }
 
-    // degree/degrees/total_degree
     #[inline]
     pub fn total_degree(&self) -> Integer {
-        let mut res = MaybeUninit::uninit();
-        unsafe { fmpz_mpoly::fmpz_mpoly_total_degree_fmpz(res.as_mut_ptr(), self.as_ptr()); }
+        let mut res = Integer::default();
+        unsafe { 
+            fmpz_mpoly::fmpz_mpoly_total_degree_fmpz(
+                res.as_mut_ptr(), 
+                self.as_ptr(),
+                self.ctx_as_ptr()
+            );
+        }
         res
     }
 
+    /// Return the coefficient of the polynomial term with the given exponent vector.
     #[inline]
-    pub fn get_coeff<'a, T>(&self, exp_vec: &[T]) -> Vec<Integer> 
-        where T: IntoValOrRef<'a, Integer>
+    pub fn get_coeff<'a, T: 'a>(&self, exp_vec: &'a [T]) -> Integer where 
+        &'a T: Into<ValOrRef<'a, Integer>>
     {
-        let mut out = Vec::default();
+        let mut res = Integer::default();
+        let v: Vec<_> = exp_vec.iter().map(|x| x.into().as_ptr()).collect();
         unsafe {
             fmpz_mpoly::fmpz_mpoly_get_coeff_fmpz_fmpz(
                 res.as_mut_ptr(), 
                 self.as_ptr(), 
-                i
+                v.as_ptr(),
+                self.ctx_as_ptr()
             );
         }
-        out
+        res
     }
     
+    /// Set the coefficient of the polynomial term with the given exponent vector.
     #[inline]
-    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T) where
-        T: IntoValOrRef<'a, Integer>
+    pub fn set_coeff<'a, T>(&mut self, exp_vec: &'a [T], coeff: &'a T) where
+        &'a T: Into<ValOrRef<'a, Integer>>,
     {
+        let v: Vec<_> = exp_vec.iter().map(|x| x.into().as_ptr()).collect();
         unsafe {
-            fmpz_poly::fmpz_poly_set_coeff_fmpz(self.as_mut_ptr(), i, coeff.val_or_ref().as_ptr());
+            fmpz_mpoly::fmpz_mpoly_set_coeff_fmpz_fmpz(
+                self.as_mut_ptr(), 
+                coeff.into().as_ptr(),
+                v.as_ptr(), 
+                self.ctx_as_ptr()
+            );
         }
     }
 
+    /* NOTE: use fmpz_mpoly_used_vars
     #[inline]
     pub fn coefficients(&self) -> Vec<Integer> {
         let len = self.len();
@@ -290,7 +274,8 @@ impl IntMPoly {
             vec.push(self.get_coeff(i));
         }
         vec
-    }*/
+    }
+    */
 }
 
 /*

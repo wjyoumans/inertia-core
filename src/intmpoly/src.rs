@@ -24,7 +24,7 @@ use std::rc::Rc;
 use flint_sys::fmpz_mpoly;
 //use serde::ser::{Serialize, Serializer, SerializeSeq};
 //use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{Integer, IntegerRing, ValOrRef, IntoValOrRef};
+use crate::{Integer, IntegerRing, ValOrRef};
 
 const ORD_MPOLY: u32 = 0; // ORD_LEX = 0, ORD_DEGLEX = 1, ORD_DEGREVLEX = 2
 
@@ -44,22 +44,20 @@ pub struct IntMPolyRing {
     vars: Rc<RefCell<Vec<String>>>,
 }
 
-/*
 impl fmt::Display for IntMPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Univariate polynomial ring in {} over Integer Ring", self.var())
+        write!(f, "Multivariate polynomial ring in {:?} over Integer Ring", self.vars())
     }
 }
 
-impl Hash for IntPolyRing {
+impl Hash for IntMPolyRing {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.base_ring().hash(state);
-        self.var().hash(state);
+        self.nvars().hash(state);
     }
 }
-*/
 
 impl IntMPolyRing {
     /// Returns a pointer to the [FLINT context][fmpz_mpoly::fmpz_mpoly_ctx_struct].
@@ -68,10 +66,9 @@ impl IntMPolyRing {
         &self.ctx.0
     }
     
-    #[inline]
     pub fn init(nvars: i64) -> Self {
 
-        let vars = Vec::with_capacity(usize::try_from(nvars).ok().unwrap());
+        let mut vars = Vec::with_capacity(usize::try_from(nvars).ok().unwrap());
         for i in 0..nvars {
             vars.push(format!("x{}", i));
         }
@@ -101,20 +98,29 @@ impl IntMPolyRing {
 
     #[inline]
     pub fn new<T: Into<IntMPoly>>(&self, x: T) -> IntMPoly {
-        x.into()
+        let res = x.into();
+        res.set_vars(&self.vars());
+        res
+    }
+
+    #[inline]
+    pub fn nvars(&self) -> i64 {
+        self.vars().len().try_into().unwrap()
     }
    
-    /*
-    /// Return the variable of the polynomial as a `&str`.
-    pub fn var(&self) -> String {
-        self.var.read().unwrap().to_string()
+    /// Return the variables of the polynomial ring.
+    #[inline]
+    pub fn vars(&self) -> Vec<String> {
+        self.vars.borrow().to_owned()
     }
     
-    /// Change the variable of the polynomial.
-    pub fn set_var<T: AsRef<String>>(&self, var: T) {
-        *self.var.write().unwrap() = var.as_ref().to_string()
+    /// Change the variables of the polynomial ring.
+    #[inline]
+    pub fn set_vars<T: AsRef<str>>(&self, vars: &[T]) {
+        self.vars.replace(vars.iter().map(|x| x.as_ref().to_owned()).collect());
     }
-    */
+    
+    #[inline]
     pub fn base_ring(&self) -> IntegerRing {
         IntegerRing {}
     }
@@ -127,7 +133,6 @@ pub struct IntMPoly {
     vars: Rc<RefCell<Vec<String>>>,
 }
 
-/*
 impl Clone for IntMPoly {
     #[inline]
     fn clone(&self) -> Self {
@@ -139,27 +144,12 @@ impl Clone for IntMPoly {
     }
 }
 
-impl Default for IntPoly {
-    #[inline]
-    fn default() -> Self {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpz_poly::fmpz_poly_init(z.as_mut_ptr());
-            IntPoly { 
-                inner: z.assume_init(), 
-                var: Arc::new(RwLock::new("x".to_owned())) 
-            }
-        }
-    }
-}
-
-impl fmt::Display for IntPoly {
+impl fmt::Display for IntMPoly {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", String::from(self))
     }
 }
-*/
 
 impl Drop for IntMPoly {
     #[inline]
@@ -218,17 +208,23 @@ impl IntMPoly {
             vars: Rc::clone(&self.vars),
         }
     }
-
-    /// Return the variables of the polynomial as strings.
+    
+    /// Return the variables of the polynomial ring.
     #[inline]
     pub fn vars(&self) -> Vec<String> {
         self.vars.borrow().to_owned()
     }
     
+    /// Change the variables of the polynomial ring.
+    #[inline]
+    pub fn set_vars<T: AsRef<str>>(&self, vars: &[T]) {
+        self.vars.replace(vars.iter().map(|x| x.as_ref().to_owned()).collect());
+    }
+    
     /*
     /// Change the variables of the polynomial.
     #[inline]
-    pub fn set_vars<T: AsRef<String>>(&self, vars: &[T]) {
+    pub fn set_vars<T: AsRef<str>>(&self, vars: &[T]) {
         *self.vars.write().unwrap() = var.as_ref().to_string()
     }
     

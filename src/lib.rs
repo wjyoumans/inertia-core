@@ -33,7 +33,7 @@ pub mod intmodpoly;
 pub mod intpoly;
 pub mod rational;
 pub mod ratpoly;
-//pub mod intmpoly;
+pub mod intmpoly;
 pub mod finfld;
 pub mod intmat;
 
@@ -241,6 +241,6 @@ pub use intpoly::*;
 pub use ops::*;
 pub use rational::*;
 pub use ratpoly::*;
-//pub use intmpoly::*;
+pub use intmpoly::*;
 pub use finfld::*;
 pub use intmat::*;

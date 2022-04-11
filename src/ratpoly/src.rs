@@ -81,7 +81,9 @@ impl RatPolyRing {
 
     #[inline]
     pub fn new<T: Into<RatPoly>>(&self, x: T) -> RatPoly {
-        x.into()
+        let res = x.into();
+        res.set_var(self.var());
+        res
     }
 
     pub fn nvars(&self) -> i64 {
@@ -94,7 +96,7 @@ impl RatPolyRing {
     }
 
     /// Change the variable of the polynomial.
-    pub fn set_var<T: AsRef<String>>(&self, var: T) {
+    pub fn set_var<T: AsRef<str>>(&self, var: T) {
         self.var.replace(var.as_ref().to_string());
     }
 
@@ -200,7 +202,7 @@ impl RatPoly {
 
     /// Change the variable of the polynomial.
     #[inline]
-    pub fn set_var<T: AsRef<String>>(&self, var: T) {
+    pub fn set_var<T: AsRef<str>>(&self, var: T) {
         self.var.replace(var.as_ref().to_string());
     }
 

@@ -82,7 +82,9 @@ impl IntPolyRing {
 
     #[inline]
     pub fn new<T: Into<IntPoly>>(&self, x: T) -> IntPoly {
-        x.into()
+        let res = x.into();
+        res.set_var(&self.var());
+        res
     }
 
     #[inline]
@@ -98,7 +100,7 @@ impl IntPolyRing {
 
     /// Change the variable of the polynomial.
     #[inline]
-    pub fn set_var<T: AsRef<String>>(&self, var: T) {
+    pub fn set_var<T: AsRef<str>>(&self, var: T) {
         self.var.replace(var.as_ref().to_string());
     }
 
@@ -205,7 +207,7 @@ impl IntPoly {
 
     /// Change the variable of the polynomial.
     #[inline]
-    pub fn set_var<T: AsRef<String>>(&self, var: T) {
+    pub fn set_var<T: AsRef<str>>(&self, var: T) {
         self.var.replace(var.as_ref().to_string());
     }
 

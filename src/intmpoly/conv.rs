@@ -15,10 +15,47 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use flint_sys::fmpz_poly;
-use crate::{Integer, IntMod, IntPoly, IntoValOrRef};
+use std::ffi::{CStr, CString};
+use std::str::FromStr;
+use flint_sys::fmpz_mpoly;
+use crate::{Integer, IntMod, IntPoly, IntMPoly, ValOrRef};
 
 
+impl_from! {
+    String, IntMPoly
+    {
+        fn from(src: &IntMPoly) -> String {
+            let u: Vec<_> = src.vars().iter().map(|x| CString::new(x.clone()).unwrap()).collect();
+            let v: Vec<_> = u.iter().map(|x| x.as_ptr()).collect();
+            unsafe {
+                let s = fmpz_mpoly::fmpz_mpoly_get_str_pretty(
+                    src.as_ptr(), 
+                    v.as_ptr(), 
+                    src.ctx_as_ptr()
+                );
+                match CStr::from_ptr(s).to_str() {
+                    Ok(s) => s.to_owned(),
+                    Err(_) => panic!("Flint returned invalid UTF-8!")
+                }
+            }
+        }
+    }
+}
+
+/*
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test() {
+        let zxy = IntMPolyRing::init(2);
+        zxy.new()
+        println!("{}")
+    }
+}
+*/
+
+/*
 impl_from_unsafe! {
     None
     IntPoly, u64 {usize u64 u32 u16 u8}
@@ -128,4 +165,4 @@ impl<'a, T: 'a> From<Vec<T>> for IntPoly where
         IntPoly::from(src.as_slice())
     }
 
-}
+}*/

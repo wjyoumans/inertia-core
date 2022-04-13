@@ -15,16 +15,16 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
+use flint_sys::fmpz_poly;
+use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use flint_sys::fmpz_poly;
-use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
-use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
 
 #[derive(Clone, Debug)]
 pub struct IntPolyRing {

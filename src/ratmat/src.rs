@@ -15,13 +15,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::mem::{MaybeUninit, ManuallyDrop};
+use crate::{ops::Assign, Integer, Rational, RationalField, ValOrRef};
 use flint_sys::{fmpq, fmpq_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
-use crate::{ops::Assign, Integer, Rational, RationalField, ValOrRef};
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::mem::{ManuallyDrop, MaybeUninit};
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RatMatSpace {
@@ -43,8 +43,8 @@ impl fmt::Display for RatMatSpace {
         write!(
             f,
             "Space of {} by {} matrices over {}",
-            self.nrows, 
-            self.ncols, 
+            self.nrows,
+            self.ncols,
             self.base_ring()
         )
     }
@@ -194,7 +194,7 @@ impl RatMat {
             ncols: self.ncols(),
         }
     }
-    
+
     #[inline]
     pub fn base_ring(&self) -> RationalField {
         RationalField {}
@@ -231,13 +231,17 @@ impl RatMat {
     pub fn is_one(&self) -> bool {
         unsafe { fmpq_mat::fmpq_mat_is_one(self.as_ptr()) != 0 }
     }
-    
+
     /// Get a shallow copy of the `(i, j)`-th entry of the matrix. Mutating this modifies
     /// the entry of the matrix.
     #[inline]
     pub fn entry_copy(&self, i: i64, j: i64) -> ManuallyDrop<Rational> {
         unsafe {
-            ManuallyDrop::new(Rational::from_raw(*fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j)))
+            ManuallyDrop::new(Rational::from_raw(*fmpq_mat::fmpq_mat_entry(
+                self.as_ptr(),
+                i,
+                j,
+            )))
         }
     }
 

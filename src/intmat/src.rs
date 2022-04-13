@@ -15,13 +15,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::mem::{MaybeUninit, ManuallyDrop};
+use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
 use flint_sys::{fmpz, fmpz_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
-use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::mem::{ManuallyDrop, MaybeUninit};
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct IntMatSpace {
@@ -192,7 +192,7 @@ impl IntMat {
             ncols: self.ncols(),
         }
     }
-    
+
     #[inline]
     pub fn base_ring(&self) -> IntegerRing {
         IntegerRing {}
@@ -235,7 +235,11 @@ impl IntMat {
     #[inline]
     pub fn entry_copy(&self, i: i64, j: i64) -> ManuallyDrop<Integer> {
         unsafe {
-            ManuallyDrop::new(Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j)))
+            ManuallyDrop::new(Integer::from_raw(*fmpz_mat::fmpz_mat_entry(
+                self.as_ptr(),
+                i,
+                j,
+            )))
         }
     }
 

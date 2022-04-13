@@ -15,16 +15,19 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use flint_sys::fq_default as fq;
+use flint_sys::fq_default_mat as fq_mat;
 use std::ffi::CString;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use flint_sys::fq_default as fq;
-use flint_sys::fq_default_mat as fq_mat;
 //use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 //use serde::ser::{Serialize, SerializeSeq, Serializer};
-use crate::{ops::Assign, Integer, IntPoly, IntModPoly, IntModPolyRing, FinFldElem, FiniteField, FqCtx, ValOrRef};
+use crate::{
+    ops::Assign, FinFldElem, FiniteField, FqCtx, IntModPoly, IntModPolyRing, IntPoly, Integer,
+    ValOrRef,
+};
 
 #[derive(Clone, Debug)]
 pub struct FinFldMatSpace {
@@ -37,8 +40,8 @@ impl Eq for FinFldMatSpace {}
 
 impl PartialEq for FinFldMatSpace {
     fn eq(&self, other: &FinFldMatSpace) -> bool {
-        self.nrows() == other.nrows() 
-            && self.ncols() == other.ncols() 
+        self.nrows() == other.nrows()
+            && self.ncols() == other.ncols()
             && self.base_ring() == other.base_ring()
     }
 }
@@ -50,8 +53,8 @@ impl fmt::Display for FinFldMatSpace {
         write!(
             f,
             "Space of {} by {} matrices over {}",
-            self.nrows, 
-            self.ncols, 
+            self.nrows,
+            self.ncols,
             self.base_ring()
         )
     }
@@ -72,10 +75,11 @@ impl FinFldMatSpace {
     pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
         &self.ctx.0
     }
-    
+
     /// Initialize the space of matrices with the given number of rows and columns.
     #[inline]
-    pub fn init<'a, P, K>(nrows: i64, ncols: i64, p: P, k: K) -> Self where
+    pub fn init<'a, P, K>(nrows: i64, ncols: i64, p: P, k: K) -> Self
+    where
         P: Into<ValOrRef<'a, Integer>>,
         K: TryInto<i64>,
     {
@@ -90,7 +94,7 @@ impl FinFldMatSpace {
             Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
     }
-    
+
     pub fn init_unchecked<'a, P, K>(nrows: i64, ncols: i64, p: P, k: K) -> Self
     where
         P: Into<ValOrRef<'a, Integer>>,
@@ -118,12 +122,15 @@ impl FinFldMatSpace {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fq_mat::fq_default_mat_init(
-                z.as_mut_ptr(), 
-                self.nrows(), 
-                self.ncols(), 
-                self.ctx_as_ptr()
+                z.as_mut_ptr(),
+                self.nrows(),
+                self.ncols(),
+                self.ctx_as_ptr(),
             );
-            FinFldMat { inner: z.assume_init(), ctx: Rc::clone(&self.ctx) }
+            FinFldMat {
+                inner: z.assume_init(),
+                ctx: Rc::clone(&self.ctx),
+            }
         }
     }
 
@@ -161,9 +168,11 @@ impl FinFldMatSpace {
 
     #[inline]
     pub fn base_ring(&self) -> FiniteField {
-        FiniteField { ctx: Rc::clone(&self.ctx) }
+        FiniteField {
+            ctx: Rc::clone(&self.ctx),
+        }
     }
-    
+
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
         let zp = IntModPolyRing::init(self.prime(), "x");
@@ -264,7 +273,7 @@ impl FinFldMat {
     pub fn as_mut_ptr(&mut self) -> *mut fq_mat::fq_default_mat_struct {
         &mut self.inner
     }
-    
+
     /// Returns a pointer to the [FLINT context][fq::fq_default_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
@@ -279,10 +288,12 @@ impl FinFldMat {
             ctx: Rc::clone(&self.ctx),
         }
     }
-    
+
     #[inline]
     pub fn base_ring(&self) -> FiniteField {
-        FiniteField { ctx: Rc::clone(&self.ctx) }
+        FiniteField {
+            ctx: Rc::clone(&self.ctx),
+        }
     }
 
     /// Return the number of rows of the matrix.
@@ -296,7 +307,7 @@ impl FinFldMat {
     pub fn ncols(&self) -> i64 {
         unsafe { fq_mat::fq_default_mat_ncols(self.as_ptr(), self.ctx_as_ptr()) }
     }
-    
+
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
         let zp = IntModPolyRing::init(self.prime(), "x");
@@ -306,7 +317,7 @@ impl FinFldMat {
         }
         res
     }
-    
+
     #[inline]
     pub fn prime(&self) -> Integer {
         let mut res = Integer::default();
@@ -349,7 +360,7 @@ impl FinFldMat {
     pub fn is_one(&self) -> bool {
         unsafe { fq_mat::fq_default_mat_is_one(self.as_ptr(), self.ctx_as_ptr()) != 0 }
     }
-   
+
     /*
     /// Get a shallow copy of the `(i, j)`-th entry of the matrix. Mutating this modifies
     /// the entry of the matrix.
@@ -380,7 +391,13 @@ impl FinFldMat {
     {
         let x = self.base_ring().new(e);
         unsafe {
-            fq_mat::fq_default_mat_entry_set(self.as_mut_ptr(), i, j, x.as_ptr(), self.ctx_as_ptr());
+            fq_mat::fq_default_mat_entry_set(
+                self.as_mut_ptr(),
+                i,
+                j,
+                x.as_ptr(),
+                self.ctx_as_ptr(),
+            );
         }
     }
 
@@ -397,7 +414,7 @@ impl FinFldMat {
         }
         out
     }
-    
+
     /*
     /// Get a shallow copy of the entries of the matrix.
     pub fn entries_copy(&self) -> Vec<ManuallyDrop<IntMod>> {

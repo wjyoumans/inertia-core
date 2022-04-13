@@ -15,25 +15,26 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use flint_sys::fmpz_mpoly;
 use std::cell::RefCell;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use flint_sys::fmpz_mpoly;
 //use serde::ser::{Serialize, Serializer, SerializeSeq};
 //use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
 use crate::{Integer, IntegerRing, ValOrRef};
 
 const ORD_MPOLY: u32 = 0; // ORD_LEX = 0, ORD_DEGLEX = 1, ORD_DEGREVLEX = 2
 
-
 #[derive(Debug)]
 struct FmpzMPolyCtx(fmpz_mpoly::fmpz_mpoly_ctx_struct);
 
 impl Drop for FmpzMPolyCtx {
     fn drop(&mut self) {
-        unsafe { fmpz_mpoly::fmpz_mpoly_ctx_clear(&mut self.0); }
+        unsafe {
+            fmpz_mpoly::fmpz_mpoly_ctx_clear(&mut self.0);
+        }
     }
 }
 
@@ -46,7 +47,11 @@ pub struct IntMPolyRing {
 impl fmt::Display for IntMPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Multivariate polynomial ring in {:?} over Integer Ring", self.vars())
+        write!(
+            f,
+            "Multivariate polynomial ring in {:?} over Integer Ring",
+            self.vars()
+        )
     }
 }
 
@@ -64,9 +69,8 @@ impl IntMPolyRing {
     pub fn ctx_as_ptr(&self) -> &fmpz_mpoly::fmpz_mpoly_ctx_struct {
         &self.ctx.0
     }
-    
-    pub fn init(nvars: i64) -> Self {
 
+    pub fn init(nvars: i64) -> Self {
         let mut vars = Vec::with_capacity(usize::try_from(nvars).ok().unwrap());
         for i in 0..nvars {
             vars.push(format!("x{}", i));
@@ -106,19 +110,20 @@ impl IntMPolyRing {
     pub fn nvars(&self) -> i64 {
         self.vars().len().try_into().unwrap()
     }
-   
+
     /// Return the variables of the polynomial ring.
     #[inline]
     pub fn vars(&self) -> Vec<String> {
         self.vars.borrow().to_owned()
     }
-    
+
     /// Change the variables of the polynomial ring.
     #[inline]
     pub fn set_vars<T: AsRef<str>>(&self, vars: &[T]) {
-        self.vars.replace(vars.iter().map(|x| x.as_ref().to_owned()).collect());
+        self.vars
+            .replace(vars.iter().map(|x| x.as_ref().to_owned()).collect());
     }
-    
+
     #[inline]
     pub fn base_ring(&self) -> IntegerRing {
         IntegerRing {}
@@ -136,8 +141,8 @@ impl Clone for IntMPoly {
     #[inline]
     fn clone(&self) -> Self {
         let mut res = self.parent().default();
-        unsafe { 
-            fmpz_mpoly::fmpz_mpoly_set(res.as_mut_ptr(), self.as_ptr(), self.ctx_as_ptr()); 
+        unsafe {
+            fmpz_mpoly::fmpz_mpoly_set(res.as_mut_ptr(), self.as_ptr(), self.ctx_as_ptr());
         }
         res
     }
@@ -153,7 +158,7 @@ impl fmt::Display for IntMPoly {
 impl Drop for IntMPoly {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz_mpoly::fmpz_mpoly_clear(self.as_mut_ptr(), self.ctx_as_ptr())}
+        unsafe { fmpz_mpoly::fmpz_mpoly_clear(self.as_mut_ptr(), self.ctx_as_ptr()) }
     }
 }
 
@@ -168,27 +173,26 @@ impl Hash for IntMPoly {
 */
 
 impl IntMPoly {
-    
-    /// Returns a pointer to the inner 
+    /// Returns a pointer to the inner
     /// [FLINT multivariate integer polynomial][fmpz_mpoly::fmpz_mpoly_struct].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz_mpoly::fmpz_mpoly_struct {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner 
+    /// Returns a mutable pointer to the inner
     /// [FLINT multivariate integer polynomial][fmpz_mpoly::fmpz_mpoly_struct].
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_mpoly::fmpz_mpoly_struct {
         &mut self.inner
     }
-    
+
     /// Returns a pointer to the [FLINT context][fmpz_mpoly::fmpz_mpoly_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fmpz_mpoly::fmpz_mpoly_ctx_struct {
         &self.ctx.0
     }
-  
+
     /// Return the parent [multivariate polynomial ring][IntMPolyRing].
     #[inline]
     pub fn parent(&self) -> IntMPolyRing {
@@ -197,34 +201,35 @@ impl IntMPoly {
             vars: Rc::clone(&self.vars),
         }
     }
-    
+
     /// Return the variables of the polynomial ring.
     #[inline]
     pub fn vars(&self) -> Vec<String> {
         self.vars.borrow().to_owned()
     }
-    
+
     /// Change the variables of the polynomial ring.
     #[inline]
     pub fn set_vars<T: AsRef<str>>(&self, vars: &[T]) {
-        self.vars.replace(vars.iter().map(|x| x.as_ref().to_owned()).collect());
+        self.vars
+            .replace(vars.iter().map(|x| x.as_ref().to_owned()).collect());
     }
-    
+
     /// Return the number of terms in the polynomial. If in canonical form, this will be the number
     /// of nonzero coefficients.
     #[inline]
     pub fn len(&self) -> i64 {
-        unsafe { fmpz_mpoly::fmpz_mpoly_length(self.as_ptr(), self.ctx_as_ptr())}
+        unsafe { fmpz_mpoly::fmpz_mpoly_length(self.as_ptr(), self.ctx_as_ptr()) }
     }
 
     #[inline]
     pub fn total_degree(&self) -> Integer {
         let mut res = Integer::default();
-        unsafe { 
+        unsafe {
             fmpz_mpoly::fmpz_mpoly_total_degree_fmpz(
-                res.as_mut_ptr(), 
+                res.as_mut_ptr(),
                 self.as_ptr(),
-                self.ctx_as_ptr()
+                self.ctx_as_ptr(),
             );
         }
         res
@@ -232,34 +237,36 @@ impl IntMPoly {
 
     /// Return the coefficient of the polynomial term with the given exponent vector.
     #[inline]
-    pub fn get_coeff<'a, T: 'a>(&self, exp_vec: &'a [T]) -> Integer where 
-        &'a T: Into<ValOrRef<'a, Integer>>
+    pub fn get_coeff<'a, T: 'a>(&self, exp_vec: &'a [T]) -> Integer
+    where
+        &'a T: Into<ValOrRef<'a, Integer>>,
     {
         let mut res = Integer::default();
         let v: Vec<_> = exp_vec.iter().map(|x| x.into().as_ptr()).collect();
         unsafe {
             fmpz_mpoly::fmpz_mpoly_get_coeff_fmpz_fmpz(
-                res.as_mut_ptr(), 
-                self.as_ptr(), 
+                res.as_mut_ptr(),
+                self.as_ptr(),
                 v.as_ptr(),
-                self.ctx_as_ptr()
+                self.ctx_as_ptr(),
             );
         }
         res
     }
-    
+
     /// Set the coefficient of the polynomial term with the given exponent vector.
     #[inline]
-    pub fn set_coeff<'a, T>(&mut self, exp_vec: &'a [T], coeff: &'a T) where
+    pub fn set_coeff<'a, T>(&mut self, exp_vec: &'a [T], coeff: &'a T)
+    where
         &'a T: Into<ValOrRef<'a, Integer>>,
     {
         let v: Vec<_> = exp_vec.iter().map(|x| x.into().as_ptr()).collect();
         unsafe {
             fmpz_mpoly::fmpz_mpoly_set_coeff_fmpz_fmpz(
-                self.as_mut_ptr(), 
+                self.as_mut_ptr(),
                 coeff.into().as_ptr(),
-                v.as_ptr(), 
-                self.ctx_as_ptr()
+                v.as_ptr(),
+                self.ctx_as_ptr(),
             );
         }
     }

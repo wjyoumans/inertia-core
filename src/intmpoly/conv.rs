@@ -15,10 +15,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::ffi::{CStr, CString};
-use flint_sys::fmpz_mpoly;
 use crate::IntMPoly;
-
+use flint_sys::fmpz_mpoly;
+use std::ffi::{CStr, CString};
 
 impl_from! {
     String, IntMPoly
@@ -28,8 +27,8 @@ impl_from! {
             let v: Vec<_> = u.iter().map(|x| x.as_ptr()).collect();
             unsafe {
                 let s = fmpz_mpoly::fmpz_mpoly_get_str_pretty(
-                    src.as_ptr(), 
-                    v.as_ptr(), 
+                    src.as_ptr(),
+                    v.as_ptr(),
                     src.ctx_as_ptr()
                 );
                 match CStr::from_ptr(s).to_str() {
@@ -104,7 +103,7 @@ impl_from! {
     {
         fn from(x: &IntModPoly) -> IntPoly {
             let mut res = IntPoly::default();
-            unsafe { 
+            unsafe {
                 flint_sys::fmpz_mod_poly::fmpz_mod_poly_get_fmpz_poly(
                     res.as_mut_ptr(),
                     x.as_ptr(),
@@ -125,8 +124,8 @@ impl_from! {
             let mut res = IntPoly::default();
             unsafe {
                 flint_sys::fq_default::fq_default_get_fmpz_poly(
-                    res.as_mut_ptr(), 
-                    x.as_ptr(), 
+                    res.as_mut_ptr(),
+                    x.as_ptr(),
                     x.ctx_as_ptr()
                 );
             }
@@ -144,7 +143,7 @@ impl_from! {
     }
 }
 
-impl<'a, T: 'a> From<&[T]> for IntPoly where 
+impl<'a, T: 'a> From<&[T]> for IntPoly where
     T: IntoValOrRef<'a, Integer> + Clone
 {
     fn from(src: &[T]) -> IntPoly {
@@ -156,7 +155,7 @@ impl<'a, T: 'a> From<&[T]> for IntPoly where
     }
 }
 
-impl<'a, T: 'a> From<Vec<T>> for IntPoly where 
+impl<'a, T: 'a> From<Vec<T>> for IntPoly where
     T: IntoValOrRef<'a, Integer> + Clone
 {
     #[inline]

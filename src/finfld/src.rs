@@ -15,13 +15,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::{IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef};
+use flint_sys::fq_default as fq;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use flint_sys::fq_default as fq;
-use crate::{IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef};
 
 #[derive(Debug)]
 pub struct FqCtx(pub fq::fq_default_ctx_struct);

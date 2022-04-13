@@ -36,6 +36,7 @@ pub mod ratpoly;
 pub mod intmpoly;
 pub mod finfld;
 pub mod intmat;
+pub mod ratmat;
 
 /// Enum holding either an owned or borrowed T. Nearly identical to [std::borrow::Cow] but we add
 /// blanket implementations of some conversions.
@@ -244,3 +245,4 @@ pub use ratpoly::*;
 pub use intmpoly::*;
 pub use finfld::*;
 pub use intmat::*;
+pub use ratmat::*;

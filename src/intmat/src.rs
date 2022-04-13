@@ -17,7 +17,7 @@
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
+use std::mem::{MaybeUninit, ManuallyDrop};
 use flint_sys::{fmpz, fmpz_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
@@ -33,11 +33,7 @@ impl Eq for IntMatSpace {}
 
 impl PartialEq for IntMatSpace {
     fn eq(&self, other: &IntMatSpace) -> bool {
-        if self.nrows() == other.nrows() && self.ncols() == other.ncols() {
-            true
-        } else {
-            false
-        }
+        self.nrows() == other.nrows() && self.ncols() == other.ncols()
     }
 }
 
@@ -196,6 +192,11 @@ impl IntMat {
             ncols: self.ncols(),
         }
     }
+    
+    #[inline]
+    pub fn base_ring(&self) -> IntegerRing {
+        IntegerRing {}
+    }
 
     /// Return the number of rows of the integer matrix.
     #[inline]
@@ -229,7 +230,16 @@ impl IntMat {
         unsafe { fmpz_mat::fmpz_mat_is_one(self.as_ptr()) != 0 }
     }
 
-    /// Get the `(i, j)`-th entry of an integer matrix.
+    /// Get a shallow copy of the `(i, j)`-th entry of the matrix. Mutating this modifies
+    /// the entry of the matrix.
+    #[inline]
+    pub fn entry_copy(&self, i: i64, j: i64) -> ManuallyDrop<Integer> {
+        unsafe {
+            ManuallyDrop::new(Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j)))
+        }
+    }
+
+    /// Get a deep copy of the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> Integer {
         let mut res = Integer::default();
@@ -240,7 +250,7 @@ impl IntMat {
         res
     }
 
-    /// Set the `(i, j)`-th entry of an integer matrix.
+    /// Set the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
     where
@@ -281,6 +291,20 @@ impl IntMat {
         for i in 0..r {
             for j in 0..c {
                 out.push(self.get_entry(i, j));
+            }
+        }
+        out
+    }
+
+    /// Get a shallow copy of the entries of the matrix.
+    pub fn entries_copy(&self) -> Vec<ManuallyDrop<Integer>> {
+        let r = self.nrows();
+        let c = self.ncols();
+        let mut out = Vec::with_capacity(usize::try_from(r * c).ok().unwrap());
+
+        for i in 0..r {
+            for j in 0..c {
+                out.push(self.entry_copy(i, j));
             }
         }
         out

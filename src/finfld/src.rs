@@ -24,7 +24,7 @@ use flint_sys::fq_default as fq;
 use crate::{IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef};
 
 #[derive(Debug)]
-pub struct FqCtx(fq::fq_default_ctx_struct);
+pub struct FqCtx(pub fq::fq_default_ctx_struct);
 
 impl Drop for FqCtx {
     fn drop(&mut self) {
@@ -36,7 +36,7 @@ impl Drop for FqCtx {
 
 #[derive(Clone, Debug)]
 pub struct FiniteField {
-    ctx: Rc<FqCtx>,
+    pub ctx: Rc<FqCtx>,
 }
 
 impl Eq for FiniteField {}

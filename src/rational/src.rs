@@ -123,6 +123,12 @@ impl Rational {
     pub fn as_mut_ptr(&mut self) -> *mut fmpq::fmpq {
         &mut self.inner
     }
+    
+    /// Instantiate an `Rational` from a [FLINT rational][fmpq::fmpq].
+    #[inline]
+    pub fn from_raw(raw: fmpq::fmpq) -> Rational {
+        Rational { inner: raw }
+    }
 
     /// Returns the numerator of a rational number as an [Integer].
     ///

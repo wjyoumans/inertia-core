@@ -18,9 +18,9 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
+use std::mem::{MaybeUninit, ManuallyDrop};
 use std::rc::Rc;
-use flint_sys::{fmpz_mod, fmpz_mod_poly};
+use flint_sys::{fmpz, fmpz_mod, fmpz_mod_poly};
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use crate::{FmpzModCtx, IntMod, IntModRing, IntPoly, Integer, ValOrRef};
@@ -35,7 +35,7 @@ impl Eq for IntModPolyRing {}
 
 impl PartialEq for IntModPolyRing {
     fn eq(&self, rhs: &IntModPolyRing) -> bool {
-        Rc::ptr_eq(&self.ctx, &rhs.ctx) || self.modulus() == rhs.modulus()
+        self.base_ring() == rhs.base_ring()
     }
 }
 
@@ -64,6 +64,12 @@ impl IntModPolyRing {
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
+    }
+    
+    /// Returns a pointer to the modulus as a [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub fn modulus_as_ptr(&self) -> &fmpz::fmpz {
+        unsafe { &*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()) }
     }
 
     #[inline]
@@ -131,9 +137,25 @@ impl IntModPolyRing {
         }
     }
 
+    /// Return the modulus of the ring.
     #[inline]
     pub fn modulus(&self) -> Integer {
-        self.base_ring().modulus()
+        let mut res = Integer::default();
+        unsafe {
+            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
+            fmpz::fmpz_set(res.as_mut_ptr(), n);
+        }
+        res
+    }
+    
+    /// Return a shallow copy of the modulus of the ring. Mutating this will mutate the modulus of
+    /// the underlying context and the behavior will be undefined. Use [set_modulus] if you want to 
+    /// update the modulus.
+    #[inline]
+    pub fn modulus_copy(&self) -> ManuallyDrop<Integer> {
+        unsafe {
+            ManuallyDrop::new(Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr())))
+        }
     }
 }
 
@@ -197,6 +219,12 @@ impl IntModPoly {
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
     }
+    
+    /// Returns a pointer to the modulus as a [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub fn modulus_as_ptr(&self) -> &fmpz::fmpz {
+        unsafe { &*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()) }
+    }
 
     /// Return the parent [ring of polynomials with integer coefficients][IntPolyRing].
     #[inline]
@@ -214,9 +242,25 @@ impl IntModPoly {
         }
     }
 
+    /// Return the modulus of the ring.
     #[inline]
     pub fn modulus(&self) -> Integer {
-        self.base_ring().modulus()
+        let mut res = Integer::default();
+        unsafe {
+            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
+            fmpz::fmpz_set(res.as_mut_ptr(), n);
+        }
+        res
+    }
+    
+    /// Return a shallow copy of the modulus of the ring. Mutating this will mutate the modulus of
+    /// the underlying context and the behavior will be undefined. Use [set_modulus] if you want to 
+    /// update the modulus.
+    #[inline]
+    pub fn modulus_copy(&self) -> ManuallyDrop<Integer> {
+        unsafe {
+            ManuallyDrop::new(Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr())))
+        }
     }
 
     /// Return the variable of the polynomial as a string.

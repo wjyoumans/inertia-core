@@ -17,11 +17,11 @@
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
+use std::mem::{MaybeUninit, ManuallyDrop};
 use flint_sys::{fmpq, fmpq_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
-use crate::{ops::Assign, Integer, IntegerRing, Rational, RationalField, ValOrRef};
+use crate::{ops::Assign, Integer, Rational, RationalField, ValOrRef};
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RatMatSpace {
@@ -33,11 +33,7 @@ impl Eq for RatMatSpace {}
 
 impl PartialEq for RatMatSpace {
     fn eq(&self, other: &RatMatSpace) -> bool {
-        if self.nrows() == other.nrows() && self.ncols() == other.ncols() {
-            true
-        } else {
-            false
-        }
+        self.nrows() == other.nrows() && self.ncols() == other.ncols()
     }
 }
 
@@ -198,6 +194,11 @@ impl RatMat {
             ncols: self.ncols(),
         }
     }
+    
+    #[inline]
+    pub fn base_ring(&self) -> RationalField {
+        RationalField {}
+    }
 
     /// Return the number of rows of the matrix.
     #[inline]
@@ -230,8 +231,17 @@ impl RatMat {
     pub fn is_one(&self) -> bool {
         unsafe { fmpq_mat::fmpq_mat_is_one(self.as_ptr()) != 0 }
     }
+    
+    /// Get a shallow copy of the `(i, j)`-th entry of the matrix. Mutating this modifies
+    /// the entry of the matrix.
+    #[inline]
+    pub fn entry_copy(&self, i: i64, j: i64) -> ManuallyDrop<Rational> {
+        unsafe {
+            ManuallyDrop::new(Rational::from_raw(*fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j)))
+        }
+    }
 
-    /// Get the `(i, j)`-th entry of a rational matrix.
+    /// Get a deep copy of the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> Rational {
         let mut res = Rational::default();
@@ -242,7 +252,7 @@ impl RatMat {
         res
     }
 
-    /// Set the `(i, j)`-th entry of a rational matrix.
+    /// Set the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
     where
@@ -254,6 +264,7 @@ impl RatMat {
         }
     }
 
+    /// Get a deep copy of the entries of the matrix.
     pub fn entries(&self) -> Vec<Rational> {
         let r = self.nrows();
         let c = self.ncols();
@@ -262,6 +273,20 @@ impl RatMat {
         for i in 0..r {
             for j in 0..c {
                 out.push(self.get_entry(i, j));
+            }
+        }
+        out
+    }
+
+    /// Get a shallow copy of the entries of the matrix.
+    pub fn entries_copy(&self) -> Vec<ManuallyDrop<Rational>> {
+        let r = self.nrows();
+        let c = self.ncols();
+        let mut out = Vec::with_capacity(usize::try_from(r * c).ok().unwrap());
+
+        for i in 0..r {
+            for j in 0..c {
+                out.push(self.entry_copy(i, j));
             }
         }
         out

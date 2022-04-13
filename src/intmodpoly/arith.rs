@@ -27,13 +27,16 @@ impl_cmp! {
     IntModPoly
     {
         fn eq(&self, rhs: &IntModPoly) -> bool {
-            assert_eq!(self.parent(), rhs.parent());
-            unsafe {
-                fmpz_mod_poly::fmpz_mod_poly_equal(
-                    self.as_ptr(),
-                    rhs.as_ptr(),
-                    self.ctx_as_ptr()
-                ) != 0
+            if self.parent() == rhs.parent() {
+                unsafe {
+                    fmpz_mod_poly::fmpz_mod_poly_equal(
+                        self.as_ptr(),
+                        rhs.as_ptr(),
+                        self.ctx_as_ptr()
+                    ) != 0
+                }
+            } else {
+                false
             }
         }
     }
@@ -44,8 +47,7 @@ impl_cmp! {
     IntModPoly, IntMod
     {
         fn eq(&self, rhs: &IntMod) -> bool {
-            assert_eq!(self.modulus(), rhs.modulus());
-            self.degree() == 0 && self.get_coeff(0) == rhs
+            self.base_ring() == rhs.parent() && self.degree() == 0 && self.get_coeff(0) == rhs
         }
     }
 }

@@ -23,6 +23,7 @@
 //! [FLINT](https://flintlib.org/doc/), [Arb](https://arblib.org/), and
 //! [Antic](https://github.com/wbhart/antic) C libraries.
 use std::borrow::Borrow;
+use std::rc::{Rc, Weak};
 
 #[macro_use]
 pub mod macros;
@@ -30,13 +31,20 @@ pub mod macros;
 pub mod integer;
 pub mod intmod;
 pub mod intmodpoly;
+pub mod intmodmat;
 pub mod intpoly;
 pub mod rational;
 pub mod ratpoly;
 pub mod intmpoly;
 pub mod finfld;
+pub mod finfldmat;
 pub mod intmat;
 pub mod ratmat;
+
+pub enum RcPtr<T> {
+    Strong(Rc<T>),
+    Weak(Weak<T>)
+}
 
 /// Enum holding either an owned or borrowed T. Nearly identical to [std::borrow::Cow] but we add
 /// blanket implementations of some conversions.
@@ -238,11 +246,13 @@ pub mod ops {
 pub use integer::*;
 pub use intmod::*;
 pub use intmodpoly::*;
+pub use intmodmat::*;
 pub use intpoly::*;
 pub use ops::*;
 pub use rational::*;
 pub use ratpoly::*;
 pub use intmpoly::*;
 pub use finfld::*;
+pub use finfldmat::*;
 pub use intmat::*;
 pub use ratmat::*;

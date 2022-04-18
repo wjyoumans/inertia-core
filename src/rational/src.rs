@@ -124,10 +124,15 @@ impl Rational {
         &mut self.inner
     }
 
-    /// Instantiate an `Rational` from a [FLINT rational][fmpq::fmpq].
+    /// Instantiate a rational from a [FLINT rational][fmpq::fmpq].
     #[inline]
     pub fn from_raw(raw: fmpq::fmpq) -> Rational {
         Rational { inner: raw }
+    }
+    
+    #[inline]
+    pub fn new<T: Into<Rational>>(x: T) -> Rational {
+        x.into()
     }
 
     /// Returns the numerator of a rational number as an [Integer].

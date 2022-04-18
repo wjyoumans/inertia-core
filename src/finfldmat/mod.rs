@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Matrices over integers mod n.
+//! Matrices over a finite field.
 
 /// Definition and general implementation.
 mod src;

@@ -21,7 +21,7 @@ use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeTuple, Serializer};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::mem::MaybeUninit;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl PartialEq for IntModRing {
         if Rc::ptr_eq(&self.ctx, &rhs.ctx) {
             true
         } else {
-            unsafe { fmpz::fmpz_equal(self.modulus_as_ptr(), rhs.modulus_as_ptr()) == 1 }
+            unsafe { fmpz::fmpz_equal(self.modulus().as_ptr(), rhs.modulus().as_ptr()) == 1 }
         }
     }
 }
@@ -55,13 +55,13 @@ impl PartialEq for IntModRing {
 impl fmt::Display for IntModRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ring of integers mod {}", *self.modulus_copy())
+        write!(f, "Ring of integers mod {}", self.modulus())
     }
 }
 
 impl Hash for IntModRing {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.modulus_copy().hash(state)
+        self.modulus().hash(state)
     }
 }
 
@@ -70,12 +70,6 @@ impl IntModRing {
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
-    }
-
-    /// Returns a pointer to the modulus as a [FLINT integer][fmpz::fmpz].
-    #[inline]
-    pub fn modulus_as_ptr(&self) -> &fmpz::fmpz {
-        unsafe { &*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()) }
     }
 
     #[inline]
@@ -120,24 +114,13 @@ impl IntModRing {
     /// Return the modulus of the ring.
     #[inline]
     pub fn modulus(&self) -> Integer {
-        let mut res = Integer::default();
+        //let mut res = Integer::default();
         unsafe {
             let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
-            fmpz::fmpz_set(res.as_mut_ptr(), n);
+            //fmpz::fmpz_set(res.as_mut_ptr(), n);
+            Integer::from_raw(*n)
         }
-        res
-    }
-
-    /// Return a shallow copy of the modulus of the ring. Mutating this will mutate the modulus of
-    /// the underlying context and the behavior will be undefined. Use [set_modulus] if you want to
-    /// update the modulus.
-    #[inline]
-    pub fn modulus_copy(&self) -> ManuallyDrop<Integer> {
-        unsafe {
-            ManuallyDrop::new(Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(
-                self.ctx_as_ptr(),
-            )))
-        }
+        //res
     }
 }
 
@@ -194,11 +177,14 @@ impl IntMod {
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
     }
-
-    /// Returns a pointer to the modulus as a [FLINT integer][fmpz::fmpz].
+    
+    /// Return the modulus of the ring.
     #[inline]
-    pub fn modulus_as_ptr(&self) -> &fmpz::fmpz {
-        unsafe { &*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()) }
+    pub fn modulus(&self) -> Integer {
+        unsafe {
+            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
+            Integer::from_raw(*n)
+        }
     }
 
     /// Return the parent [ring of integers mod `n`][IntModRing].
@@ -206,29 +192,6 @@ impl IntMod {
     pub fn parent(&self) -> IntModRing {
         IntModRing {
             ctx: Rc::clone(&self.ctx),
-        }
-    }
-
-    /// Return the modulus of the ring.
-    #[inline]
-    pub fn modulus(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
-            fmpz::fmpz_set(res.as_mut_ptr(), n);
-        }
-        res
-    }
-
-    /// Return a shallow copy of the modulus of the ring. Mutating this will mutate the modulus of
-    /// the underlying context and the behavior will be undefined. Use [set_modulus] if you want to
-    /// update the modulus.
-    #[inline]
-    pub fn modulus_copy(&self) -> ManuallyDrop<Integer> {
-        unsafe {
-            ManuallyDrop::new(Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(
-                self.ctx_as_ptr(),
-            )))
         }
     }
 }

@@ -39,7 +39,7 @@ impl_from! {
     IntModPoly, FinFldElem
     {
         fn from(x: &FinFldElem) -> IntModPoly {
-            let zp = IntModPolyRing::init(x.prime(), "x");
+            let zp = IntModPolyRing::init(x.parent().prime(), "x");
             let mut res = zp.default();
             unsafe {
                 flint_sys::fq_default::fq_default_get_fmpz_mod_poly(

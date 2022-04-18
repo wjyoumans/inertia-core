@@ -25,7 +25,14 @@ use std::rc::Rc;
 //use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 //use serde::ser::{Serialize, SerializeSeq, Serializer};
 use crate::{
-    ops::Assign, FinFldElem, FiniteField, FqCtx, IntModPoly, IntModPolyRing, IntPoly, Integer,
+    ops::Assign, 
+    FqCtx, 
+    FinFldElem, 
+    FiniteField, 
+    Integer,
+    IntModPoly,
+    IntModPolyRing,
+    IntPoly, 
     ValOrRef,
 };
 
@@ -46,7 +53,6 @@ impl PartialEq for FinFldMatSpace {
     }
 }
 
-/*
 impl fmt::Display for FinFldMatSpace {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -58,7 +64,7 @@ impl fmt::Display for FinFldMatSpace {
             self.base_ring()
         )
     }
-}*/
+}
 
 impl Hash for FinFldMatSpace {
     #[inline]
@@ -78,7 +84,7 @@ impl FinFldMatSpace {
 
     /// Initialize the space of matrices with the given number of rows and columns.
     #[inline]
-    pub fn init<'a, P, K>(nrows: i64, ncols: i64, p: P, k: K) -> Self
+    pub fn init<'a, P, K>(p: P, k: K, nrows: i64, ncols: i64) -> Self
     where
         P: Into<ValOrRef<'a, Integer>>,
         K: TryInto<i64>,
@@ -89,13 +95,13 @@ impl FinFldMatSpace {
                 assert!(p.is_prime());
                 assert!(k > 0);
 
-                Self::init_unchecked(nrows, ncols, p, k)
+                Self::init_unchecked(p, k, nrows, ncols)
             }
             Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
     }
 
-    pub fn init_unchecked<'a, P, K>(nrows: i64, ncols: i64, p: P, k: K) -> Self
+    pub fn init_unchecked<'a, P, K>(p: P, k: K, nrows: i64, ncols: i64) -> Self
     where
         P: Into<ValOrRef<'a, Integer>>,
         K: TryInto<i64>,
@@ -115,6 +121,16 @@ impl FinFldMatSpace {
             }
             Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
+    }
+    
+    #[inline]
+    pub fn modulus(&self) -> IntModPoly {
+        let zp = IntModPolyRing::init(self.base_ring().prime(), "x");
+        let mut res = zp.default();
+        unsafe {
+            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr());
+        }
+        res
     }
 
     #[inline]
@@ -171,39 +187,6 @@ impl FinFldMatSpace {
         FiniteField {
             ctx: Rc::clone(&self.ctx),
         }
-    }
-
-    #[inline]
-    pub fn modulus(&self) -> IntModPoly {
-        let zp = IntModPolyRing::init(self.prime(), "x");
-        let mut res = zp.default();
-        unsafe {
-            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
-    }
-
-    #[inline]
-    pub fn prime(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            fq::fq_default_ctx_prime(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
-    }
-
-    #[inline]
-    pub fn degree(&self) -> i64 {
-        unsafe { fq::fq_default_ctx_degree(self.ctx_as_ptr()) }
-    }
-
-    #[inline]
-    pub fn order(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            fq::fq_default_ctx_order(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
     }
 }
 
@@ -279,6 +262,16 @@ impl FinFldMat {
     pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
         &self.ctx.0
     }
+    
+    #[inline]
+    pub fn modulus(&self) -> IntModPoly {
+        let zp = IntModPolyRing::init(self.base_ring().prime(), "x");
+        let mut res = zp.default();
+        unsafe {
+            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr());
+        }
+        res
+    }
 
     #[inline]
     pub fn parent(&self) -> FinFldMatSpace {
@@ -306,39 +299,6 @@ impl FinFldMat {
     #[inline]
     pub fn ncols(&self) -> i64 {
         unsafe { fq_mat::fq_default_mat_ncols(self.as_ptr(), self.ctx_as_ptr()) }
-    }
-
-    #[inline]
-    pub fn modulus(&self) -> IntModPoly {
-        let zp = IntModPolyRing::init(self.prime(), "x");
-        let mut res = zp.default();
-        unsafe {
-            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
-    }
-
-    #[inline]
-    pub fn prime(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            fq::fq_default_ctx_prime(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
-    }
-
-    #[inline]
-    pub fn degree(&self) -> i64 {
-        unsafe { fq::fq_default_ctx_degree(self.ctx_as_ptr()) }
-    }
-
-    #[inline]
-    pub fn order(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            fq::fq_default_ctx_order(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
     }
 
     #[inline]

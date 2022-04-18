@@ -20,7 +20,6 @@ use flint_sys::fmpz_poly;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::cell::RefCell;
-use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
@@ -186,6 +185,13 @@ impl IntPoly {
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_poly::fmpz_poly_struct {
         &mut self.inner
     }
+    
+    /// Instantiate an integer polynomial from a 
+    /// [FLINT integer polynomial][fmpz_poly::fmpz_poly_struct].
+    #[inline]
+    pub fn from_raw(raw: fmpz_poly::fmpz_poly_struct, var: &str) -> IntPoly {
+        IntPoly { inner: raw, var: Rc::new(RefCell::new(var.to_string())) }
+    }
 
     /// Return the parent [ring of polynomials with integer coefficients][IntPolyRing].
     #[inline]
@@ -209,18 +215,6 @@ impl IntPoly {
     #[inline]
     pub fn set_var<T: AsRef<str>>(&self, var: T) {
         self.var.replace(var.as_ref().to_string());
-    }
-
-    /// Return a pretty-printed string representation of an integer polynomial.
-    pub fn get_str_pretty(&self) -> String {
-        let v = CString::new(self.var()).unwrap();
-        unsafe {
-            let s = fmpz_poly::fmpz_poly_get_str_pretty(self.as_ptr(), v.as_ptr());
-            match CStr::from_ptr(s).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(_) => panic!("Flint returned invalid UTF-8!"),
-            }
-        }
     }
 
     #[inline]

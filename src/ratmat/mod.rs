@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Rational matrices.
+//! Matrices with rational entries.
 
 /// Definition and general implementation.
 mod src;

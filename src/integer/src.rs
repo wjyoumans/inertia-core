@@ -75,7 +75,7 @@ impl IntegerRing {
         Integer::default()
     }
 
-    /// Initialize an `Integer` from an integer ring.
+    /// Initialize an Integer from an integer ring.
     ///
     /// ```
     /// use inertia_core::IntegerRing;
@@ -158,6 +158,33 @@ impl Hash for Integer {
 }
 
 impl Integer {
+    /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub const fn as_ptr(&self) -> *const fmpz::fmpz {
+        &self.inner
+    }
+
+    /// Returns a mutable pointer to the inner [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub fn as_mut_ptr(&mut self) -> *mut fmpz::fmpz {
+        &mut self.inner
+    }
+
+    /// Instantiate an Integer from a [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub fn from_raw(raw: fmpz::fmpz) -> Integer {
+        Integer { inner: raw }
+    }
+
+    /// Initialize a new Integer.
+    #[inline]
+    pub fn new<T>(x: T) -> Integer 
+    where
+        T: Into<Integer>,
+    {
+        x.into()
+    }
+    
     /// Initialize a new `Integer` with the given number of limbs.
     ///
     /// ```
@@ -175,24 +202,6 @@ impl Integer {
                 inner: z.assume_init(),
             }
         }
-    }
-
-    /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
-    #[inline]
-    pub const fn as_ptr(&self) -> *const fmpz::fmpz {
-        &self.inner
-    }
-
-    /// Returns a mutable pointer to the inner [FLINT integer][fmpz::fmpz].
-    #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut fmpz::fmpz {
-        &mut self.inner
-    }
-
-    /// Instantiate an `Integer` from a [FLINT integer][fmpz::fmpz].
-    #[inline]
-    pub fn from_raw(raw: fmpz::fmpz) -> Integer {
-        Integer { inner: raw }
     }
 
     /// Convert the `Integer` to a string in base `base`.

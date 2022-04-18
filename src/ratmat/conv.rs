@@ -71,7 +71,7 @@ where
         let m = mat.len() as i64;
         let n = mat.first().unwrap_or(&vec![].as_slice()).len() as i64;
 
-        let mut res = RatMat::new(m, n);
+        let mut res = RatMat::default(m, n);
         if m == 0 || n == 0 {
             res
         } else {
@@ -103,7 +103,7 @@ where
         let m = mat.len() as i64;
         let n = mat.first().unwrap_or(&vec![]).len() as i64;
 
-        let mut res = RatMat::new(m, n);
+        let mut res = RatMat::default(m, n);
         if m == 0 || n == 0 {
             res
         } else {

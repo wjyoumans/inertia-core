@@ -23,11 +23,6 @@ pub use src::*;
 
 /// Conversions.
 pub mod conv;
-/*
-/// Comparisons and equality.
-pub mod cmp;
-*/
-/*
+
 /// Arithmetic operations.
 pub mod arith;
-*/

@@ -27,16 +27,12 @@ impl_cmp! {
     IntModPoly
     {
         fn eq(&self, rhs: &IntModPoly) -> bool {
-            if self.parent() == rhs.parent() {
-                unsafe {
-                    fmpz_mod_poly::fmpz_mod_poly_equal(
-                        self.as_ptr(),
-                        rhs.as_ptr(),
-                        self.ctx_as_ptr()
-                    ) != 0
-                }
-            } else {
-                false
+            unsafe {
+                self.parent() == rhs.parent() && fmpz_mod_poly::fmpz_mod_poly_equal(
+                    self.as_ptr(),
+                    rhs.as_ptr(),
+                    self.ctx_as_ptr()
+                ) != 0
             }
         }
     }

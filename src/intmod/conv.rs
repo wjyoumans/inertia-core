@@ -30,7 +30,7 @@ impl_from! {
     String, IntMod
     {
         fn from(x: &IntMod) -> String {
-            String::from(Integer::from(x))
+            String::from(Integer::from(x) % x.modulus())
         }
     }
 }

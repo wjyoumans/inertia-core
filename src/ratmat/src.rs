@@ -15,13 +15,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{ops::Assign, Integer, Rational, RationalField, ValOrRef};
+use crate::{ops::Assign, Rational, RationalField, ValOrRef};
 use flint_sys::{fmpq, fmpq_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::mem::MaybeUninit;
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RatMatSpace {
@@ -68,7 +68,7 @@ impl RatMatSpace {
 
     #[inline]
     pub fn default(&self) -> RatMat {
-        RatMat::new(self.nrows, self.ncols)
+        RatMat::default(self.nrows, self.ncols)
     }
 
     #[inline]
@@ -175,9 +175,15 @@ impl RatMat {
     pub fn as_mut_ptr(&mut self) -> *mut fmpq_mat::fmpq_mat_struct {
         &mut self.inner
     }
+    
+    /// Instantiate a rational matrix from a [FLINT rational matrix][fmpq_mat::fmpq_mat_struct].
+    #[inline]
+    pub fn from_raw(raw: fmpq_mat::fmpq_mat_struct) -> RatMat {
+        RatMat { inner: raw }
+    }
 
     #[inline]
-    pub fn new(nrows: i64, ncols: i64) -> RatMat {
+    pub fn default(nrows: i64, ncols: i64) -> RatMat {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpq_mat::fmpq_mat_init(z.as_mut_ptr(), nrows, ncols);
@@ -232,28 +238,12 @@ impl RatMat {
         unsafe { fmpq_mat::fmpq_mat_is_one(self.as_ptr()) != 0 }
     }
 
-    /// Get a shallow copy of the `(i, j)`-th entry of the matrix. Mutating this modifies
-    /// the entry of the matrix.
-    #[inline]
-    pub fn entry_copy(&self, i: i64, j: i64) -> ManuallyDrop<Rational> {
-        unsafe {
-            ManuallyDrop::new(Rational::from_raw(*fmpq_mat::fmpq_mat_entry(
-                self.as_ptr(),
-                i,
-                j,
-            )))
-        }
-    }
-
-    /// Get a deep copy of the `(i, j)`-th entry of the matrix.
+    /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> Rational {
-        let mut res = Rational::default();
         unsafe {
-            let x = fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j);
-            fmpq::fmpq_set(res.as_mut_ptr(), x);
+            Rational::from_raw(*fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j))
         }
-        res
     }
 
     /// Set the `(i, j)`-th entry of the matrix.
@@ -268,7 +258,7 @@ impl RatMat {
         }
     }
 
-    /// Get a deep copy of the entries of the matrix.
+    /// Get a vector with all of the entries of the matrix.
     pub fn entries(&self) -> Vec<Rational> {
         let r = self.nrows();
         let c = self.ncols();
@@ -277,20 +267,6 @@ impl RatMat {
         for i in 0..r {
             for j in 0..c {
                 out.push(self.get_entry(i, j));
-            }
-        }
-        out
-    }
-
-    /// Get a shallow copy of the entries of the matrix.
-    pub fn entries_copy(&self) -> Vec<ManuallyDrop<Rational>> {
-        let r = self.nrows();
-        let c = self.ncols();
-        let mut out = Vec::with_capacity(usize::try_from(r * c).ok().unwrap());
-
-        for i in 0..r {
-            for j in 0..c {
-                out.push(self.entry_copy(i, j));
             }
         }
         out
@@ -333,7 +309,7 @@ impl<'de> Visitor<'de> for RatMatVisitor {
     where
         A: SeqAccess<'de>,
     {
-        let mut entries: Vec<Integer> = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        let mut entries: Vec<Rational> = Vec::with_capacity(access.size_hint().unwrap_or(0));
         let nrows = access.next_element()?.unwrap();
         let ncols = access.next_element()?.unwrap();
 

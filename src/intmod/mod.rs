@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! The ring of integers modulo `n`.
+//! The ring of integers modulo n.
 
 /// Definition and general implementation.
 mod src;

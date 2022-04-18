@@ -15,7 +15,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{IntMat, Integer, ValOrRef};
+use flint_sys::fmpz_mat;
+use crate::{IntMat, Integer, IntModMat, ValOrRef};
+use std::mem::MaybeUninit;
 
 impl<'a, T> From<T> for ValOrRef<'a, IntMat>
 where
@@ -26,22 +28,41 @@ where
     }
 }
 
-/*
 impl_from! {
     IntMat, IntModMat
     {
         fn from(x: &IntModMat) -> IntMat {
-            IntMat { data: x.data.mat[0].clone() }
+            unsafe {
+                let mut z = MaybeUninit::uninit();
+                fmpz_mat::fmpz_mat_init_set(z.as_mut_ptr(), &(*x.as_ptr()).mat[0]);
+                IntMat::from_raw(z.assume_init())
+            }
         }
     }
 }
-*/
 
 impl_from! {
     String, IntMat
     {
         fn from(x: &IntMat) -> String {
-            x.get_str_pretty()
+            let r = x.nrows();
+            let c = x.ncols();
+            let mut out = Vec::with_capacity(usize::try_from(r).ok().unwrap());
+
+            for i in 0..r {
+                let mut row = Vec::with_capacity(usize::try_from(c).ok().unwrap() + 2);
+                row.push("[".to_string());
+                for j in 0..c {
+                    row.push(format!(" {} ", x.get_entry(i, j)));
+                }
+                if i == r - 1 {
+                    row.push("]".to_string());
+                } else {
+                    row.push("]\n".to_string());
+                }
+                out.push(row.join(""));
+            }
+            out.join("")
         }
     }
 }
@@ -54,7 +75,7 @@ where
         let m = mat.len() as i64;
         let n = mat.first().unwrap_or(&vec![].as_slice()).len() as i64;
 
-        let mut res = IntMat::new(m, n);
+        let mut res = IntMat::default(m, n);
         if m == 0 || n == 0 {
             res
         } else {
@@ -86,7 +107,7 @@ where
         let m = mat.len() as i64;
         let n = mat.first().unwrap_or(&vec![]).len() as i64;
 
-        let mut res = IntMat::new(m, n);
+        let mut res = IntMat::default(m, n);
         if m == 0 || n == 0 {
             res
         } else {

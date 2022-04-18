@@ -21,7 +21,7 @@ use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::mem::MaybeUninit;
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct IntMatSpace {
@@ -66,7 +66,7 @@ impl IntMatSpace {
 
     #[inline]
     pub fn default(&self) -> IntMat {
-        IntMat::new(self.nrows, self.ncols)
+        IntMat::default(self.nrows, self.ncols)
     }
 
     #[inline]
@@ -173,9 +173,15 @@ impl IntMat {
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_mat::fmpz_mat_struct {
         &mut self.inner
     }
+    
+    /// Instantiate an integer matrix from a [FLINT integer matrix][fmpz_mat::fmpz_mat_struct].
+    #[inline]
+    pub fn from_raw(raw: fmpz_mat::fmpz_mat_struct) -> IntMat {
+        IntMat { inner: raw }
+    }
 
     #[inline]
-    pub fn new(nrows: i64, ncols: i64) -> IntMat {
+    pub fn default(nrows: i64, ncols: i64) -> IntMat {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz_mat::fmpz_mat_init(z.as_mut_ptr(), nrows, ncols);
@@ -230,28 +236,12 @@ impl IntMat {
         unsafe { fmpz_mat::fmpz_mat_is_one(self.as_ptr()) != 0 }
     }
 
-    /// Get a shallow copy of the `(i, j)`-th entry of the matrix. Mutating this modifies
-    /// the entry of the matrix.
-    #[inline]
-    pub fn entry_copy(&self, i: i64, j: i64) -> ManuallyDrop<Integer> {
-        unsafe {
-            ManuallyDrop::new(Integer::from_raw(*fmpz_mat::fmpz_mat_entry(
-                self.as_ptr(),
-                i,
-                j,
-            )))
-        }
-    }
-
-    /// Get a deep copy of the `(i, j)`-th entry of the matrix.
+    /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> Integer {
-        let mut res = Integer::default();
         unsafe {
-            let x = fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j);
-            fmpz::fmpz_set(res.as_mut_ptr(), x);
+            Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j))
         }
-        res
     }
 
     /// Set the `(i, j)`-th entry of the matrix.
@@ -266,27 +256,7 @@ impl IntMat {
         }
     }
 
-    pub fn get_str_pretty(&self) -> String {
-        let r = self.nrows();
-        let c = self.ncols();
-        let mut out = Vec::with_capacity(usize::try_from(r).ok().unwrap());
-
-        for i in 0..r {
-            let mut row = Vec::with_capacity(usize::try_from(c).ok().unwrap() + 2);
-            row.push("[".to_string());
-            for j in 0..c {
-                row.push(format!(" {} ", self.get_entry(i, j)));
-            }
-            if i == r - 1 {
-                row.push("]".to_string());
-            } else {
-                row.push("]\n".to_string());
-            }
-            out.push(row.join(""));
-        }
-        out.join("")
-    }
-
+    /// Get a vector with all of the entries of the matrix.
     pub fn entries(&self) -> Vec<Integer> {
         let r = self.nrows();
         let c = self.ncols();
@@ -295,20 +265,6 @@ impl IntMat {
         for i in 0..r {
             for j in 0..c {
                 out.push(self.get_entry(i, j));
-            }
-        }
-        out
-    }
-
-    /// Get a shallow copy of the entries of the matrix.
-    pub fn entries_copy(&self) -> Vec<ManuallyDrop<Integer>> {
-        let r = self.nrows();
-        let c = self.ncols();
-        let mut out = Vec::with_capacity(usize::try_from(r * c).ok().unwrap());
-
-        for i in 0..r {
-            for j in 0..c {
-                out.push(self.entry_copy(i, j));
             }
         }
         out

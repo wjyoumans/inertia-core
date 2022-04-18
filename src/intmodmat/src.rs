@@ -15,10 +15,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use flint_sys::{fmpz, fmpz_mod, fmpz_mod_mat};
+use flint_sys::{fmpz_mod, fmpz_mat, fmpz_mod_mat};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::mem::MaybeUninit;
 use std::rc::Rc;
 //use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 //use serde::ser::{Serialize, SerializeSeq, Serializer};
@@ -70,10 +70,13 @@ impl IntModMatSpace {
         &self.ctx.0
     }
 
-    /// Returns a pointer to the modulus as a [FLINT integer][fmpz::fmpz].
+    /// Return the modulus of the ring.
     #[inline]
-    pub fn modulus_as_ptr(&self) -> &fmpz::fmpz {
-        unsafe { &*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()) }
+    pub fn modulus(&self) -> Integer {
+        unsafe {
+            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
+            Integer::from_raw(*n)
+        }
     }
 
     /// Initialize the space of matrices with the given number of rows and columns.
@@ -101,7 +104,7 @@ impl IntModMatSpace {
                 z.as_mut_ptr(),
                 self.nrows(),
                 self.ncols(),
-                self.modulus_as_ptr(),
+                self.modulus().as_ptr(),
             );
             IntModMat {
                 inner: z.assume_init(),
@@ -146,29 +149,6 @@ impl IntModMatSpace {
     pub fn base_ring(&self) -> IntModRing {
         IntModRing {
             ctx: Rc::clone(&self.ctx),
-        }
-    }
-
-    /// Return the modulus of the ring.
-    #[inline]
-    pub fn modulus(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
-            fmpz::fmpz_set(res.as_mut_ptr(), n);
-        }
-        res
-    }
-
-    /// Return a shallow copy of the modulus of the ring. Mutating this will mutate the modulus of
-    /// the underlying context and the behavior will be undefined. Use [set_modulus] if you want to
-    /// update the modulus.
-    #[inline]
-    pub fn modulus_copy(&self) -> ManuallyDrop<Integer> {
-        unsafe {
-            ManuallyDrop::new(Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(
-                self.ctx_as_ptr(),
-            )))
         }
     }
 }
@@ -245,11 +225,36 @@ impl IntModMat {
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
     }
-
-    /// Returns a pointer to the modulus as a [FLINT integer][fmpz::fmpz].
+    
+    /// Return the modulus of the ring.
     #[inline]
-    pub fn modulus_as_ptr(&self) -> &fmpz::fmpz {
-        unsafe { &*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()) }
+    pub fn modulus(&self) -> Integer {
+        unsafe {
+            Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()))
+        }
+    }
+    
+    #[inline]
+    pub fn default<'a, T>(nrows: i64, ncols: i64, n: T) -> IntModMat 
+    where
+        T: Into<ValOrRef<'a, Integer>>
+    {
+        let mut ctx = MaybeUninit::uninit();
+        let mut z = MaybeUninit::uninit();
+        let m = n.into();
+        unsafe {
+            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), m.as_ptr());
+            fmpz_mod_mat::fmpz_mod_mat_init(
+                z.as_mut_ptr(),
+                nrows,
+                ncols,
+                m.as_ptr(),
+            );
+            IntModMat {
+                inner: z.assume_init(),
+                ctx: Rc::new(FmpzModCtx(ctx.assume_init())),
+            }
+        }
     }
 
     #[inline]
@@ -280,29 +285,6 @@ impl IntModMat {
         unsafe { fmpz_mod_mat::fmpz_mod_mat_ncols(self.as_ptr()) }
     }
 
-    /// Return the modulus of the ring.
-    #[inline]
-    pub fn modulus(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            let n = fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr());
-            fmpz::fmpz_set(res.as_mut_ptr(), n);
-        }
-        res
-    }
-
-    /// Return a shallow copy of the modulus of the ring. Mutating this will mutate the modulus of
-    /// the underlying context and the behavior will be undefined. Use [set_modulus] if you want to
-    /// update the modulus.
-    #[inline]
-    pub fn modulus_copy(&self) -> ManuallyDrop<Integer> {
-        unsafe {
-            ManuallyDrop::new(Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(
-                self.ctx_as_ptr(),
-            )))
-        }
-    }
-
     #[inline]
     pub fn is_empty(&self) -> bool {
         unsafe { fmpz_mod_mat::fmpz_mod_mat_is_empty(self.as_ptr()) != 0 }
@@ -318,33 +300,18 @@ impl IntModMat {
         unsafe { fmpz_mod_mat::fmpz_mod_mat_is_zero(self.as_ptr()) != 0 }
     }
 
-    /*
     #[inline]
     pub fn is_one(&self) -> bool {
-        unsafe { fmpz_mod_mat::fmpz_mod_mat_is_one(self.as_ptr()) != 0 }
-    }*/
-
-    /*
-    /// Get a shallow copy of the `(i, j)`-th entry of the matrix. Mutating this modifies
-    /// the entry of the matrix.
-    #[inline]
-    pub fn entry_copy(&self, i: i64, j: i64) -> ManuallyDrop<IntMod> {
-        unsafe {
-            let x = fmpz_mod_mat::fmpz_mod_mat_entry(self.as_ptr(), i, j);
-            //fmpz::fmpz_mod(x, x, self.modulus_copy().as_ptr());
-            ManuallyDrop::new(IntMod { inner: *x, ctx: Rc::downgrade(&Rc::clone(&self.ctx)) })
-        }
-    }*/
-
-    /// Get a deep copy of the `(i, j)`-th entry of the matrix.
+        unsafe { fmpz_mat::fmpz_mat_is_one(&(*self.as_ptr()).mat[0]) != 0 }
+    }
+    
+    /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> IntMod {
-        let mut res = Integer::default();
         unsafe {
-            let x = fmpz_mod_mat::fmpz_mod_mat_entry(self.as_ptr(), i, j);
-            fmpz::fmpz_set(res.as_mut_ptr(), x);
+            let n = *fmpz_mod_mat::fmpz_mod_mat_entry(self.as_ptr(), i, j);
+            IntMod { inner: n, ctx: Rc::clone(&self.ctx) }
         }
-        self.base_ring().new(res)
     }
 
     /// Set the `(i, j)`-th entry of the matrix.
@@ -354,12 +321,11 @@ impl IntModMat {
         T: Into<ValOrRef<'a, Integer>>,
     {
         unsafe {
-            let x = fmpz_mod_mat::fmpz_mod_mat_entry(self.as_ptr(), i, j);
-            fmpz::fmpz_set(x, e.into().as_ptr());
+            fmpz_mod_mat::fmpz_mod_mat_set_entry(self.as_mut_ptr(), i, j, e.into().as_ptr());
         }
     }
 
-    /// Get a deep copy of the entries of the matrix.
+    /// Get a vector of the entries of the matrix.
     pub fn entries(&self) -> Vec<IntMod> {
         let r = self.nrows();
         let c = self.ncols();
@@ -372,21 +338,6 @@ impl IntModMat {
         }
         out
     }
-
-    /*
-    /// Get a shallow copy of the entries of the matrix.
-    pub fn entries_copy(&self) -> Vec<ManuallyDrop<IntMod>> {
-        let r = self.nrows();
-        let c = self.ncols();
-        let mut out = Vec::with_capacity(usize::try_from(r * c).ok().unwrap());
-
-        for i in 0..r {
-            for j in 0..c {
-                out.push(self.entry_copy(i, j));
-            }
-        }
-        out
-    }*/
 }
 
 /*

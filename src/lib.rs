@@ -30,6 +30,7 @@ pub mod macros;
 
 pub mod finfld;
 pub mod finfldmat;
+pub mod finfldpoly;
 pub mod integer;
 pub mod intmat;
 pub mod intmod;
@@ -243,8 +244,10 @@ pub mod ops {
     }
 }
 
+pub use ops::*;
 pub use finfld::*;
 pub use finfldmat::*;
+pub use finfldpoly::*;
 pub use integer::*;
 pub use intmat::*;
 pub use intmod::*;
@@ -252,7 +255,6 @@ pub use intmodmat::*;
 pub use intmodpoly::*;
 pub use intmpoly::*;
 pub use intpoly::*;
-pub use ops::*;
 pub use rational::*;
 pub use ratmat::*;
 pub use ratpoly::*;

@@ -24,10 +24,16 @@ use std::ops::*;
 
 impl_cmp! {
     eq
-    IntModMat
+    FinFldMat
     {
-        fn eq(&self, rhs: &IntModMat) -> bool {
-            self.parent() == rhs.parent() && IntMat::from(self) == IntMat::from(rhs)
+        fn eq(&self, rhs: &FinFldMat) -> bool {
+            unsafe {
+                self.parent() == rhs.parent() && fq_mat::fq_default_mat_equal(
+                    self.as_ptr(), 
+                    rhs.as_ptr(), 
+                    self.ctx_as_ptr()
+                ) != 0
+            }
         }
     }
 }

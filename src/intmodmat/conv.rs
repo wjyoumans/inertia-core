@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{IntModMat, ValOrRef};
+use crate::{IntMat, IntModMat, ValOrRef};
 
 impl<'a, T> From<T> for ValOrRef<'a, IntModMat>
 where
@@ -30,24 +30,7 @@ impl_from! {
     String, IntModMat
     {
         fn from(x: &IntModMat) -> String {
-            let r = x.nrows();
-            let c = x.ncols();
-            let mut out = Vec::with_capacity(usize::try_from(r).ok().unwrap());
-
-            for i in 0..r {
-                let mut row = Vec::with_capacity(usize::try_from(c).ok().unwrap() + 2);
-                row.push("[".to_string());
-                for j in 0..c {
-                    row.push(format!(" {} ", x.get_entry(i, j)));
-                }
-                if i == r - 1 {
-                    row.push("]".to_string());
-                } else {
-                    row.push("]\n".to_string());
-                }
-                out.push(row.join(""));
-            }
-            out.join("")
+            String::from(IntMat::from(x) % x.modulus())
         }
     }
 }

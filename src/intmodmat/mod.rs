@@ -24,7 +24,5 @@ pub use src::*;
 /// Conversions.
 pub mod conv;
 
-/*
 /// Arithmetic operations.
 pub mod arith;
-*/

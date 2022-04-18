@@ -17,6 +17,7 @@
 
 use crate::{FinFldElem, IntMod, IntModPoly, IntPoly, Integer, RatPoly, Rational, ValOrRef};
 use flint_sys::fmpq_poly;
+use std::ffi::{CStr, CString};
 
 impl<'a, T> From<T> for ValOrRef<'a, RatPoly>
 where
@@ -105,7 +106,13 @@ impl_from! {
     String, RatPoly
     {
         fn from(x: &RatPoly) -> String {
-            x.get_str_pretty()
+            let v = CString::new(x.var()).unwrap();
+            unsafe {
+                let ptr = fmpq_poly::fmpq_poly_get_str_pretty(x.as_ptr(), v.as_ptr());
+                let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                flint_sys::flint::flint_free(ptr as _);
+                s
+            }
         }
     }
 }

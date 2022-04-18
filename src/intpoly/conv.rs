@@ -15,8 +15,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{FinFldElem, IntMod, IntModPoly, IntPoly, Integer, ValOrRef};
+use crate::{FinFldElem, IntMod, IntModPoly, IntPoly, IntPolyRing, Integer, ValOrRef};
 use flint_sys::fmpz_poly;
+use std::ffi::{CStr, CString};
 
 impl<'a, T> From<T> for ValOrRef<'a, IntPoly>
 where
@@ -62,7 +63,8 @@ impl_from! {
     IntPoly, IntModPoly
     {
         fn from(x: &IntModPoly) -> IntPoly {
-            let mut res = IntPoly::default();
+            let zp = IntPolyRing::init(&x.var());
+            let mut res = zp.default();
             unsafe {
                 flint_sys::fmpz_mod_poly::fmpz_mod_poly_get_fmpz_poly(
                     res.as_mut_ptr(),
@@ -79,7 +81,8 @@ impl_from! {
     IntPoly, FinFldElem
     {
         fn from(x: &FinFldElem) -> IntPoly {
-            let mut res = IntPoly::default();
+            let zp = IntPolyRing::init(&x.var());
+            let mut res = zp.default();
             unsafe {
                 flint_sys::fq_default::fq_default_get_fmpz_poly(
                     res.as_mut_ptr(),
@@ -108,7 +111,13 @@ impl_from! {
     String, IntPoly
     {
         fn from(x: &IntPoly) -> String {
-            x.get_str_pretty()
+            let v = CString::new(x.var()).unwrap();
+            unsafe {
+                let ptr = fmpz_poly::fmpz_poly_get_str_pretty(x.as_ptr(), v.as_ptr());
+                let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                flint_sys::flint::flint_free(ptr as _);
+                s
+            }
         }
     }
 }

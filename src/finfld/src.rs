@@ -17,7 +17,7 @@
 
 use crate::{IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef};
 use flint_sys::fq_default as fq;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
@@ -44,6 +44,13 @@ impl Eq for FiniteField {}
 impl PartialEq for FiniteField {
     fn eq(&self, rhs: &FiniteField) -> bool {
         Rc::ptr_eq(&self.ctx, &rhs.ctx) || self.order() == rhs.order()
+    }
+}
+
+impl fmt::Display for FiniteField {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Finite field of order {}^{}", self.prime(), self.degree())
     }
 }
 
@@ -131,6 +138,13 @@ impl FiniteField {
         }
         res
     }
+    
+    /// Return the variable of the finite field elements as a polynomial.
+    #[inline]
+    pub fn var(&self) -> String {
+        //self.var.borrow().to_string()
+        String::from("o")
+    }
 
     #[inline]
     pub fn prime(&self) -> Integer {
@@ -191,47 +205,41 @@ impl Hash for FinFldElem {
     }
 }
 
+  
 impl FinFldElem {
-    /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
+    /// Returns a pointer to the inner [fq::fq_default_struct].
     #[inline]
     pub const fn as_ptr(&self) -> *const fq::fq_default_struct {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner [FLINT integer][fmpz::fmpz].
+    /// Returns a mutable pointer to the inner [fq::fq_default_struct].
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut fq::fq_default_struct {
         &mut self.inner
     }
 
-    /// Returns a pointer to the [FLINT context][fmpz_mod::fmpz_mod_ctx_struct].
+    /// Returns a pointer to the [FLINT context][fq::fq_default_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
         &self.ctx.0
     }
-
-    /// Return a [String] representation of a finite field element.
+    
     #[inline]
-    pub fn get_str(&self) -> String {
+    pub fn modulus(&self) -> IntModPoly {
+        let zp = IntModPolyRing::init(self.parent().prime(), "x");
+        let mut res = zp.default();
         unsafe {
-            let s = fq::fq_default_get_str(self.as_ptr(), self.ctx_as_ptr());
-            match CStr::from_ptr(s).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(_) => panic!("Flint returned invalid UTF-8!"),
-            }
+            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr());
         }
+        res
     }
-
-    /// Return a pretty-printed [String] representation of a finite field element.
+    
+    /// Return the variable of the finite field element as a polynomial.
     #[inline]
-    pub fn get_str_pretty(&self) -> String {
-        unsafe {
-            let s = fq::fq_default_get_str_pretty(self.as_ptr(), self.ctx_as_ptr());
-            match CStr::from_ptr(s).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(_) => panic!("Flint returned invalid UTF-8!"),
-            }
-        }
+    pub fn var(&self) -> String {
+        //self.var.borrow().to_string()
+        String::from("o")
     }
 
     /// Return the parent [finite field][FiniteField].
@@ -240,39 +248,5 @@ impl FinFldElem {
         FiniteField {
             ctx: Rc::clone(&self.ctx),
         }
-    }
-
-    /* requires fmpz_mod_poly
-    /// Return the modulus of the ring.
-    #[inline]
-    pub fn modulus(&self) -> IntPoly {
-        let mut res = IntPoly::default();
-        unsafe {
-            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
-    }*/
-
-    #[inline]
-    pub fn prime(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            fq::fq_default_ctx_prime(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
-    }
-
-    #[inline]
-    pub fn degree(&self) -> i64 {
-        unsafe { fq::fq_default_ctx_degree(self.ctx_as_ptr()) }
-    }
-
-    #[inline]
-    pub fn order(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe {
-            fq::fq_default_ctx_order(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
     }
 }

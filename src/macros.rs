@@ -24,13 +24,13 @@ macro_rules! default {
     };
 
     // Unary ops
-    (Neg, matrix, $out_ty:ident, $in:ident) => {
-        $out_ty::new($in.nrows(), $in.ncols())
-    };
-    (Neg, matrix_mod, $out_ty:ident, $in:ident) => {
-        $out_ty::zero($in.nrows(), $in.ncols(), &$in.modulus())
-    };
     ($op:ident, ctx, $out_ty:ident, $in:ident) => {
+        $in.parent().default()
+    };
+    ($op:ident, matrix, $out_ty:ident, $in:ident) => {
+        $in.parent().default()
+    };
+    ($op:ident, intmodmat, $out_ty:ident, $in:ident) => {
         $in.parent().default()
     };
     ($op:ident, $kw:ident, $out_ty:ident, $in:ident) => {
@@ -39,19 +39,37 @@ macro_rules! default {
 
     // Binary ops
     (Add, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::new($lhs.nrows(), $lhs.ncols())
+        $out_ty::default($lhs.nrows(), $lhs.ncols())
     };
     (Sub, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::new($lhs.nrows(), $lhs.ncols())
+        $out_ty::default($lhs.nrows(), $lhs.ncols())
     };
     (Mul, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::new($lhs.nrows(), $rhs.ncols())
+        $out_ty::default($lhs.nrows(), $rhs.ncols())
+    };
+    (Add, intmodmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::default($lhs.nrows(), $lhs.ncols(), $lhs.modulus())
+    };
+    (Sub, intmodmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::default($lhs.nrows(), $lhs.ncols(), $lhs.modulus())
+    };
+    (Mul, intmodmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::default($lhs.nrows(), $rhs.ncols(), $lhs.modulus())
+    };
+    (Add, finfldmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::default($lhs.nrows(), $lhs.ncols(), $lhs.modulus())
+    };
+    (Sub, finfldmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::default($lhs.nrows(), $lhs.ncols(), $lhs.modulus())
+    };
+    (Mul, finfldmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::default($lhs.nrows(), $rhs.ncols(), $lhs.modulus())
     };
     ($op:ident, lhs_scalar, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::new($rhs.nrows(), $rhs.ncols())
+        $out_ty::default($rhs.nrows(), $rhs.ncols())
     };
     ($op:ident, rhs_scalar, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::new($lhs.nrows(), $lhs.ncols())
+        $out_ty::default($lhs.nrows(), $lhs.ncols())
     };
     ($op:ident, ctx, $out_ty:ident, $lhs:ident, $rhs:ident) => {
         $lhs.parent().default()
@@ -505,7 +523,6 @@ macro_rules! impl_unop_unsafe {
             {
                 fn $meth(self) -> $t {
                     let mut res = default!($op, $kw, $t, self);
-                    //unsafe { $func(res.as_mut_ptr(), self.as_ptr()); }
                     call_unsafe!($kw, $func, res, self);
                     res
                 }
@@ -513,7 +530,6 @@ macro_rules! impl_unop_unsafe {
             $op_assign {$meth_assign}
             {
                 fn $meth_assign(&mut self) {
-                    //unsafe { $func(self.as_mut_ptr(), self.as_ptr()); }
                     call_unsafe!($kw, $func, self, self);
                 }
             }

@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Integer matrices.
+//! Matrices with integer entries.
 
 /// Definition and general implementation.
 mod src;

@@ -15,8 +15,8 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
-use flint_sys::{fmpz, fmpz_mat};
+use crate::{ops::Assign, Rational, RationalField, ValOrRef};
+use flint_sys::{fmpq, fmpq_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::fmt;
@@ -24,31 +24,33 @@ use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
-pub struct IntMatSpace {
+pub struct RatMatSpace {
     nrows: i64,
     ncols: i64,
 }
 
-impl Eq for IntMatSpace {}
+impl Eq for RatMatSpace {}
 
-impl PartialEq for IntMatSpace {
-    fn eq(&self, other: &IntMatSpace) -> bool {
+impl PartialEq for RatMatSpace {
+    fn eq(&self, other: &RatMatSpace) -> bool {
         self.nrows() == other.nrows() && self.ncols() == other.ncols()
     }
 }
 
-impl fmt::Display for IntMatSpace {
+impl fmt::Display for RatMatSpace {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Space of {} by {} matrices over Integer Ring",
-            self.nrows, self.ncols
+            "Space of {} by {} matrices over {}",
+            self.nrows,
+            self.ncols,
+            self.base_ring()
         )
     }
 }
 
-impl Hash for IntMatSpace {
+impl Hash for RatMatSpace {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.base_ring().hash(state);
@@ -57,22 +59,22 @@ impl Hash for IntMatSpace {
     }
 }
 
-impl IntMatSpace {
+impl RatMatSpace {
     /// Initialize the space of matrices with the given number of rows and columns.
     #[inline]
     pub fn init(nrows: i64, ncols: i64) -> Self {
-        IntMatSpace { nrows, ncols }
+        RatMatSpace { nrows, ncols }
     }
 
     #[inline]
-    pub fn default(&self) -> IntMat {
-        IntMat::default(self.nrows, self.ncols)
+    pub fn default(&self) -> RatMat {
+        RatMat::default(self.nrows, self.ncols)
     }
 
     #[inline]
-    pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> IntMat
+    pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> RatMat
     where
-        &'a T: Into<ValOrRef<'a, Integer>>,
+        &'a T: Into<ValOrRef<'a, Rational>>,
     {
         let nrows = self.nrows() as usize;
         let ncols = self.ncols() as usize;
@@ -103,144 +105,144 @@ impl IntMatSpace {
     }
 
     #[inline]
-    pub fn base_ring(&self) -> IntegerRing {
-        IntegerRing {}
+    pub fn base_ring(&self) -> RationalField {
+        RationalField {}
     }
 }
 
 #[derive(Debug)]
-pub struct IntMat {
-    inner: fmpz_mat::fmpz_mat_struct,
+pub struct RatMat {
+    inner: fmpq_mat::fmpq_mat_struct,
 }
 
-impl<'a, T> Assign<T> for IntMat
+impl<'a, T> Assign<T> for RatMat
 where
-    T: Into<ValOrRef<'a, IntMat>>,
+    T: Into<ValOrRef<'a, RatMat>>,
 {
     fn assign(&mut self, other: T) {
         let x = other.into();
         assert_eq!(self.nrows(), x.nrows());
         assert_eq!(self.ncols(), x.ncols());
         unsafe {
-            fmpz_mat::fmpz_mat_set(self.as_mut_ptr(), x.as_ptr());
+            fmpq_mat::fmpq_mat_set(self.as_mut_ptr(), x.as_ptr());
         }
     }
 }
 
-impl Clone for IntMat {
+impl Clone for RatMat {
     #[inline]
     fn clone(&self) -> Self {
         let mut z = MaybeUninit::uninit();
         unsafe {
-            fmpz_mat::fmpz_mat_init_set(z.as_mut_ptr(), self.as_ptr());
-            IntMat {
+            fmpq_mat::fmpq_mat_init_set(z.as_mut_ptr(), self.as_ptr());
+            RatMat {
                 inner: z.assume_init(),
             }
         }
     }
 }
 
-impl fmt::Display for IntMat {
+impl fmt::Display for RatMat {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", String::from(self))
     }
 }
 
-impl Drop for IntMat {
+impl Drop for RatMat {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz_mat::fmpz_mat_clear(self.as_mut_ptr()) }
+        unsafe { fmpq_mat::fmpq_mat_clear(self.as_mut_ptr()) }
     }
 }
 
-impl Hash for IntMat {
+impl Hash for RatMat {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entries().hash(state);
     }
 }
 
-impl IntMat {
-    /// Returns a pointer to the inner [FLINT integer matrix][fmpz_mat::fmpz_mat].
+impl RatMat {
+    /// Returns a pointer to the inner [FLINT rational matrix][fmpq_mat::fmpq_mat].
     #[inline]
-    pub const fn as_ptr(&self) -> *const fmpz_mat::fmpz_mat_struct {
+    pub const fn as_ptr(&self) -> *const fmpq_mat::fmpq_mat_struct {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner [FLINT integer matrix][fmpz_mat::fmpz_mat].
+    /// Returns a mutable pointer to the inner [FLINT rational matrix][fmpq_mat::fmpq_mat].
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut fmpz_mat::fmpz_mat_struct {
+    pub fn as_mut_ptr(&mut self) -> *mut fmpq_mat::fmpq_mat_struct {
         &mut self.inner
     }
     
-    /// Instantiate an integer matrix from a [FLINT integer matrix][fmpz_mat::fmpz_mat_struct].
+    /// Instantiate a rational matrix from a [FLINT rational matrix][fmpq_mat::fmpq_mat_struct].
     #[inline]
-    pub fn from_raw(raw: fmpz_mat::fmpz_mat_struct) -> IntMat {
-        IntMat { inner: raw }
+    pub fn from_raw(raw: fmpq_mat::fmpq_mat_struct) -> RatMat {
+        RatMat { inner: raw }
     }
 
     #[inline]
-    pub fn default(nrows: i64, ncols: i64) -> IntMat {
+    pub fn default(nrows: i64, ncols: i64) -> RatMat {
         let mut z = MaybeUninit::uninit();
         unsafe {
-            fmpz_mat::fmpz_mat_init(z.as_mut_ptr(), nrows, ncols);
-            IntMat {
+            fmpq_mat::fmpq_mat_init(z.as_mut_ptr(), nrows, ncols);
+            RatMat {
                 inner: z.assume_init(),
             }
         }
     }
 
     #[inline]
-    pub fn parent(&self) -> IntMatSpace {
-        IntMatSpace {
+    pub fn parent(&self) -> RatMatSpace {
+        RatMatSpace {
             nrows: self.nrows(),
             ncols: self.ncols(),
         }
     }
 
     #[inline]
-    pub fn base_ring(&self) -> IntegerRing {
-        IntegerRing {}
+    pub fn base_ring(&self) -> RationalField {
+        RationalField {}
     }
 
-    /// Return the number of rows of the integer matrix.
+    /// Return the number of rows of the matrix.
     #[inline]
     pub fn nrows(&self) -> i64 {
-        unsafe { fmpz_mat::fmpz_mat_nrows(self.as_ptr()) }
+        unsafe { fmpq_mat::fmpq_mat_nrows(self.as_ptr()) }
     }
 
-    /// Return the number of columns of the integer matrix.
+    /// Return the number of columns of the matrix.
     #[inline]
     pub fn ncols(&self) -> i64 {
-        unsafe { fmpz_mat::fmpz_mat_ncols(self.as_ptr()) }
+        unsafe { fmpq_mat::fmpq_mat_ncols(self.as_ptr()) }
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        unsafe { fmpz_mat::fmpz_mat_is_empty(self.as_ptr()) != 0 }
+        unsafe { fmpq_mat::fmpq_mat_is_empty(self.as_ptr()) != 0 }
     }
 
     #[inline]
     pub fn is_square(&self) -> bool {
-        unsafe { fmpz_mat::fmpz_mat_is_square(self.as_ptr()) != 0 }
+        unsafe { fmpq_mat::fmpq_mat_is_square(self.as_ptr()) != 0 }
     }
 
     #[inline]
     pub fn is_zero(&self) -> bool {
-        unsafe { fmpz_mat::fmpz_mat_is_zero(self.as_ptr()) != 0 }
+        unsafe { fmpq_mat::fmpq_mat_is_zero(self.as_ptr()) != 0 }
     }
 
     #[inline]
     pub fn is_one(&self) -> bool {
-        unsafe { fmpz_mat::fmpz_mat_is_one(self.as_ptr()) != 0 }
+        unsafe { fmpq_mat::fmpq_mat_is_one(self.as_ptr()) != 0 }
     }
 
     /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
-    pub fn get_entry(&self, i: i64, j: i64) -> Integer {
+    pub fn get_entry(&self, i: i64, j: i64) -> Rational {
         unsafe {
-            Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j))
+            Rational::from_raw(*fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j))
         }
     }
 
@@ -248,16 +250,16 @@ impl IntMat {
     #[inline]
     pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: Into<ValOrRef<'a, Rational>>,
     {
         unsafe {
-            let x = fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j);
-            fmpz::fmpz_set(x, e.into().as_ptr());
+            let x = fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j);
+            fmpq::fmpq_set(x, e.into().as_ptr());
         }
     }
 
     /// Get a vector with all of the entries of the matrix.
-    pub fn entries(&self) -> Vec<Integer> {
+    pub fn entries(&self) -> Vec<Rational> {
         let r = self.nrows();
         let c = self.ncols();
         let mut out = Vec::with_capacity(usize::try_from(r * c).ok().unwrap());
@@ -271,7 +273,7 @@ impl IntMat {
     }
 }
 
-impl Serialize for IntMat {
+impl Serialize for RatMat {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -288,26 +290,26 @@ impl Serialize for IntMat {
     }
 }
 
-struct IntMatVisitor {}
+struct RatMatVisitor {}
 
-impl IntMatVisitor {
+impl RatMatVisitor {
     fn new() -> Self {
-        IntMatVisitor {}
+        RatMatVisitor {}
     }
 }
 
-impl<'de> Visitor<'de> for IntMatVisitor {
-    type Value = IntMat;
+impl<'de> Visitor<'de> for RatMatVisitor {
+    type Value = RatMat;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an IntMat")
+        formatter.write_str("a RatMat")
     }
 
     fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
-        let mut entries: Vec<Integer> = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        let mut entries: Vec<Rational> = Vec::with_capacity(access.size_hint().unwrap_or(0));
         let nrows = access.next_element()?.unwrap();
         let ncols = access.next_element()?.unwrap();
 
@@ -315,29 +317,29 @@ impl<'de> Visitor<'de> for IntMatVisitor {
             entries.push(x);
         }
 
-        let zm = IntMatSpace::init(nrows, ncols);
+        let zm = RatMatSpace::init(nrows, ncols);
         Ok(zm.new(&entries))
     }
 }
 
-impl<'de> Deserialize<'de> for IntMat {
+impl<'de> Deserialize<'de> for RatMat {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_seq(IntMatVisitor::new())
+        deserializer.deserialize_seq(RatMatVisitor::new())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::IntMat;
+    use crate::RatMat;
 
     #[test]
     fn serde() {
-        let x = IntMat::from(vec![vec![1, 0], vec![0, 2]]);
+        let x = RatMat::from(vec![vec![1, 0], vec![0, 2]]);
         let ser = bincode::serialize(&x).unwrap();
-        let y: IntMat = bincode::deserialize(&ser).unwrap();
+        let y: RatMat = bincode::deserialize(&ser).unwrap();
         assert_eq!(x, y);
     }
 }

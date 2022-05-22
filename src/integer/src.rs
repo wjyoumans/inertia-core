@@ -19,14 +19,11 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
+use crate::{ops::Assign, ValOrRef};
 use flint_sys::fmpz;
 use libc::{c_int, c_long, c_ulong};
-use serde::ser::{Serialize, Serializer, SerializeSeq};
-use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{
-    ops::Assign,
-    ValOrRef, 
-};
+use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 
 #[derive(Clone, Copy, Debug, Hash, serde::Serialize, serde::Deserialize)]
 pub struct IntegerRing {}
@@ -48,7 +45,6 @@ impl fmt::Display for IntegerRing {
 }
 
 impl IntegerRing {
-
     /// Initialize an `IntegerRing`.
     ///
     /// ```
@@ -78,8 +74,8 @@ impl IntegerRing {
     pub fn default(&self) -> Integer {
         Integer::default()
     }
-    
-    /// Initialize an `Integer` from an integer ring.
+
+    /// Initialize an Integer from an integer ring.
     ///
     /// ```
     /// use inertia_core::IntegerRing;
@@ -90,8 +86,9 @@ impl IntegerRing {
     /// assert_eq!(z, 2);
     /// ```
     #[inline]
-    pub fn new<T>(&self, x: T) -> Integer where
-        T: Into<Integer>
+    pub fn new<T>(&self, x: T) -> Integer
+    where
+        T: Into<Integer>,
     {
         x.into()
     }
@@ -102,8 +99,9 @@ pub struct Integer {
     inner: fmpz::fmpz,
 }
 
-impl<'a, T> Assign<T> for Integer where
-    T: Into<ValOrRef<'a, Integer>>
+impl<'a, T> Assign<T> for Integer
+where
+    T: Into<ValOrRef<'a, Integer>>,
 {
     fn assign(&mut self, other: T) {
         unsafe {
@@ -116,9 +114,11 @@ impl Clone for Integer {
     #[inline]
     fn clone(&self) -> Self {
         let mut z = MaybeUninit::uninit();
-        unsafe { 
-            fmpz::fmpz_init_set(z.as_mut_ptr(), self.as_ptr()); 
-            Integer { inner: z.assume_init() }
+        unsafe {
+            fmpz::fmpz_init_set(z.as_mut_ptr(), self.as_ptr());
+            Integer {
+                inner: z.assume_init(),
+            }
         }
     }
 }
@@ -130,7 +130,7 @@ impl Default for Integer {
         unsafe {
             fmpz::fmpz_init(z.as_mut_ptr());
             Integer {
-                inner: z.assume_init()
+                inner: z.assume_init(),
             }
         }
     }
@@ -139,7 +139,7 @@ impl Default for Integer {
 impl Drop for Integer {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz::fmpz_clear(self.as_mut_ptr())}
+        unsafe { fmpz::fmpz_clear(self.as_mut_ptr()) }
     }
 }
 
@@ -158,6 +158,32 @@ impl Hash for Integer {
 }
 
 impl Integer {
+    /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub const fn as_ptr(&self) -> *const fmpz::fmpz {
+        &self.inner
+    }
+
+    /// Returns a mutable pointer to the inner [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub fn as_mut_ptr(&mut self) -> *mut fmpz::fmpz {
+        &mut self.inner
+    }
+
+    /// Instantiate an Integer from a [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub fn from_raw(raw: fmpz::fmpz) -> Integer {
+        Integer { inner: raw }
+    }
+
+    /// Initialize a new Integer.
+    #[inline]
+    pub fn new<T>(x: T) -> Integer 
+    where
+        T: Into<Integer>,
+    {
+        x.into()
+    }
     
     /// Initialize a new `Integer` with the given number of limbs.
     ///
@@ -173,27 +199,9 @@ impl Integer {
         unsafe {
             fmpz::fmpz_init2(z.as_mut_ptr(), limbs);
             Integer {
-                inner: z.assume_init()
+                inner: z.assume_init(),
             }
         }
-    }
-    
-    /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
-    #[inline]
-    pub const fn as_ptr(&self) -> *const fmpz::fmpz {
-        &self.inner
-    }
-
-    /// Returns a mutable pointer to the inner [FLINT integer][fmpz::fmpz].
-    #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut fmpz::fmpz {
-        &mut self.inner
-    }
-    
-    /// Instantiate an `Integer` from a [FLINT integer][fmpz::fmpz].
-    #[inline]
-    pub fn from_raw(raw: fmpz::fmpz) -> Integer {
-        Integer { inner: raw }
     }
 
     /// Convert the `Integer` to a string in base `base`.
@@ -216,7 +224,7 @@ impl Integer {
             fmpz::fmpz_get_str(vector.as_mut_ptr() as *mut _, base as c_int, self.as_ptr());
 
             let mut first_nul = None;
-            let mut index : usize = 0;
+            let mut index: usize = 0;
             for elem in &vector {
                 if *elem == 0 {
                     first_nul = Some(index);
@@ -228,12 +236,12 @@ impl Integer {
 
             vector.truncate(first_nul);
             match String::from_utf8(vector) {
-                Ok(s)  => s,
-                Err(_) => panic!("FLINT returned invalid UTF-8!")
+                Ok(s) => s,
+                Err(_) => panic!("FLINT returned invalid UTF-8!"),
             }
         }
     }
-    
+
     /// Determines the size of the absolute value of an `Integer` in base `base` in terms of number
     /// of digits. The base can be between 2 and 62, inclusive.
     ///
@@ -247,7 +255,7 @@ impl Integer {
     pub fn sizeinbase(&self, base: u8) -> usize {
         unsafe { flint_sys::fmpz::fmpz_sizeinbase(self.as_ptr(), base as i32) as usize }
     }
-   
+
     /// Returns the number of limbs required to store the absolute value of an `Integer`. Returns
     /// zero if the `Integer` is zero.
     ///
@@ -261,8 +269,8 @@ impl Integer {
     pub fn size(&self) -> c_long {
         unsafe { flint_sys::fmpz::fmpz_size(self.as_ptr()) }
     }
-   
-    /// Returns the number of bits required to store the absolute value of an `Integer`. Returns 
+
+    /// Returns the number of bits required to store the absolute value of an `Integer`. Returns
     /// zero if the `Integer` is zero.
     ///
     /// ```
@@ -275,7 +283,7 @@ impl Integer {
     pub fn bits(&self) -> c_ulong {
         unsafe { flint_sys::fmpz::fmpz_bits(self.as_ptr()) }
     }
-   
+
     /// Determine if the `Integer` fits in a signed long.
     ///
     /// ```
@@ -288,7 +296,7 @@ impl Integer {
     pub fn fits_si(&self) -> bool {
         unsafe { flint_sys::fmpz::fmpz_fits_si(self.as_ptr()) == 1 }
     }
-    
+
     /// Determine if the absolute value of an `Integer` fits in an unsigned long.
     ///
     /// ```
@@ -301,7 +309,7 @@ impl Integer {
     pub fn abs_fits_ui(&self) -> bool {
         unsafe { flint_sys::fmpz::fmpz_abs_fits_ui(self.as_ptr()) == 1 }
     }
-   
+
     /// Return an `Option` containing the input as a signed long (`libc::c_long`) if possible.
     ///
     /// ```
@@ -313,15 +321,13 @@ impl Integer {
     #[inline]
     pub fn get_si(&self) -> Option<c_long> {
         if self.fits_si() {
-            unsafe { 
-                Some(flint_sys::fmpz::fmpz_get_si(self.as_ptr()))
-            }
+            unsafe { Some(flint_sys::fmpz::fmpz_get_si(self.as_ptr())) }
         } else {
             None
         }
     }
 
-    /// Return an `Option` containing the input as an unsigned long (`libc::c_ulong`) if possible. 
+    /// Return an `Option` containing the input as an unsigned long (`libc::c_ulong`) if possible.
     ///
     /// ```
     /// use inertia_core::Integer;
@@ -335,16 +341,14 @@ impl Integer {
             return None;
         }
         if self.abs_fits_ui() {
-            unsafe { 
-                Some(flint_sys::fmpz::fmpz_get_ui(self.as_ptr())) 
-            }
+            unsafe { Some(flint_sys::fmpz::fmpz_get_ui(self.as_ptr())) }
         } else {
             None
         }
     }
-    
+
     // TODO
-    /// Return a vector `A` of unsigned longs such that the original [Integer] can be written as 
+    /// Return a vector `A` of unsigned longs such that the original [Integer] can be written as
     /// `a[0] + a[1]*x + ... + a[n-1]*x^(n-1)` where `x = 2^FLINT_BITS`.
     ///
     /// ```
@@ -382,7 +386,7 @@ impl Integer {
         }
     }
 
-    /// Set `self` to the nonnegative [Integer] `vec[0] + vec[1]*x + ... + vec[n-1]*x^(n-1)` 
+    /// Set `self` to the nonnegative [Integer] `vec[0] + vec[1]*x + ... + vec[n-1]*x^(n-1)`
     /// where `x = 2^FLINT_BITS`.
     ///
     /// ```
@@ -405,7 +409,7 @@ impl Integer {
             }
         }
     }
-    
+
     /// Return zero.
     ///
     /// ```
@@ -417,7 +421,7 @@ impl Integer {
     pub fn zero() -> Integer {
         Integer::default()
     }
-    
+
     /// Return one.
     ///
     /// ```
@@ -442,7 +446,7 @@ impl Integer {
     pub fn is_zero(&self) -> bool {
         unsafe { fmpz::fmpz_is_zero(self.as_ptr()) == 1 }
     }
-    
+
     /// Return true if the `Integer` is one.
     ///
     /// ```
@@ -455,7 +459,7 @@ impl Integer {
     pub fn is_one(&self) -> bool {
         unsafe { fmpz::fmpz_is_one(self.as_ptr()) == 1 }
     }
-    
+
     /// Check if the `Integer` is even.
     ///
     /// ```
@@ -468,7 +472,7 @@ impl Integer {
     pub fn is_even(&self) -> bool {
         unsafe { fmpz::fmpz_is_even(self.as_ptr()) == 1 }
     }
-    
+
     /// Check if the `Integer` is odd.
     ///
     /// ```
@@ -481,7 +485,7 @@ impl Integer {
     pub fn is_odd(&self) -> bool {
         unsafe { fmpz::fmpz_is_odd(self.as_ptr()) == 1 }
     }
-    
+
     /// Returns -1 if the `Integer` is negative, +1 if the `Integer` is positive, and 0 otherwise.
     ///
     /// ```
@@ -517,7 +521,7 @@ impl Integer {
             res
         }
     }
-    
+
     /// Set the input to its absolute value.
     ///
     /// ```
@@ -529,7 +533,9 @@ impl Integer {
     /// ```
     #[inline]
     pub fn abs_assign(&mut self) {
-        unsafe { fmpz::fmpz_abs(self.as_mut_ptr(), self.as_ptr()); }
+        unsafe {
+            fmpz::fmpz_abs(self.as_mut_ptr(), self.as_ptr());
+        }
     }
 
     /// Attempt to invert `self` modulo `modulus`.
@@ -541,16 +547,17 @@ impl Integer {
     /// assert_eq!(z.invmod(7).unwrap(), 2);
     /// ```
     #[inline]
-    pub fn invmod<'a, T>(&self, modulus: T) -> Option<Integer> where
-        T: Into<ValOrRef<'a, Integer>>
+    pub fn invmod<'a, T>(&self, modulus: T) -> Option<Integer>
+    where
+        T: Into<ValOrRef<'a, Integer>>,
     {
         let modulus = &*modulus.into();
         assert!(modulus > &0);
 
         let mut res = Integer::default();
-        unsafe{ 
+        unsafe {
             let r = fmpz::fmpz_invmod(res.as_mut_ptr(), self.as_ptr(), modulus.as_ptr());
-        
+
             if r == 0 {
                 None
             } else {
@@ -558,7 +565,7 @@ impl Integer {
             }
         }
     }
-    
+
     /// Returns true if `self` is a prime.
     ///
     /// ```
@@ -572,9 +579,7 @@ impl Integer {
     /// ```
     #[inline]
     pub fn is_prime(&self) -> bool {
-        unsafe {
-            fmpz::fmpz_is_prime(self.as_ptr()) == 1
-        }
+        unsafe { fmpz::fmpz_is_prime(self.as_ptr()) == 1 }
     }
 }
 

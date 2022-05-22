@@ -15,14 +15,22 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Finite fields.
+use crate::{IntMat, IntModMat, ValOrRef};
 
-/// Definition and general implementation.
-mod src;
-pub use src::*;
+impl<'a, T> From<T> for ValOrRef<'a, IntModMat>
+where
+    T: Into<IntModMat>,
+{
+    fn from(x: T) -> ValOrRef<'a, IntModMat> {
+        ValOrRef::Val(x.into())
+    }
+}
 
-/// Conversions.
-pub mod conv;
-
-/// Arithmetic operations.
-pub mod arith;
+impl_from! {
+    String, IntModMat
+    {
+        fn from(x: &IntModMat) -> String {
+            String::from(IntMat::from(x) % x.modulus())
+        }
+    }
+}

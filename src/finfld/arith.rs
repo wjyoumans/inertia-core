@@ -15,383 +15,506 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, IntMod};
+use crate::{Integer, FinFldElem};
 use crate::ops::*;
-
-use std::ops::*;
-use std::sync::Arc;
-
-use flint_sys::{fmpz, fmpz_mod};
+use flint_sys::fq_default as fq;
+use flint_sys::fmpz;
 use libc::{c_long, c_ulong};
+use std::ops::*;
 
 impl_cmp! {
     eq
     FinFldElem
     {
         fn eq(&self, rhs: &FinFldElem) -> bool {
-            assert_eq!(self.parent(), rhs.parent());
-            unsafe { fq::fq_default_equal(self.as_ptr(), rhs.as_ptr(), self.ctx_as_ptr()) != 0 }
+            unsafe { 
+                self.parent() == rhs.parent() && fq::fq_default_equal(
+                    self.as_ptr(), 
+                    rhs.as_ptr(), 
+                    self.ctx_as_ptr()
+                ) != 0 
+            }
         }
     }
-}
-
-
-// TODO: consume lhs/rhs to avoid allocation
-macro_rules! impl_binop_option {
-    (
-        $lhs:ident, $rhs:ident, $out:ident
-        $op:ident {$meth:ident}
-        {
-            $($code:tt)*
-        }
-    ) => {
-        impl $op<&$rhs> for &$lhs {
-            type Output = Option<$out>;
-            #[inline]
-            $($code)*
-        }
-        
-        impl $op<$rhs> for &$lhs {
-            type Output = Option<$out>;
-            #[inline]
-            fn $meth(self, rhs: $rhs) -> Option<$out> {
-                self.$meth(&rhs)
-            }
-        }
-        
-        impl $op<&$rhs> for $lhs {
-            type Output = Option<$out>;
-            #[inline]
-            $($code)*
-        }
-        
-        impl $op<$rhs> for $lhs {
-            type Output = Option<$out>;
-            #[inline]
-            fn $meth(self, rhs: $rhs) -> Option<$out> {
-                self.$meth(&rhs)
-            }
-        }
-    };
 }
 
 impl_unop_unsafe! {
     ctx
-    IntMod
+    FinFldElem
     Neg {neg}
     NegAssign {neg_assign}
-    fmpz_mod::fmpz_mod_neg
+    fq::fq_default_neg
 }
 
-impl_unop! {
-    IntMod, Option<IntMod>
+impl_unop_unsafe! {
+    ctx
+    FinFldElem
     Inv {inv}
-    {
-        fn inv(self) -> Option<IntMod> {
-            let mut res = self.parent().default();
-            unsafe {
-                let b = fmpz::fmpz_invmod(
-                    res.as_mut_ptr(), 
-                    self.as_ptr(), 
-                    self.modulus().as_ptr()
-                );
-                if b == 0 {
-                    None
-                } else {
-                    Some(res)
-                }
-            }
-        }
-    }
-}
-
-impl_binop_option! {
-    IntMod, Integer, IntMod
-    Pow {pow}
-    {
-        fn pow(self, pow: &Integer) -> Option<IntMod> {
-            let mut res = self.parent().default();
-            unsafe {
-                let b = fmpz_mod::fmpz_mod_pow_fmpz(
-                    res.as_mut_ptr(), 
-                    self.as_ptr(),
-                    pow.as_ptr(),
-                    self.ctx_as_ptr()
-                );
-                if b == 0 {
-                    None
-                } else {
-                    Some(res)
-                }
-            }
-        }
-    }
-}
-
-macro_rules! impl_pow_prim {
-    ($lhs:ident, $($rhs:ident)*) => ($(
-        impl_binop_option! {
-            $lhs, $rhs, IntMod
-            Pow {pow}
-            {
-                fn pow(self, rhs: &$rhs) -> Option<IntMod> {
-                    if rhs < &0 {
-                        if let Some(x) = self.inv() {
-                            Some(x.pow(rhs.abs() as u64))
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(self.pow(*rhs as u64))
-                    }
-                }
-            }
-        }
-    )*);
-}
-impl_pow_prim!(IntMod, i8 i16 i32 i64);
-
-macro_rules! impl_div {
-    ($lhs:ident, $($rhs:ident)*) => ($(
-        impl_binop_option! {
-            $lhs, $rhs, IntMod
-            Div {div}
-            {
-                fn div(self, rhs: &$rhs) -> Option<IntMod> {
-                    if let Some(x) = Integer::from(rhs).invmod(self.modulus()) {
-                        Some(self * x)
-                    } else {
-                        None
-                    }
-                }
-            }
-        }
-    )*);
-    ($($lhs:ident)*, IntMod) => ($(
-        impl_binop_option! {
-            $lhs, IntMod, IntMod
-            Div {div}
-            {
-                fn div(self, rhs: &IntMod) -> Option<IntMod> {
-                    if let Some(x) = rhs.inv() {
-                        Some(self * x)
-                    } else {
-                        None
-                    }
-                }
-            }
-        }
-    )*)
-}
-
-impl_div!(u8 u16 u32 u64 i8 i16 i32 i64 Integer IntMod, IntMod);
-impl_div!(IntMod, u8 u16 u32 u64 i8 i16 i32 i64);
-
-impl_binop_option! {
-    IntMod, Integer, IntMod
-    Div {div}
-    {
-        fn div(self, rhs: &Integer) -> Option<IntMod> {
-            if let Some(x) = rhs.invmod(self.modulus()) {
-                Some(self * x)
-            } else {
-                None
-            }
-        }
-    }
+    InvAssign {inv_assign}
+    fq::fq_default_inv
 }
 
 impl_binop_unsafe! {
     ctx
-    IntMod, IntMod, IntMod
+    FinFldElem, FinFldElem, FinFldElem
     
     Add {add}
     AddAssign {add_assign}
     AddFrom {add_from}
     AssignAdd {assign_add}
-    fmpz_mod::fmpz_mod_add;
+    fq::fq_default_add;
     
     Sub {sub}
     SubAssign {sub_assign}
     SubFrom {sub_from}
     AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_sub;
+    fq::fq_default_sub;
     
     Mul {mul}
     MulAssign {mul_assign}
     MulFrom {mul_from}
     AssignMul {assign_mul}
-    fmpz_mod::fmpz_mod_mul;
+    fq::fq_default_mul;
+    
+    Div {div}
+    DivAssign {div_assign}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fq::fq_default_div;
 }
 
 impl_binop_unsafe! {
-    ctx_lhs
+    ctx
     op_assign
-    IntMod, Integer, IntMod
-   
+    FinFldElem, Integer, FinFldElem
+    
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
-    fmpz_mod::fmpz_mod_add_fmpz;
-
+    fq_default_add_fmpz;
+    
     Sub {sub}
     SubAssign {sub_assign}
     AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_sub_fmpz;
+    fq_default_sub_fmpz;
     
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
-    fmpz_mod::fmpz_mod_mul_fmpz;
-}
-
-impl_binop_unsafe! {
-    ctx_rhs
-    op_from
-    Integer, IntMod, IntMod
-   
-    Add {add}
-    AddFrom {add_from}
-    AssignAdd {assign_add}
-    fmpz_mod::fmpz_mod_add_fmpz;
-
-    Sub {sub}
-    SubFrom {sub_from}
-    AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_sub_fmpz;
+    fq::fq_default_mul_fmpz;
     
-    Mul {mul}
-    MulFrom {mul_from}
-    AssignMul {assign_mul}
-    fmpz_mod::fmpz_mod_mul_fmpz;
-}
-
-impl_binop_unsafe! {
-    ctx_lhs
-    op_assign
-    IntMod, u64 {u64 u32 u16 u8}, IntMod
-   
-    Add {add}
-    AddAssign {add_assign}
-    AssignAdd {assign_add}
-    fmpz_mod::fmpz_mod_add_ui;
-
-    Sub {sub}
-    SubAssign {sub_assign}
-    AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_sub_ui;
-    
-    Mul {mul}
-    MulAssign {mul_assign}
-    AssignMul {assign_mul}
-    fmpz_mod::fmpz_mod_mul_ui;
+    Div {div}
+    DivAssign {div_assign}
+    AssignDiv {assign_div}
+    fq_default_div_fmpz;
     
     Pow {pow}
     PowAssign {pow_assign}
     AssignPow {assign_pow}
-    fmpz_mod::fmpz_mod_pow_ui;
+    fq::fq_default_pow;
 }
 
 impl_binop_unsafe! {
     ctx_lhs
     op_assign
-    IntMod, i64 {i64 i32 i16 i8}, IntMod
-   
+    FinFldElem, u64 {u64 u32 u16 u8}, FinFldElem
+
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
-    fmpz_mod::fmpz_mod_add_si;
+    fq_default_add_ui;
 
     Sub {sub}
     SubAssign {sub_assign}
     AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_sub_si;
-    
+    fq_default_sub_ui;
+
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
-    fmpz_mod::fmpz_mod_mul_si;
+    fq::fq_default_mul_ui;
+    
+    Div {div}
+    DivAssign {div_assign}
+    AssignDiv {assign_div}
+    fq_default_div_ui;
+
+    Pow {pow}
+    PowAssign {pow_assign}
+    AssignPow {assign_pow}
+    fq::fq_default_pow_ui;
+}
+
+impl_binop_unsafe! {
+    ctx_lhs
+    op_assign
+    FinFldElem, i64 {i64 i32 i16 i8}, FinFldElem
+
+    Add {add}
+    AddAssign {add_assign}
+    AssignAdd {assign_add}
+    fq_default_add_si;
+
+    Sub {sub}
+    SubAssign {sub_assign}
+    AssignSub {assign_sub}
+    fq_default_sub_si;
+
+    Mul {mul}
+    MulAssign {mul_assign}
+    AssignMul {assign_mul}
+    fq::fq_default_mul_si;
+    
+    Div {div}
+    DivAssign {div_assign}
+    AssignDiv {assign_div}
+    fq_default_div_si;
+
+    Pow {pow}
+    PowAssign {pow_assign}
+    AssignPow {assign_pow}
+    fq_default_pow_si;
 }
 
 impl_binop_unsafe! {
     ctx_rhs
     op_from
-    u64 {u64 u32 u16 u8}, IntMod, IntMod
-   
+    Integer, FinFldElem, FinFldElem
+    
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
-    fmpz_mod_ui_add;
-
+    fq_default_fmpz_add;
+    
     Sub {sub}
     SubFrom {sub_from}
     AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_ui_sub;
+    fq_default_fmpz_sub;
     
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
-    fmpz_mod_ui_mul;
+    fq_default_fmpz_mul;
+    
+    Div {div}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fq_default_fmpz_div;
 }
 
 impl_binop_unsafe! {
     ctx_rhs
     op_from
-    i64 {i64 i32 i16 i8}, IntMod, IntMod
-   
+    u64 {u64 u32 u16 u8}, FinFldElem, FinFldElem
+    
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
-    fmpz_mod_si_add;
-
+    fq_default_ui_add;
+    
     Sub {sub}
     SubFrom {sub_from}
     AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_si_sub;
+    fq_default_ui_sub;
     
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
-    fmpz_mod_si_mul;
+    fq_default_ui_mul;
+    
+    Div {div}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fq_default_ui_div;
 }
 
+impl_binop_unsafe! {
+    ctx_rhs
+    op_from
+    i64 {i64 i32 i16 i8}, FinFldElem, FinFldElem
+    
+    Add {add}
+    AddFrom {add_from}
+    AssignAdd {assign_add}
+    fq_default_si_add;
+    
+    Sub {sub}
+    SubFrom {sub_from}
+    AssignSub {assign_sub}
+    fq_default_si_sub;
+    
+    Mul {mul}
+    MulFrom {mul_from}
+    AssignMul {assign_mul}
+    fq_default_si_mul;
+    
+    Div {div}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fq_default_si_div;
+}
 
 #[inline]
-unsafe fn fmpz_mod_ui_add(
-    res: *mut fmpz::fmpz,
+unsafe fn fq_default_add_fmpz(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: *const fmpz::fmpz,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_fmpz(res, g, ctx);
+    fq::fq_default_add(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_sub_fmpz(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: *const fmpz::fmpz,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_fmpz(res, g, ctx);
+    fq::fq_default_sub(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_div_fmpz(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: *const fmpz::fmpz,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_fmpz(res, g, ctx);
+    fq::fq_default_div(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_add_ui(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: c_ulong,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_ui(res, g, ctx);
+    fq::fq_default_add(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_sub_ui(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: c_ulong,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_ui(res, g, ctx);
+    fq::fq_default_sub(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_div_ui(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: c_ulong,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_ui(res, g, ctx);
+    fq::fq_default_div(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_add_si(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: c_long,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_si(res, g, ctx);
+    fq::fq_default_add(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_sub_si(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: c_long,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_si(res, g, ctx);
+    fq::fq_default_sub(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_div_si(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: c_long,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_si(res, g, ctx);
+    fq::fq_default_div(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_pow_si(
+    res: *mut fq::fq_default_struct,
+    f: *const fq::fq_default_struct,
+    g: c_long,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    if g < 0 {
+        fq::fq_default_inv(res, f, ctx);
+    }
+    fq::fq_default_pow_ui(res, f, g.abs() as u64, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_ui_add(
+    res: *mut fq::fq_default_struct,
     f: c_ulong,
-    g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
 {
-    fmpz_mod::fmpz_mod_add_ui(res, g, f, ctx);
+    fq::fq_default_set_ui(res, f, ctx);
+    fq::fq_default_add(res, res, g, ctx);
 }
 
 #[inline]
-unsafe fn fmpz_mod_si_add(
-    res: *mut fmpz::fmpz,
-    f: c_long,
-    g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
-    fmpz_mod::fmpz_mod_add_si(res, g, f, ctx);
-}
-
-#[inline]
-unsafe fn fmpz_mod_ui_mul(
-    res: *mut fmpz::fmpz,
+unsafe fn fq_default_ui_sub(
+    res: *mut fq::fq_default_struct,
     f: c_ulong,
-    g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
 {
-    fmpz_mod::fmpz_mod_mul_ui(res, g, f, ctx);
+    fq::fq_default_set_ui(res, f, ctx);
+    fq::fq_default_sub(res, res, g, ctx);
 }
 
 #[inline]
-unsafe fn fmpz_mod_si_mul(
-    res: *mut fmpz::fmpz,
-    f: c_long,
-    g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
+unsafe fn fq_default_ui_mul(
+    res: *mut fq::fq_default_struct,
+    f: c_ulong,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
 {
-    fmpz_mod::fmpz_mod_mul_si(res, g, f, ctx);
+    fq::fq_default_set_ui(res, f, ctx);
+    fq::fq_default_mul(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_ui_div(
+    res: *mut fq::fq_default_struct,
+    f: c_ulong,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_ui(res, f, ctx);
+    fq::fq_default_div(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_si_add(
+    res: *mut fq::fq_default_struct,
+    f: c_long,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_si(res, f, ctx);
+    fq::fq_default_add(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_si_sub(
+    res: *mut fq::fq_default_struct,
+    f: c_long,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_si(res, f, ctx);
+    fq::fq_default_sub(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_si_mul(
+    res: *mut fq::fq_default_struct,
+    f: c_long,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_si(res, f, ctx);
+    fq::fq_default_mul(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_si_div(
+    res: *mut fq::fq_default_struct,
+    f: c_long,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_si(res, f, ctx);
+    fq::fq_default_div(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_fmpz_add(
+    res: *mut fq::fq_default_struct,
+    f: *const fmpz::fmpz,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_fmpz(res, f, ctx);
+    fq::fq_default_add(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_fmpz_sub(
+    res: *mut fq::fq_default_struct,
+    f: *const fmpz::fmpz,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_fmpz(res, f, ctx);
+    fq::fq_default_sub(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_fmpz_mul(
+    res: *mut fq::fq_default_struct,
+    f: *const fmpz::fmpz,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_mul_fmpz(res, g, f, ctx);
+}
+
+#[inline]
+unsafe fn fq_default_fmpz_div(
+    res: *mut fq::fq_default_struct,
+    f: *const fmpz::fmpz,
+    g: *const fq::fq_default_struct,
+    ctx: *const fq::fq_default_ctx_struct,
+) 
+{
+    fq::fq_default_set_fmpz(res, f, ctx);
+    fq::fq_default_div(res, res, g, ctx);
 }

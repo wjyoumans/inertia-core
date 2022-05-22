@@ -15,12 +15,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::{FinFldElem, IntMod, IntModPoly, IntPoly, IntPolyRing, Integer, ValOrRef};
 use flint_sys::fmpz_poly;
-use crate::{Integer, IntMod, IntPoly, IntModPoly, FinFldElem, ValOrRef};
+use std::ffi::{CStr, CString};
 
-
-impl<'a, T> From<T> for ValOrRef<'a, IntPoly> where
-    T: Into<IntPoly>
+impl<'a, T> From<T> for ValOrRef<'a, IntPoly>
+where
+    T: Into<IntPoly>,
 {
     fn from(x: T) -> ValOrRef<'a, IntPoly> {
         ValOrRef::Val(x.into())
@@ -62,8 +63,9 @@ impl_from! {
     IntPoly, IntModPoly
     {
         fn from(x: &IntModPoly) -> IntPoly {
-            let mut res = IntPoly::default();
-            unsafe { 
+            let zp = IntPolyRing::init(&x.var());
+            let mut res = zp.default();
+            unsafe {
                 flint_sys::fmpz_mod_poly::fmpz_mod_poly_get_fmpz_poly(
                     res.as_mut_ptr(),
                     x.as_ptr(),
@@ -79,11 +81,12 @@ impl_from! {
     IntPoly, FinFldElem
     {
         fn from(x: &FinFldElem) -> IntPoly {
-            let mut res = IntPoly::default();
+            let zp = IntPolyRing::init(&x.var());
+            let mut res = zp.default();
             unsafe {
                 flint_sys::fq_default::fq_default_get_fmpz_poly(
-                    res.as_mut_ptr(), 
-                    x.as_ptr(), 
+                    res.as_mut_ptr(),
+                    x.as_ptr(),
                     x.ctx_as_ptr()
                 );
             }
@@ -104,18 +107,37 @@ impl_from! {
     }
 }*/
 
-
 impl_from! {
     String, IntPoly
     {
         fn from(x: &IntPoly) -> String {
-            x.get_str_pretty()
+            let v = CString::new(x.var()).unwrap();
+            unsafe {
+                let ptr = fmpz_poly::fmpz_poly_get_str_pretty(x.as_ptr(), v.as_ptr());
+                let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                flint_sys::flint::flint_free(ptr as _);
+                s
+            }
         }
     }
 }
 
-impl<'a, T: 'a> From<&'a [T]> for IntPoly where 
-    &'a T: Into<ValOrRef<'a, Integer>>
+/* TODO: improve conversions.
+impl<'a, T> From<T> for IntPoly where
+    T: Into<ValOrRef<'a, [Integer]>>
+{
+    fn from(src: T) -> IntPoly {
+        let mut res = IntPoly::default();
+        for (i, x) in src.into().iter().enumerate() {
+            res.set_coeff(i as i64, x);
+        }
+        res
+    }
+}
+*/
+impl<'a, T: 'a> From<&'a [T]> for IntPoly
+where
+    &'a T: Into<ValOrRef<'a, Integer>>,
 {
     fn from(src: &'a [T]) -> IntPoly {
         let mut res = IntPoly::default();
@@ -126,8 +148,9 @@ impl<'a, T: 'a> From<&'a [T]> for IntPoly where
     }
 }
 
-impl<'a, T: 'a> From<Vec<T>> for IntPoly where 
-    T: Into<ValOrRef<'a, Integer>>
+impl<'a, T: 'a> From<Vec<T>> for IntPoly
+where
+    T: Into<ValOrRef<'a, Integer>>,
 {
     #[inline]
     fn from(src: Vec<T>) -> IntPoly {

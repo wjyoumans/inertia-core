@@ -15,10 +15,45 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use flint_sys::fmpz_poly;
-use crate::{Integer, IntMod, IntPoly, IntoValOrRef};
+use crate::IntMPoly;
+use flint_sys::fmpz_mpoly;
+use std::ffi::{CStr, CString};
 
+impl_from! {
+    String, IntMPoly
+    {
+        fn from(src: &IntMPoly) -> String {
+            let u: Vec<_> = src.vars().iter().map(|x| CString::new(x.clone()).unwrap()).collect();
+            let v: Vec<_> = u.iter().map(|x| x.as_ptr()).collect();
+            unsafe {
+                let s = fmpz_mpoly::fmpz_mpoly_get_str_pretty(
+                    src.as_ptr(),
+                    v.as_ptr(),
+                    src.ctx_as_ptr()
+                );
+                match CStr::from_ptr(s).to_str() {
+                    Ok(s) => s.to_owned(),
+                    Err(_) => panic!("Flint returned invalid UTF-8!")
+                }
+            }
+        }
+    }
+}
 
+/*
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test() {
+        let zxy = IntMPolyRing::init(2);
+        zxy.new()
+        println!("{}")
+    }
+}
+*/
+
+/*
 impl_from_unsafe! {
     None
     IntPoly, u64 {usize u64 u32 u16 u8}
@@ -68,7 +103,7 @@ impl_from! {
     {
         fn from(x: &IntModPoly) -> IntPoly {
             let mut res = IntPoly::default();
-            unsafe { 
+            unsafe {
                 flint_sys::fmpz_mod_poly::fmpz_mod_poly_get_fmpz_poly(
                     res.as_mut_ptr(),
                     x.as_ptr(),
@@ -89,8 +124,8 @@ impl_from! {
             let mut res = IntPoly::default();
             unsafe {
                 flint_sys::fq_default::fq_default_get_fmpz_poly(
-                    res.as_mut_ptr(), 
-                    x.as_ptr(), 
+                    res.as_mut_ptr(),
+                    x.as_ptr(),
                     x.ctx_as_ptr()
                 );
             }
@@ -108,7 +143,7 @@ impl_from! {
     }
 }
 
-impl<'a, T: 'a> From<&[T]> for IntPoly where 
+impl<'a, T: 'a> From<&[T]> for IntPoly where
     T: IntoValOrRef<'a, Integer> + Clone
 {
     fn from(src: &[T]) -> IntPoly {
@@ -120,7 +155,7 @@ impl<'a, T: 'a> From<&[T]> for IntPoly where
     }
 }
 
-impl<'a, T: 'a> From<Vec<T>> for IntPoly where 
+impl<'a, T: 'a> From<Vec<T>> for IntPoly where
     T: IntoValOrRef<'a, Integer> + Clone
 {
     #[inline]
@@ -128,4 +163,4 @@ impl<'a, T: 'a> From<Vec<T>> for IntPoly where
         IntPoly::from(src.as_slice())
     }
 
-}
+}*/

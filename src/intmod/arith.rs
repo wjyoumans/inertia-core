@@ -15,12 +15,11 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-use std::ops::*;
-use flint_sys::{fmpz, fmpq, fmpz_mod};
-use libc::{c_int, c_long, c_ulong};
-use crate::{Integer, Rational, IntMod};
 use crate::ops::*;
+use crate::{IntMod, Integer, Rational};
+use flint_sys::{fmpq, fmpz, fmpz_mod};
+use libc::{c_int, c_long, c_ulong};
+use std::ops::*;
 
 impl_cmp_unsafe! {
     eq
@@ -53,54 +52,12 @@ impl_cmp_unsafe! {
 }
 
 #[inline]
-unsafe fn fmpz_equal_fmpq(
-    f: *const fmpz::fmpz,
-    g: *const fmpq::fmpq) -> c_int
-{
+unsafe fn fmpz_equal_fmpq(f: *const fmpz::fmpz, g: *const fmpq::fmpq) -> c_int {
     if fmpq::fmpq_cmp_fmpz(g, f) == 0 {
         1
     } else {
         0
     }
-}
-
-// TODO: consume lhs/rhs to avoid allocation
-macro_rules! impl_binop_option {
-    (
-        $lhs:ident, $rhs:ident, $out:ident
-        $op:ident {$meth:ident}
-        {
-            $($code:tt)*
-        }
-    ) => {
-        impl $op<&$rhs> for &$lhs {
-            type Output = Option<$out>;
-            #[inline]
-            $($code)*
-        }
-        
-        impl $op<$rhs> for &$lhs {
-            type Output = Option<$out>;
-            #[inline]
-            fn $meth(self, rhs: $rhs) -> Option<$out> {
-                self.$meth(&rhs)
-            }
-        }
-        
-        impl $op<&$rhs> for $lhs {
-            type Output = Option<$out>;
-            #[inline]
-            $($code)*
-        }
-        
-        impl $op<$rhs> for $lhs {
-            type Output = Option<$out>;
-            #[inline]
-            fn $meth(self, rhs: $rhs) -> Option<$out> {
-                self.$meth(&rhs)
-            }
-        }
-    };
 }
 
 impl_unop_unsafe! {
@@ -111,194 +68,48 @@ impl_unop_unsafe! {
     fmpz_mod::fmpz_mod_neg
 }
 
-impl_unop! {
-    IntMod, Option<IntMod>
+impl_unop_unsafe! {
+    ctx
+    IntMod
     Inv {inv}
-    {
-        fn inv(self) -> Option<IntMod> {
-            let mut res = self.parent().default();
-            unsafe {
-                let b = fmpz::fmpz_invmod(
-                    res.as_mut_ptr(), 
-                    self.as_ptr(), 
-                    self.modulus().as_ptr()
-                );
-                if b == 0 {
-                    None
-                } else {
-                    Some(res)
-                }
-            }
-        }
-    }
-}
-
-impl_binop_option! {
-    IntMod, Integer, IntMod
-    Pow {pow}
-    {
-        fn pow(self, pow: &Integer) -> Option<IntMod> {
-            let mut res = self.parent().default();
-            unsafe {
-                let b = fmpz_mod::fmpz_mod_pow_fmpz(
-                    res.as_mut_ptr(), 
-                    self.as_ptr(),
-                    pow.as_ptr(),
-                    self.ctx_as_ptr()
-                );
-                if b == 0 {
-                    None
-                } else {
-                    Some(res)
-                }
-            }
-        }
-    }
-}
-
-macro_rules! impl_pow_prim {
-    ($lhs:ident, $($rhs:ident)*) => ($(
-        impl_binop_option! {
-            $lhs, $rhs, IntMod
-            Pow {pow}
-            {
-                fn pow(self, rhs: &$rhs) -> Option<IntMod> {
-                    if rhs < &0 {
-                        if let Some(x) = self.inv() {
-                            Some(x.pow(rhs.abs() as u64))
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(self.pow(*rhs as u64))
-                    }
-                }
-            }
-        }
-    )*);
-}
-impl_pow_prim!(IntMod, i8 i16 i32 i64);
-
-macro_rules! impl_div {
-    ($lhs:ident, $($rhs:ident)*) => ($(
-        impl_binop_option! {
-            $lhs, $rhs, IntMod
-            Div {div}
-            {
-                fn div(self, rhs: &$rhs) -> Option<IntMod> {
-                    if let Some(x) = Integer::from(rhs).invmod(self.modulus()) {
-                        Some(self * x)
-                    } else {
-                        None
-                    }
-                }
-            }
-        }
-    )*);
-    ($($lhs:ident)*, IntMod) => ($(
-        impl_binop_option! {
-            $lhs, IntMod, IntMod
-            Div {div}
-            {
-                fn div(self, rhs: &IntMod) -> Option<IntMod> {
-                    if let Some(x) = rhs.inv() {
-                        Some(self * x)
-                    } else {
-                        None
-                    }
-                }
-            }
-        }
-    )*)
-}
-
-impl_div!(u8 u16 u32 u64 i8 i16 i32 i64 Integer IntMod, IntMod);
-impl_div!(IntMod, u8 u16 u32 u64 i8 i16 i32 i64);
-
-impl_binop_option! {
-    IntMod, Integer, IntMod
-    Div {div}
-    {
-        fn div(self, rhs: &Integer) -> Option<IntMod> {
-            if let Some(x) = rhs.invmod(self.modulus()) {
-                Some(self * x)
-            } else {
-                None
-            }
-        }
-    }
+    InvAssign {inv_assign}
+    fmpz_mod::fmpz_mod_inv
 }
 
 impl_binop_unsafe! {
     ctx
     IntMod, IntMod, IntMod
-    
+
     Add {add}
     AddAssign {add_assign}
     AddFrom {add_from}
     AssignAdd {assign_add}
     fmpz_mod::fmpz_mod_add;
-    
+
     Sub {sub}
     SubAssign {sub_assign}
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_sub;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul;
-}
-
-impl_binop_unsafe! {
-    ctx_lhs
-    op_assign
-    IntMod, Integer, IntMod
-   
-    Add {add}
-    AddAssign {add_assign}
-    AssignAdd {assign_add}
-    fmpz_mod::fmpz_mod_add_fmpz;
-
-    Sub {sub}
-    SubAssign {sub_assign}
-    AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_sub_fmpz;
     
-    Mul {mul}
-    MulAssign {mul_assign}
-    AssignMul {assign_mul}
-    fmpz_mod::fmpz_mod_mul_fmpz;
-}
-
-impl_binop_unsafe! {
-    ctx_rhs
-    op_from
-    Integer, IntMod, IntMod
-   
-    Add {add}
-    AddFrom {add_from}
-    AssignAdd {assign_add}
-    fmpz_mod::fmpz_mod_add_fmpz;
-
-    Sub {sub}
-    SubFrom {sub_from}
-    AssignSub {assign_sub}
-    fmpz_mod::fmpz_mod_sub_fmpz;
-    
-    Mul {mul}
-    MulFrom {mul_from}
-    AssignMul {assign_mul}
-    fmpz_mod::fmpz_mod_mul_fmpz;
+    Div {div}
+    DivAssign {div_assign}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fmpz_mod_div;
 }
 
 impl_binop_unsafe! {
     ctx_lhs
     op_assign
     IntMod, u64 {u64 u32 u16 u8}, IntMod
-   
+
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
@@ -308,12 +119,17 @@ impl_binop_unsafe! {
     SubAssign {sub_assign}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_sub_ui;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul_ui;
     
+    Div {div}
+    DivAssign {div_assign}
+    AssignDiv {assign_div}
+    fmpz_mod_div_ui;
+
     Pow {pow}
     PowAssign {pow_assign}
     AssignPow {assign_pow}
@@ -324,7 +140,7 @@ impl_binop_unsafe! {
     ctx_lhs
     op_assign
     IntMod, i64 {i64 i32 i16 i8}, IntMod
-   
+
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
@@ -334,18 +150,85 @@ impl_binop_unsafe! {
     SubAssign {sub_assign}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_sub_si;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul_si;
+    
+    Div {div}
+    DivAssign {div_assign}
+    AssignDiv {assign_div}
+    fmpz_mod_div_si;
+    
+    Pow {pow}
+    PowAssign {pow_assign}
+    AssignPow {assign_pow}
+    fmpz_mod_pow_si;
+}
+
+impl_binop_unsafe! {
+    ctx_lhs
+    op_assign
+    IntMod, Integer, IntMod
+
+    Add {add}
+    AddAssign {add_assign}
+    AssignAdd {assign_add}
+    fmpz_mod::fmpz_mod_add_fmpz;
+
+    Sub {sub}
+    SubAssign {sub_assign}
+    AssignSub {assign_sub}
+    fmpz_mod::fmpz_mod_sub_fmpz;
+
+    Mul {mul}
+    MulAssign {mul_assign}
+    AssignMul {assign_mul}
+    fmpz_mod::fmpz_mod_mul_fmpz;
+    
+    Div {div}
+    DivAssign {div_assign}
+    AssignDiv {assign_div}
+    fmpz_mod_div;
+    
+    Pow {pow}
+    PowAssign {pow_assign}
+    AssignPow {assign_pow}
+    fmpz_mod::fmpz_mod_pow_fmpz;
+}
+
+impl_binop_unsafe! {
+    ctx_lhs
+    op_assign
+    IntMod, Rational, IntMod
+
+    Add {add}
+    AddAssign {add_assign}
+    AssignAdd {assign_add}
+    fmpz_mod_add_fmpq;
+
+    Sub {sub}
+    SubAssign {sub_assign}
+    AssignSub {assign_sub}
+    fmpz_mod_sub_fmpq;
+
+    Mul {mul}
+    MulAssign {mul_assign}
+    AssignMul {assign_mul}
+    fmpz_mod_mul_fmpq;
+    
+    Div {div}
+    DivAssign {div_assign}
+    AssignDiv {assign_div}
+    fmpz_mod_div_fmpq;
 }
 
 impl_binop_unsafe! {
     ctx_rhs
     op_from
     u64 {u64 u32 u16 u8}, IntMod, IntMod
-   
+
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
@@ -355,18 +238,23 @@ impl_binop_unsafe! {
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_ui_sub;
-    
+
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod_ui_mul;
+    
+    Div {div}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fmpz_mod_ui_div;
 }
 
 impl_binop_unsafe! {
     ctx_rhs
     op_from
     i64 {i64 i32 i16 i8}, IntMod, IntMod
-   
+
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
@@ -376,21 +264,77 @@ impl_binop_unsafe! {
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fmpz_mod::fmpz_mod_si_sub;
-    
+
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod_si_mul;
+    
+    Div {div}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fmpz_mod_si_div;
 }
 
+impl_binop_unsafe! {
+    ctx_rhs
+    op_from
+    Integer, IntMod, IntMod
+
+    Add {add}
+    AddFrom {add_from}
+    AssignAdd {assign_add}
+    fmpz_mod::fmpz_mod_add_fmpz;
+
+    Sub {sub}
+    SubFrom {sub_from}
+    AssignSub {assign_sub}
+    fmpz_mod::fmpz_mod_sub_fmpz;
+
+    Mul {mul}
+    MulFrom {mul_from}
+    AssignMul {assign_mul}
+    fmpz_mod::fmpz_mod_mul_fmpz;
+    
+    Div {div}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fmpz_mod_div;
+}
+
+impl_binop_unsafe! {
+    ctx_rhs
+    op_from
+    Rational, IntMod, IntMod
+
+    Add {add}
+    AddFrom {add_from}
+    AssignAdd {assign_add}
+    fmpz_mod_fmpq_add;
+
+    Sub {sub}
+    SubFrom {sub_from}
+    AssignSub {assign_sub}
+    fmpz_mod_fmpq_sub;
+
+    Mul {mul}
+    MulFrom {mul_from}
+    AssignMul {assign_mul}
+    fmpz_mod_fmpq_mul;
+    
+    Div {div}
+    DivFrom {div_from}
+    AssignDiv {assign_div}
+    fmpz_mod_fmpq_div;
+}
 
 #[inline]
 unsafe fn fmpz_mod_ui_add(
     res: *mut fmpz::fmpz,
     f: c_ulong,
     g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
     fmpz_mod::fmpz_mod_add_ui(res, g, f, ctx);
 }
 
@@ -399,8 +343,8 @@ unsafe fn fmpz_mod_si_add(
     res: *mut fmpz::fmpz,
     f: c_long,
     g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
     fmpz_mod::fmpz_mod_add_si(res, g, f, ctx);
 }
 
@@ -409,8 +353,8 @@ unsafe fn fmpz_mod_ui_mul(
     res: *mut fmpz::fmpz,
     f: c_ulong,
     g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
     fmpz_mod::fmpz_mod_mul_ui(res, g, f, ctx);
 }
 
@@ -419,7 +363,185 @@ unsafe fn fmpz_mod_si_mul(
     res: *mut fmpz::fmpz,
     f: c_long,
     g: *const fmpz::fmpz,
-    ctx: *const fmpz_mod::fmpz_mod_ctx)
-{
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
     fmpz_mod::fmpz_mod_mul_si(res, g, f, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_div(
+    res: *mut fmpz::fmpz,
+    f: *const fmpz::fmpz,
+    g: *const fmpz::fmpz,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, g);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_add_fmpq(
+    res: *mut fmpz::fmpz,
+    f: *const fmpz::fmpz,
+    g: *const fmpq::fmpq,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, &(*g).den);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, &(*g).num, ctx);
+    fmpz_mod::fmpz_mod_add(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_sub_fmpq(
+    res: *mut fmpz::fmpz,
+    f: *const fmpz::fmpz,
+    g: *const fmpq::fmpq,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, &(*g).den);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, &(*g).num, ctx);
+    fmpz_mod::fmpz_mod_sub(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_mul_fmpq(
+    res: *mut fmpz::fmpz,
+    f: *const fmpz::fmpz,
+    g: *const fmpq::fmpq,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, &(*g).den);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, &(*g).num, ctx);
+    fmpz_mod::fmpz_mod_mul(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_div_fmpq(
+    res: *mut fmpz::fmpz,
+    f: *const fmpz::fmpz,
+    g: *const fmpq::fmpq,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, &(*g).num);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, &(*g).den, ctx);
+    fmpz_mod::fmpz_mod_mul(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_fmpq_add(
+    res: *mut fmpz::fmpz,
+    f: *const fmpq::fmpq,
+    g: *const fmpz::fmpz,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, &(*f).den);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, &(*f).num, ctx);
+    fmpz_mod::fmpz_mod_add(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_fmpq_sub(
+    res: *mut fmpz::fmpz,
+    f: *const fmpq::fmpq,
+    g: *const fmpz::fmpz,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, &(*f).den);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, &(*f).num, ctx);
+    fmpz_mod::fmpz_mod_sub(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_fmpq_mul(
+    res: *mut fmpz::fmpz,
+    f: *const fmpq::fmpq,
+    g: *const fmpz::fmpz,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, &(*f).den);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, &(*f).num, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_fmpq_div(
+    res: *mut fmpz::fmpz,
+    f: *const fmpq::fmpq,
+    g: *const fmpz::fmpz,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set(res, &(*f).num);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, &(*f).den, ctx);
+    fmpz_mod::fmpz_mod_mul(res, res, g, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_div_ui(
+    res: *mut fmpz::fmpz,
+    f: *const fmpz::fmpz,
+    g: c_ulong,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set_ui(res, g);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_ui_div(
+    res: *mut fmpz::fmpz,
+    f: c_ulong,
+    g: *const fmpz::fmpz,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz_mod::fmpz_mod_inv(res, g, ctx);
+    fmpz_mod_ui_mul(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_div_si(
+    res: *mut fmpz::fmpz,
+    f: *const fmpz::fmpz,
+    g: c_long,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz::fmpz_set_si(res, g);
+    fmpz_mod::fmpz_mod_inv(res, res, ctx);
+    fmpz_mod::fmpz_mod_mul(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_si_div(
+    res: *mut fmpz::fmpz,
+    f: c_long,
+    g: *const fmpz::fmpz,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    fmpz_mod::fmpz_mod_inv(res, g, ctx);
+    fmpz_mod_si_mul(res, f, res, ctx);
+}
+
+#[inline]
+unsafe fn fmpz_mod_pow_si(
+    res: *mut fmpz::fmpz,
+    f: *const fmpz::fmpz,
+    g: c_long,
+    ctx: *const fmpz_mod::fmpz_mod_ctx,
+) {
+    if g < 0 {
+        fmpz_mod::fmpz_mod_inv(res, f, ctx);
+    } else {
+        fmpz::fmpz_set(res, f);
+    }
+
+    fmpz_mod::fmpz_mod_pow_ui(res, res, g.abs() as u64, ctx);
 }

@@ -9,7 +9,7 @@ fn main() {
 
     let zn = IntModRing::init(10);
     let z = zn.new(12);
-    println!("{}", Rational::from(z*7u32));
+    println!("{}", Rational::from(z * 7u32));
 
     let c0 = Integer::from(1);
     let c1 = Integer::from(2);
@@ -20,10 +20,6 @@ fn main() {
     println!("{}", &p);
 
     let mm = IntMatSpace::init(2, 2);
-    let m = mm.new(&[
-                   1, 2, 
-                   3, 4
-            ]);
+    let m = mm.new(&[1, 2, 3, 4]);
     println!("{}", m);
 }
-

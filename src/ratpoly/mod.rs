@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Univariate polynomials with integer coefficients.
+//! Univariate polynomials with rational coefficients.
 
 /// Definition and general implementation.
 mod src;

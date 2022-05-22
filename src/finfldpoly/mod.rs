@@ -15,14 +15,16 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Finite fields.
+//! Univariate polynomials over a finite field.
 
 /// Definition and general implementation.
 mod src;
 pub use src::*;
 
+/*
 /// Conversions.
 pub mod conv;
 
 /// Arithmetic operations.
 pub mod arith;
+*/

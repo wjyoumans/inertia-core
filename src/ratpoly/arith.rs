@@ -21,6 +21,119 @@ use libc::{c_long, c_ulong};
 use crate::{Integer, IntPoly};
 use crate::ops::*;
 
+impl_cmp_unsafe! {
+    eq
+    RatPoly
+    fmpq_poly::fmpq_poly_equal
+}
+
+impl_cmp_unsafe! {
+    eq
+    RatPoly, Rational
+    fmpq_poly_equal_fmpq
+}
+
+impl_cmp_unsafe! {
+    eq
+    RatPoly, Integer
+    fmpq_poly_equal_fmpz
+}
+
+impl_cmp_unsafe! {
+    eq
+    RatPoly, u64 {u64 u32 u16 u8}
+    fmpq_poly_equal_ui
+}
+
+impl_cmp_unsafe! {
+    eq
+    RatPoly, i64 {i64 i32 i16 i8}
+    fmpq_poly_equal_si
+}
+
+#[inline]
+unsafe fn fmpq_poly_equal_fmpq(
+    f: *const fmpq_poly::fmpq_poly_struct,
+    x: *const fmpq::fmpq,
+) -> c_int {
+    if fmpq_poly::fmpq_poly_length(f) == 1 {
+        let mut z = MaybeUninit::uninit();
+        fmpq::fmpq_init(z.as_mut_ptr());
+        fmpq_poly::fmpq_poly_get_coeff_fmpq(z.as_mut_ptr(), f, 0);
+        let b = fmpq::fmpq_equal(z.as_ptr(), x);
+        fmpq::fmpq_clear(z.as_mut_ptr());
+        b
+    } else {
+        0
+    }
+}
+
+#[inline]
+unsafe fn fmpq_poly_equal_fmpz(
+    f: *const fmpq_poly::fmpq_poly_struct,
+    x: *const fmpz::fmpz,
+) -> c_int {
+    if fmpq_poly::fmpq_poly_length(f) == 1 {
+        let mut z = MaybeUninit::uninit();
+        fmpq::fmpq_init(z.as_mut_ptr());
+        fmpq_poly::fmpq_poly_get_coeff_fmpq(z.as_mut_ptr(), f, 0);
+        let b = fmpq::fmpq_cmp_fmpz(z.as_ptr(), x);
+        fmpq::fmpq_clear(z.as_mut_ptr());
+        
+        if b == 0 {
+            1
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}
+
+#[inline]
+unsafe fn fmpq_poly_equal_ui(
+    f: *const fmpq_poly::fmpq_poly_struct,
+    x: c_ulong,
+) -> c_int {
+    if fmpq_poly::fmpq_poly_length(f) == 1 {
+        let mut z = MaybeUninit::uninit();
+        fmpq::fmpq_init(z.as_mut_ptr());
+        fmpq_poly::fmpq_poly_get_coeff_fmpq(z.as_mut_ptr(), f, 0);
+        let b = fmpq::fmpq_cmp_ui(z.as_ptr(), x);
+        fmpq::fmpq_clear(z.as_mut_ptr());
+        
+        if b == 0 {
+            1
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}
+
+#[inline]
+unsafe fn fmpq_poly_equal_si(
+    f: *const fmpq_poly::fmpq_poly_struct,
+    x: c_long,
+) -> c_int {
+    if fmpq_poly::fmpq_poly_length(f) == 1 {
+        let mut z = MaybeUninit::uninit();
+        fmpq::fmpq_init(z.as_mut_ptr());
+        fmpq_poly::fmpq_poly_get_coeff_fmpq(z.as_mut_ptr(), f, 0);
+        let b = fmpq::fmpq_cmp_si(z.as_ptr(), x);
+        fmpq::fmpq_clear(z.as_mut_ptr());
+        
+        if b == 0 {
+            1
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}
+
 impl_unop_unsafe! {
     None
     IntPoly

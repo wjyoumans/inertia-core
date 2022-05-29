@@ -215,13 +215,15 @@ impl Integer {
     pub fn to_str_radix(&self, base: u8) -> String {
         unsafe {
             // Extra two bytes are for possible minus sign and null terminator
-            let len = fmpz::fmpz_sizeinbase(self.as_ptr(), base as c_int) as usize + 2;
+            let len = fmpz::fmpz_sizeinbase(
+                self.as_ptr(), base as c_int) as usize + 2;
 
             // Allocate and write into a raw *c_char of the correct length
             let mut vector: Vec<u8> = Vec::with_capacity(len);
             vector.set_len(len);
 
-            fmpz::fmpz_get_str(vector.as_mut_ptr() as *mut _, base as c_int, self.as_ptr());
+            fmpz::fmpz_get_str(
+                vector.as_mut_ptr() as *mut _, base as c_int, self.as_ptr());
 
             let mut first_nul = None;
             let mut index: usize = 0;
@@ -242,8 +244,8 @@ impl Integer {
         }
     }
 
-    /// Determines the size of the absolute value of an `Integer` in base `base` in terms of number
-    /// of digits. The base can be between 2 and 62, inclusive.
+    /// Determines the size of the absolute value of an `Integer` in base `base` 
+    /// in terms of number of digits. The base can be between 2 and 62, inclusive.
     ///
     /// ```
     /// use inertia_core::Integer;
@@ -253,11 +255,13 @@ impl Integer {
     /// ```
     #[inline]
     pub fn sizeinbase(&self, base: u8) -> usize {
-        unsafe { flint_sys::fmpz::fmpz_sizeinbase(self.as_ptr(), base as i32) as usize }
+        unsafe { 
+            flint_sys::fmpz::fmpz_sizeinbase(self.as_ptr(), base as i32) as usize 
+        }
     }
 
-    /// Returns the number of limbs required to store the absolute value of an `Integer`. Returns
-    /// zero if the `Integer` is zero.
+    /// Returns the number of limbs required to store the absolute value of an 
+    /// `Integer`. Returns zero if the `Integer` is zero.
     ///
     /// ```
     /// use inertia_core::Integer;
@@ -270,8 +274,8 @@ impl Integer {
         unsafe { flint_sys::fmpz::fmpz_size(self.as_ptr()) }
     }
 
-    /// Returns the number of bits required to store the absolute value of an `Integer`. Returns
-    /// zero if the `Integer` is zero.
+    /// Returns the number of bits required to store the absolute value of an 
+    /// `Integer`. Returns zero if the `Integer` is zero.
     ///
     /// ```
     /// use inertia_core::Integer;
@@ -310,7 +314,8 @@ impl Integer {
         unsafe { flint_sys::fmpz::fmpz_abs_fits_ui(self.as_ptr()) == 1 }
     }
 
-    /// Return an `Option` containing the input as a signed long (`libc::c_long`) if possible.
+    /// Return an `Option` containing the input as a signed long (`libc::c_long`) 
+    /// if possible.
     ///
     /// ```
     /// use inertia_core::Integer;
@@ -327,7 +332,8 @@ impl Integer {
         }
     }
 
-    /// Return an `Option` containing the input as an unsigned long (`libc::c_ulong`) if possible.
+    /// Return an `Option` containing the input as an unsigned long 
+    /// (`libc::c_ulong`) if possible.
     ///
     /// ```
     /// use inertia_core::Integer;
@@ -347,9 +353,8 @@ impl Integer {
         }
     }
 
-    // TODO
-    /// Return a vector `A` of unsigned longs such that the original [Integer] can be written as
-    /// `a[0] + a[1]*x + ... + a[n-1]*x^(n-1)` where `x = 2^FLINT_BITS`.
+    /// Return a vector `A` of unsigned longs such that the original [Integer] can 
+    /// be written as `a[0] + a[1]*x + ... + a[n-1]*x^(n-1)` where `x = 2^FLINT_BITS`.
     ///
     /// ```
     /// use inertia_core::{
@@ -386,8 +391,8 @@ impl Integer {
         }
     }
 
-    /// Set `self` to the nonnegative [Integer] `vec[0] + vec[1]*x + ... + vec[n-1]*x^(n-1)`
-    /// where `x = 2^FLINT_BITS`.
+    /// Set `self` to the nonnegative [Integer] 
+    /// `vec[0] + vec[1]*x + ... + vec[n-1]*x^(n-1)` where `x = 2^FLINT_BITS`.
     ///
     /// ```
     /// use inertia_core::{
@@ -405,7 +410,11 @@ impl Integer {
             self.assign(0);
         } else {
             unsafe {
-                fmpz::fmpz_set_ui_array(self.as_mut_ptr(), vec.as_ptr(), vec.len() as c_long);
+                fmpz::fmpz_set_ui_array(
+                    self.as_mut_ptr(), 
+                    vec.as_ptr(), 
+                    vec.len() as c_long
+                );
             }
         }
     }
@@ -486,7 +495,8 @@ impl Integer {
         unsafe { fmpz::fmpz_is_odd(self.as_ptr()) == 1 }
     }
 
-    /// Returns -1 if the `Integer` is negative, +1 if the `Integer` is positive, and 0 otherwise.
+    /// Returns -1 if the `Integer` is negative, +1 if the `Integer` 
+    /// is positive, and 0 otherwise.
     ///
     /// ```
     /// use inertia_core::Integer;
@@ -556,7 +566,8 @@ impl Integer {
 
         let mut res = Integer::default();
         unsafe {
-            let r = fmpz::fmpz_invmod(res.as_mut_ptr(), self.as_ptr(), modulus.as_ptr());
+            let r = fmpz::fmpz_invmod(
+                res.as_mut_ptr(), self.as_ptr(), modulus.as_ptr());
 
             if r == 0 {
                 None
@@ -580,6 +591,228 @@ impl Integer {
     #[inline]
     pub fn is_prime(&self) -> bool {
         unsafe { fmpz::fmpz_is_prime(self.as_ptr()) == 1 }
+    }
+
+    /// Sets the bit index `bit_index` of an `Integer`.
+    ///
+    /// ```
+    /// use inertia_core::*;
+    ///
+    /// let mut z = Integer::from(1024);
+    /// z.setbit(0);
+    /// assert_eq!(1025, z);
+    /// ```
+    #[inline]
+    pub fn setbit(&mut self, bit_index: usize) {
+        unsafe { 
+            fmpz::fmpz_setbit(self.as_mut_ptr(), bit_index as c_ulong) 
+        }
+    }
+    
+    /// Test the bit index `bit_index` of an `Integer`. Return `true` if it is 1, 
+    /// `false` if it is zero.
+    ///
+    /// ```
+    /// use inertia_core::*;
+    ///
+    /// let z = Integer::from(1025);
+    /// assert!(z.testbit(0));
+    /// ```
+    #[inline]
+    pub fn testbit(&self, bit_index: usize) -> bool {
+        unsafe { 
+            fmpz::fmpz_tstbit(self.as_ptr(), bit_index as c_ulong) == 1
+        }
+    }
+
+    /// Outputs `self * x * y` where `x, y` can be converted to unsigned longs.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let f = Integer::from(-1);
+    /// assert_eq!(f.mul2_uiui(10, 3), -30i32);
+    /// ```
+    #[inline]
+    pub fn mul2_uiui<S>(&self, x: S, y: S) -> Integer where
+        S: TryInto<c_ulong>,
+        S::Error: fmt::Debug
+    {
+        let x = x.try_into().expect("Input cannot be converted to an unsigned long.");
+        let y = y.try_into().expect("Input cannot be converted to an unsigned long.");
+
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_mul2_uiui(res.as_mut_ptr(), self.as_ptr(), x, y);
+        }
+        res
+    }
+    
+    /// Set `self` to `self * x * y` where `x, y` can be converted to unsigned longs.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let mut f = Integer::from(-1);
+    /// f.mul2_uiui_assign(10, 3);
+    /// assert_eq!(f, -30);
+    /// ```
+    #[inline]
+    pub fn mul2_uiui_assign<S>(&mut self, x: S, y: S) where
+        S: TryInto<c_ulong>,
+        S::Error: fmt::Debug
+    {
+        let x = x.try_into().expect("Input cannot be converted to an unsigned long.");
+        let y = y.try_into().expect("Input cannot be converted to an unsigned long.");
+
+        unsafe {
+            fmpz::fmpz_mul2_uiui(self.as_mut_ptr(), self.as_ptr(), x, y);
+        }
+    }
+
+    /// Output `self * 2^exp`.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let g = Integer::from(2);
+    /// assert_eq!(g.mul_2exp(3), 16);
+    /// ```
+    #[inline]
+    pub fn mul_2exp<S>(&self, exp: S) -> Integer where
+        S: TryInto<c_ulong>,
+        S::Error: fmt::Debug
+    {
+        let exp = exp.try_into().expect(
+            "Input cannot be converted to an unsigned long.");
+
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_mul_2exp(res.as_mut_ptr(), self.as_ptr(), exp);
+        }
+        res
+        
+    }
+    
+    /// Compute `self * 2^exp` in place.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let mut g = Integer::from(2);
+    /// g.mul_2exp_assign(3);
+    /// assert_eq!(g, 16);
+    /// ```
+    #[inline]
+    pub fn mul_2exp_assign<S>(&mut self, exp: S) where
+        S: TryInto<c_ulong>,
+        S::Error: fmt::Debug
+    {
+        let exp = exp.try_into().expect(
+            "Input cannot be converted to an unsigned long.");
+        unsafe {
+            fmpz::fmpz_mul_2exp(self.as_mut_ptr(), self.as_ptr(), exp);
+        }
+        
+    }
+
+    /// Return `self + (x * y)`.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let z = Integer::from(2);
+    /// assert_eq!(z.addmul(Integer::from(3), Integer::from(4)), 14);
+    /// ```
+    #[inline]
+    pub fn addmul<'a, T>(&self, x: T, y: T) -> Integer where 
+        T: Into<ValOrRef<'a, Integer>>,
+    {
+        let mut res = self.clone();
+        unsafe {
+            fmpz::fmpz_addmul(
+                res.as_mut_ptr(), 
+                x.into().as_ptr(), 
+                y.into().as_ptr()
+            );
+        }
+        res
+    }
+    
+    /// Compute `self + (x * y)` in place.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let mut z = Integer::from(2);
+    /// z.addmul_assign(Integer::from(3), Integer::from(4));
+    /// assert_eq!(z, 14);
+    /// ```
+    #[inline]
+    pub fn addmul_assign<'a, T>(&mut self, x: T, y: T) where 
+        T: Into<ValOrRef<'a, Integer>>,
+    {
+        unsafe {
+            fmpz::fmpz_addmul(
+                self.as_mut_ptr(), 
+                x.into().as_ptr(), 
+                y.into().as_ptr()
+            );
+        }
+    }
+    
+    /// Return `self + (x * y)` where `y` can be converted to an unsigned long.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let z = Integer::from(2);
+    /// assert_eq!(z.addmul_ui(Integer::from(3), 4), 14);
+    /// ```
+    #[inline]
+    pub fn addmul_ui<'a, S, T>(&self, x: T, y: S) -> Integer where 
+        S: TryInto<c_ulong>,
+        S::Error: fmt::Debug,
+        T: Into<ValOrRef<'a, Integer>>
+    {
+        let y = y.try_into().expect(
+            "Input cannot be converted to an unsigned long.");
+        let mut res = self.clone();
+        unsafe {
+            fmpz::fmpz_addmul_ui(
+                res.as_mut_ptr(), 
+                x.into().as_ptr(), 
+                y
+            );
+        }
+        res
+    }
+    
+    /// Compute `self + (x * y)` in place where `y` can be converted to an 
+    /// unsigned long.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let mut z = Integer::from(2);
+    /// z.addmul_ui_assign(Integer::from(3), 4);
+    /// assert_eq!(z, 14);
+    /// ```
+    #[inline]
+    pub fn addmul_ui_assign<'a, S, T>(&mut self, x: T, y: S) where 
+        S: TryInto<c_ulong>,
+        S::Error: fmt::Debug,
+        T: Into<ValOrRef<'a, Integer>>
+    {
+        let y = y.try_into().expect(
+            "Input cannot be converted to an unsigned long.");
+        unsafe {
+            fmpz::fmpz_addmul_ui(
+                self.as_mut_ptr(), 
+                x.into().as_ptr(), 
+                y
+            );
+        }
     }
 }
 
@@ -616,7 +849,6 @@ impl<'de> Visitor<'de> for IntegerVisitor {
     where
         A: SeqAccess<'de>,
     {
-        //let mut vec_ui = Vec::default();
         let mut vec_ui = Vec::with_capacity(access.size_hint().unwrap_or(0));
         while let Some(x) = access.next_element()? {
             vec_ui.push(x);

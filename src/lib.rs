@@ -244,7 +244,6 @@ pub mod ops {
     }
 }
 
-pub use ops::*;
 pub use finfld::*;
 pub use finfldmat::*;
 pub use finfldpoly::*;
@@ -255,6 +254,7 @@ pub use intmodmat::*;
 pub use intmodpoly::*;
 pub use intmpoly::*;
 pub use intpoly::*;
+pub use ops::*;
 pub use rational::*;
 pub use ratmat::*;
 pub use ratpoly::*;

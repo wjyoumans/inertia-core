@@ -129,7 +129,7 @@ impl Rational {
     pub fn from_raw(raw: fmpq::fmpq) -> Rational {
         Rational { inner: raw }
     }
-    
+
     #[inline]
     pub fn new<T: Into<Rational>>(x: T) -> Rational {
         x.into()

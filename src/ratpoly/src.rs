@@ -180,12 +180,15 @@ impl RatPoly {
     pub fn as_mut_ptr(&mut self) -> *mut fmpq_poly::fmpq_poly_struct {
         &mut self.inner
     }
-    
-    /// Instantiate an rational polynomial from a 
+
+    /// Instantiate an rational polynomial from a
     /// [FLINT rational polynomial][fmpq_poly::fmpq_poly_struct].
     #[inline]
     pub fn from_raw(raw: fmpq_poly::fmpq_poly_struct, var: &str) -> RatPoly {
-        RatPoly { inner: raw, var: Rc::new(RefCell::new(var.to_string())) }
+        RatPoly {
+            inner: raw,
+            var: Rc::new(RefCell::new(var.to_string())),
+        }
     }
 
     /// Return the parent [ring of polynomials with rational coefficients][RatPolyRing].

@@ -50,7 +50,12 @@ impl PartialEq for FiniteField {
 impl fmt::Display for FiniteField {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Finite field of order {}^{}", self.prime(), self.degree())
+        write!(
+            f,
+            "Finite field of order {}^{}",
+            self.prime(),
+            self.degree()
+        )
     }
 }
 
@@ -138,7 +143,7 @@ impl FiniteField {
         }
         res
     }
-    
+
     /// Return the variable of the finite field elements as a polynomial.
     #[inline]
     pub fn var(&self) -> String {
@@ -205,7 +210,6 @@ impl Hash for FinFldElem {
     }
 }
 
-  
 impl FinFldElem {
     /// Returns a pointer to the inner [fq::fq_default_struct].
     #[inline]
@@ -224,7 +228,7 @@ impl FinFldElem {
     pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
         &self.ctx.0
     }
-    
+
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
         let zp = IntModPolyRing::init(self.parent().prime(), "x");
@@ -234,7 +238,7 @@ impl FinFldElem {
         }
         res
     }
-    
+
     /// Return the variable of the finite field element as a polynomial.
     #[inline]
     pub fn var(&self) -> String {

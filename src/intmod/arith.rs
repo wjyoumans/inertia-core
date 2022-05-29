@@ -97,7 +97,7 @@ impl_binop_unsafe! {
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul;
-    
+
     Div {div}
     DivAssign {div_assign}
     DivFrom {div_from}
@@ -124,7 +124,7 @@ impl_binop_unsafe! {
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul_ui;
-    
+
     Div {div}
     DivAssign {div_assign}
     AssignDiv {assign_div}
@@ -155,12 +155,12 @@ impl_binop_unsafe! {
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul_si;
-    
+
     Div {div}
     DivAssign {div_assign}
     AssignDiv {assign_div}
     fmpz_mod_div_si;
-    
+
     Pow {pow}
     PowAssign {pow_assign}
     AssignPow {assign_pow}
@@ -186,12 +186,12 @@ impl_binop_unsafe! {
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul_fmpz;
-    
+
     Div {div}
     DivAssign {div_assign}
     AssignDiv {assign_div}
     fmpz_mod_div;
-    
+
     Pow {pow}
     PowAssign {pow_assign}
     AssignPow {assign_pow}
@@ -217,7 +217,7 @@ impl_binop_unsafe! {
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fmpz_mod_mul_fmpq;
-    
+
     Div {div}
     DivAssign {div_assign}
     AssignDiv {assign_div}
@@ -243,7 +243,7 @@ impl_binop_unsafe! {
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod_ui_mul;
-    
+
     Div {div}
     DivFrom {div_from}
     AssignDiv {assign_div}
@@ -269,7 +269,7 @@ impl_binop_unsafe! {
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod_si_mul;
-    
+
     Div {div}
     DivFrom {div_from}
     AssignDiv {assign_div}
@@ -295,7 +295,7 @@ impl_binop_unsafe! {
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod::fmpz_mod_mul_fmpz;
-    
+
     Div {div}
     DivFrom {div_from}
     AssignDiv {assign_div}
@@ -321,7 +321,7 @@ impl_binop_unsafe! {
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fmpz_mod_fmpq_mul;
-    
+
     Div {div}
     DivFrom {div_from}
     AssignDiv {assign_div}

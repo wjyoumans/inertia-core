@@ -173,7 +173,7 @@ impl IntMat {
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_mat::fmpz_mat_struct {
         &mut self.inner
     }
-    
+
     /// Instantiate an integer matrix from a [FLINT integer matrix][fmpz_mat::fmpz_mat_struct].
     #[inline]
     pub fn from_raw(raw: fmpz_mat::fmpz_mat_struct) -> IntMat {
@@ -239,9 +239,7 @@ impl IntMat {
     /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> Integer {
-        unsafe {
-            Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j))
-        }
+        unsafe { Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j)) }
     }
 
     /// Set the `(i, j)`-th entry of the matrix.

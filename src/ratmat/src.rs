@@ -175,7 +175,7 @@ impl RatMat {
     pub fn as_mut_ptr(&mut self) -> *mut fmpq_mat::fmpq_mat_struct {
         &mut self.inner
     }
-    
+
     /// Instantiate a rational matrix from a [FLINT rational matrix][fmpq_mat::fmpq_mat_struct].
     #[inline]
     pub fn from_raw(raw: fmpq_mat::fmpq_mat_struct) -> RatMat {
@@ -241,9 +241,7 @@ impl RatMat {
     /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> Rational {
-        unsafe {
-            Rational::from_raw(*fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j))
-        }
+        unsafe { Rational::from_raw(*fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j)) }
     }
 
     /// Set the `(i, j)`-th entry of the matrix.

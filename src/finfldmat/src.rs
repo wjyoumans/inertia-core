@@ -25,14 +25,7 @@ use std::rc::Rc;
 //use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 //use serde::ser::{Serialize, SerializeSeq, Serializer};
 use crate::{
-    ops::Assign, 
-    FqCtx, 
-    FinFldElem, 
-    FiniteField, 
-    Integer,
-    IntModPoly,
-    IntModPolyRing,
-    IntPoly, 
+    ops::Assign, FinFldElem, FiniteField, FqCtx, IntModPoly, IntModPolyRing, IntPoly, Integer,
     ValOrRef,
 };
 
@@ -122,7 +115,7 @@ impl FinFldMatSpace {
             Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
     }
-    
+
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
         let zp = IntModPolyRing::init(self.base_ring().prime(), "x");
@@ -262,7 +255,7 @@ impl FinFldMat {
     pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
         &self.ctx.0
     }
-    
+
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
         let zp = IntModPolyRing::init(self.base_ring().prime(), "x");

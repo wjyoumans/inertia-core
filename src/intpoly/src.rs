@@ -185,12 +185,15 @@ impl IntPoly {
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_poly::fmpz_poly_struct {
         &mut self.inner
     }
-    
-    /// Instantiate an integer polynomial from a 
+
+    /// Instantiate an integer polynomial from a
     /// [FLINT integer polynomial][fmpz_poly::fmpz_poly_struct].
     #[inline]
     pub fn from_raw(raw: fmpz_poly::fmpz_poly_struct, var: &str) -> IntPoly {
-        IntPoly { inner: raw, var: Rc::new(RefCell::new(var.to_string())) }
+        IntPoly {
+            inner: raw,
+            var: Rc::new(RefCell::new(var.to_string())),
+        }
     }
 
     /// Return the parent [ring of polynomials with integer coefficients][IntPolyRing].

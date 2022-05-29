@@ -27,7 +27,7 @@ impl_cmp! {
     IntModMat
     {
         fn eq(&self, rhs: &IntModMat) -> bool {
-            unsafe { 
+            unsafe {
                 self.parent() == rhs.parent() && fmpz_mod_mat::fmpz_mod_mat_equal(
                     self.as_ptr(),
                     rhs.as_ptr()

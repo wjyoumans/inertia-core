@@ -15,10 +15,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, FinFldElem};
 use crate::ops::*;
-use flint_sys::fq_default as fq;
+use crate::{FinFldElem, Integer};
 use flint_sys::fmpz;
+use flint_sys::fq_default as fq;
 use libc::{c_long, c_ulong};
 use std::ops::*;
 
@@ -27,12 +27,12 @@ impl_cmp! {
     FinFldElem
     {
         fn eq(&self, rhs: &FinFldElem) -> bool {
-            unsafe { 
+            unsafe {
                 self.parent() == rhs.parent() && fq::fq_default_equal(
-                    self.as_ptr(), 
-                    rhs.as_ptr(), 
+                    self.as_ptr(),
+                    rhs.as_ptr(),
                     self.ctx_as_ptr()
-                ) != 0 
+                ) != 0
             }
         }
     }
@@ -57,25 +57,25 @@ impl_unop_unsafe! {
 impl_binop_unsafe! {
     ctx
     FinFldElem, FinFldElem, FinFldElem
-    
+
     Add {add}
     AddAssign {add_assign}
     AddFrom {add_from}
     AssignAdd {assign_add}
     fq::fq_default_add;
-    
+
     Sub {sub}
     SubAssign {sub_assign}
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fq::fq_default_sub;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fq::fq_default_mul;
-    
+
     Div {div}
     DivAssign {div_assign}
     DivFrom {div_from}
@@ -87,27 +87,27 @@ impl_binop_unsafe! {
     ctx
     op_assign
     FinFldElem, Integer, FinFldElem
-    
+
     Add {add}
     AddAssign {add_assign}
     AssignAdd {assign_add}
     fq_default_add_fmpz;
-    
+
     Sub {sub}
     SubAssign {sub_assign}
     AssignSub {assign_sub}
     fq_default_sub_fmpz;
-    
+
     Mul {mul}
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fq::fq_default_mul_fmpz;
-    
+
     Div {div}
     DivAssign {div_assign}
     AssignDiv {assign_div}
     fq_default_div_fmpz;
-    
+
     Pow {pow}
     PowAssign {pow_assign}
     AssignPow {assign_pow}
@@ -133,7 +133,7 @@ impl_binop_unsafe! {
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fq::fq_default_mul_ui;
-    
+
     Div {div}
     DivAssign {div_assign}
     AssignDiv {assign_div}
@@ -164,7 +164,7 @@ impl_binop_unsafe! {
     MulAssign {mul_assign}
     AssignMul {assign_mul}
     fq::fq_default_mul_si;
-    
+
     Div {div}
     DivAssign {div_assign}
     AssignDiv {assign_div}
@@ -180,22 +180,22 @@ impl_binop_unsafe! {
     ctx_rhs
     op_from
     Integer, FinFldElem, FinFldElem
-    
+
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
     fq_default_fmpz_add;
-    
+
     Sub {sub}
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fq_default_fmpz_sub;
-    
+
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fq_default_fmpz_mul;
-    
+
     Div {div}
     DivFrom {div_from}
     AssignDiv {assign_div}
@@ -206,22 +206,22 @@ impl_binop_unsafe! {
     ctx_rhs
     op_from
     u64 {u64 u32 u16 u8}, FinFldElem, FinFldElem
-    
+
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
     fq_default_ui_add;
-    
+
     Sub {sub}
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fq_default_ui_sub;
-    
+
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fq_default_ui_mul;
-    
+
     Div {div}
     DivFrom {div_from}
     AssignDiv {assign_div}
@@ -232,22 +232,22 @@ impl_binop_unsafe! {
     ctx_rhs
     op_from
     i64 {i64 i32 i16 i8}, FinFldElem, FinFldElem
-    
+
     Add {add}
     AddFrom {add_from}
     AssignAdd {assign_add}
     fq_default_si_add;
-    
+
     Sub {sub}
     SubFrom {sub_from}
     AssignSub {assign_sub}
     fq_default_si_sub;
-    
+
     Mul {mul}
     MulFrom {mul_from}
     AssignMul {assign_mul}
     fq_default_si_mul;
-    
+
     Div {div}
     DivFrom {div_from}
     AssignDiv {assign_div}
@@ -260,8 +260,7 @@ unsafe fn fq_default_add_fmpz(
     f: *const fq::fq_default_struct,
     g: *const fmpz::fmpz,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_fmpz(res, g, ctx);
     fq::fq_default_add(res, f, res, ctx);
 }
@@ -272,8 +271,7 @@ unsafe fn fq_default_sub_fmpz(
     f: *const fq::fq_default_struct,
     g: *const fmpz::fmpz,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_fmpz(res, g, ctx);
     fq::fq_default_sub(res, f, res, ctx);
 }
@@ -284,8 +282,7 @@ unsafe fn fq_default_div_fmpz(
     f: *const fq::fq_default_struct,
     g: *const fmpz::fmpz,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_fmpz(res, g, ctx);
     fq::fq_default_div(res, f, res, ctx);
 }
@@ -296,8 +293,7 @@ unsafe fn fq_default_add_ui(
     f: *const fq::fq_default_struct,
     g: c_ulong,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_ui(res, g, ctx);
     fq::fq_default_add(res, f, res, ctx);
 }
@@ -308,8 +304,7 @@ unsafe fn fq_default_sub_ui(
     f: *const fq::fq_default_struct,
     g: c_ulong,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_ui(res, g, ctx);
     fq::fq_default_sub(res, f, res, ctx);
 }
@@ -320,8 +315,7 @@ unsafe fn fq_default_div_ui(
     f: *const fq::fq_default_struct,
     g: c_ulong,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_ui(res, g, ctx);
     fq::fq_default_div(res, f, res, ctx);
 }
@@ -332,8 +326,7 @@ unsafe fn fq_default_add_si(
     f: *const fq::fq_default_struct,
     g: c_long,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_si(res, g, ctx);
     fq::fq_default_add(res, f, res, ctx);
 }
@@ -344,8 +337,7 @@ unsafe fn fq_default_sub_si(
     f: *const fq::fq_default_struct,
     g: c_long,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_si(res, g, ctx);
     fq::fq_default_sub(res, f, res, ctx);
 }
@@ -356,8 +348,7 @@ unsafe fn fq_default_div_si(
     f: *const fq::fq_default_struct,
     g: c_long,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_si(res, g, ctx);
     fq::fq_default_div(res, f, res, ctx);
 }
@@ -368,8 +359,7 @@ unsafe fn fq_default_pow_si(
     f: *const fq::fq_default_struct,
     g: c_long,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     if g < 0 {
         fq::fq_default_inv(res, f, ctx);
     }
@@ -382,8 +372,7 @@ unsafe fn fq_default_ui_add(
     f: c_ulong,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_ui(res, f, ctx);
     fq::fq_default_add(res, res, g, ctx);
 }
@@ -394,8 +383,7 @@ unsafe fn fq_default_ui_sub(
     f: c_ulong,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_ui(res, f, ctx);
     fq::fq_default_sub(res, res, g, ctx);
 }
@@ -406,8 +394,7 @@ unsafe fn fq_default_ui_mul(
     f: c_ulong,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_ui(res, f, ctx);
     fq::fq_default_mul(res, res, g, ctx);
 }
@@ -418,8 +405,7 @@ unsafe fn fq_default_ui_div(
     f: c_ulong,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_ui(res, f, ctx);
     fq::fq_default_div(res, res, g, ctx);
 }
@@ -430,8 +416,7 @@ unsafe fn fq_default_si_add(
     f: c_long,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_si(res, f, ctx);
     fq::fq_default_add(res, res, g, ctx);
 }
@@ -442,8 +427,7 @@ unsafe fn fq_default_si_sub(
     f: c_long,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_si(res, f, ctx);
     fq::fq_default_sub(res, res, g, ctx);
 }
@@ -454,8 +438,7 @@ unsafe fn fq_default_si_mul(
     f: c_long,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_si(res, f, ctx);
     fq::fq_default_mul(res, res, g, ctx);
 }
@@ -466,8 +449,7 @@ unsafe fn fq_default_si_div(
     f: c_long,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_si(res, f, ctx);
     fq::fq_default_div(res, res, g, ctx);
 }
@@ -478,8 +460,7 @@ unsafe fn fq_default_fmpz_add(
     f: *const fmpz::fmpz,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_fmpz(res, f, ctx);
     fq::fq_default_add(res, res, g, ctx);
 }
@@ -490,8 +471,7 @@ unsafe fn fq_default_fmpz_sub(
     f: *const fmpz::fmpz,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_fmpz(res, f, ctx);
     fq::fq_default_sub(res, res, g, ctx);
 }
@@ -502,8 +482,7 @@ unsafe fn fq_default_fmpz_mul(
     f: *const fmpz::fmpz,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_mul_fmpz(res, g, f, ctx);
 }
 
@@ -513,8 +492,7 @@ unsafe fn fq_default_fmpz_div(
     f: *const fmpz::fmpz,
     g: *const fq::fq_default_struct,
     ctx: *const fq::fq_default_ctx_struct,
-) 
-{
+) {
     fq::fq_default_set_fmpz(res, f, ctx);
     fq::fq_default_div(res, res, g, ctx);
 }

@@ -15,7 +15,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{FqCtx, FinFldElem, FiniteField, IntPoly, IntModPoly, IntModPolyRing, Integer, ValOrRef};
+use crate::{
+    FinFldElem, FiniteField, FqCtx, IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef,
+};
 //use flint_sys::{fmpz, fmpz_mod, fmpz_mod_poly};
 use flint_sys::fq_default as fq;
 use flint_sys::fq_default_poly as fq_poly;
@@ -87,7 +89,7 @@ impl FinFldPolyRing {
             Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
     }
-    
+
     pub fn init_unchecked<'a, P, K>(p: P, k: K, var: &str) -> Self
     where
         P: Into<ValOrRef<'a, Integer>>,
@@ -108,7 +110,7 @@ impl FinFldPolyRing {
             Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
     }
-    
+
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
         let zp = IntModPolyRing::init(self.base_ring().prime(), "x");
@@ -230,7 +232,7 @@ impl FinFldPoly {
     pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
         &self.ctx.0
     }
-    
+
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
         let zp = IntModPolyRing::init(self.base_ring().prime(), "x");

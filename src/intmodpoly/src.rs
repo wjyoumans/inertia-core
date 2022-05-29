@@ -65,7 +65,7 @@ impl IntModPolyRing {
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
     }
-    
+
     /// Return the modulus of the ring.
     #[inline]
     pub fn modulus(&self) -> Integer {
@@ -201,7 +201,7 @@ impl IntModPoly {
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
     }
-    
+
     /// Return the modulus of the ring.
     #[inline]
     pub fn modulus(&self) -> Integer {

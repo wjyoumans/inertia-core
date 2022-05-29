@@ -15,8 +15,8 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::{IntMat, IntModMat, Integer, ValOrRef};
 use flint_sys::fmpz_mat;
-use crate::{IntMat, Integer, IntModMat, ValOrRef};
 use std::mem::MaybeUninit;
 
 impl<'a, T> From<T> for ValOrRef<'a, IntMat>

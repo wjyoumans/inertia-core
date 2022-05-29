@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use flint_sys::{fmpz_mod, fmpz_mat, fmpz_mod_mat};
+use flint_sys::{fmpz_mat, fmpz_mod, fmpz_mod_mat};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
@@ -225,31 +225,24 @@ impl IntModMat {
     pub fn ctx_as_ptr(&self) -> &fmpz_mod::fmpz_mod_ctx_struct {
         &self.ctx.0
     }
-    
+
     /// Return the modulus of the ring.
     #[inline]
     pub fn modulus(&self) -> Integer {
-        unsafe {
-            Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr()))
-        }
+        unsafe { Integer::from_raw(*fmpz_mod::fmpz_mod_ctx_modulus(self.ctx_as_ptr())) }
     }
-    
+
     #[inline]
-    pub fn default<'a, T>(nrows: i64, ncols: i64, n: T) -> IntModMat 
+    pub fn default<'a, T>(nrows: i64, ncols: i64, n: T) -> IntModMat
     where
-        T: Into<ValOrRef<'a, Integer>>
+        T: Into<ValOrRef<'a, Integer>>,
     {
         let mut ctx = MaybeUninit::uninit();
         let mut z = MaybeUninit::uninit();
         let m = n.into();
         unsafe {
             fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), m.as_ptr());
-            fmpz_mod_mat::fmpz_mod_mat_init(
-                z.as_mut_ptr(),
-                nrows,
-                ncols,
-                m.as_ptr(),
-            );
+            fmpz_mod_mat::fmpz_mod_mat_init(z.as_mut_ptr(), nrows, ncols, m.as_ptr());
             IntModMat {
                 inner: z.assume_init(),
                 ctx: Rc::new(FmpzModCtx(ctx.assume_init())),
@@ -304,13 +297,16 @@ impl IntModMat {
     pub fn is_one(&self) -> bool {
         unsafe { fmpz_mat::fmpz_mat_is_one(&(*self.as_ptr()).mat[0]) != 0 }
     }
-    
+
     /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry(&self, i: i64, j: i64) -> IntMod {
         unsafe {
             let n = *fmpz_mod_mat::fmpz_mod_mat_entry(self.as_ptr(), i, j);
-            IntMod { inner: n, ctx: Rc::clone(&self.ctx) }
+            IntMod {
+                inner: n,
+                ctx: Rc::clone(&self.ctx),
+            }
         }
     }
 

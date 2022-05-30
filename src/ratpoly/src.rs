@@ -226,6 +226,21 @@ impl RatPoly {
     }
 
     #[inline]
+    pub fn is_zero(&self) -> bool {
+        unsafe { fmpq_poly::fmpq_poly_is_zero(self.as_ptr()) == 1}
+    }
+
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        unsafe { fmpq_poly::fmpq_poly_is_one(self.as_ptr()) == 1}
+    }
+    
+    #[inline]
+    pub fn is_gen(&self) -> bool {
+        unsafe { fmpq_poly::fmpq_poly_is_gen(self.as_ptr()) == 1}
+    }
+
+    #[inline]
     pub fn get_coeff(&self, i: i64) -> Rational {
         let mut res = Rational::default();
         unsafe {

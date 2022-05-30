@@ -153,7 +153,11 @@ impl Clone for IntModPoly {
     fn clone(&self) -> Self {
         let mut res = self.parent().default();
         unsafe {
-            fmpz_mod_poly::fmpz_mod_poly_set(res.as_mut_ptr(), self.as_ptr(), self.ctx_as_ptr());
+            fmpz_mod_poly::fmpz_mod_poly_set(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            );
         }
         res
     }
@@ -171,7 +175,9 @@ impl fmt::Display for IntModPoly {
 impl Drop for IntModPoly {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz_mod_poly::fmpz_mod_poly_clear(self.as_mut_ptr(), self.ctx_as_ptr()) }
+        unsafe { 
+            fmpz_mod_poly::fmpz_mod_poly_clear(self.as_mut_ptr(), self.ctx_as_ptr())
+        }
     }
 }
 
@@ -184,13 +190,15 @@ impl Hash for IntModPoly {
 }
 
 impl IntModPoly {
-    /// Returns a pointer to the inner [FLINT integer polynomial][fmpz_poly::fmpz_poly].
+    /// Returns a pointer to the inner
+    /// [FLINT integer polynomial][fmpz_poly::fmpz_poly].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz_mod_poly::fmpz_mod_poly_struct {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner [FLINT integer polynomial][fmpz_poly::fmpz_poly].
+    /// Returns a mutable pointer to the inner 
+    /// [FLINT integer polynomial][fmpz_poly::fmpz_poly].
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_mod_poly::fmpz_mod_poly_struct {
         &mut self.inner
@@ -241,12 +249,46 @@ impl IntModPoly {
 
     #[inline]
     pub fn len(&self) -> i64 {
-        unsafe { fmpz_mod_poly::fmpz_mod_poly_length(self.as_ptr(), self.ctx_as_ptr()) }
+        unsafe { 
+            fmpz_mod_poly::fmpz_mod_poly_length(self.as_ptr(), self.ctx_as_ptr()) 
+        }
     }
 
     #[inline]
     pub fn degree(&self) -> i64 {
-        unsafe { fmpz_mod_poly::fmpz_mod_poly_degree(self.as_ptr(), self.ctx_as_ptr()) }
+        unsafe { 
+            fmpz_mod_poly::fmpz_mod_poly_degree(self.as_ptr(), self.ctx_as_ptr()) 
+        }
+    }
+    
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        unsafe { 
+            fmpz_mod_poly::fmpz_mod_poly_is_zero(
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            ) == 1
+        }
+    }
+
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        unsafe { 
+            fmpz_mod_poly::fmpz_mod_poly_is_one(
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            ) == 1
+        }
+    }
+    
+    #[inline]
+    pub fn is_gen(&self) -> bool {
+        unsafe { 
+            fmpz_mod_poly::fmpz_mod_poly_is_gen(
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            ) == 1
+        }
     }
 
     #[inline]
@@ -328,7 +370,8 @@ impl<'de> Visitor<'de> for IntModPolyVisitor {
     where
         A: SeqAccess<'de>,
     {
-        let mut coeffs: Vec<Integer> = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        let mut coeffs: Vec<Integer> = Vec::with_capacity(
+            access.size_hint().unwrap_or(0));
         let m: Integer = access
             .next_element()?
             .ok_or_else(|| de::Error::invalid_length(0, &self))?;

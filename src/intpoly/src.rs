@@ -231,6 +231,26 @@ impl IntPoly {
     }
 
     #[inline]
+    pub fn is_zero(&self) -> bool {
+        *self == 0
+    }
+
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        unsafe { fmpz_poly::fmpz_poly_is_one(self.as_ptr()) == 1}
+    }
+    
+    #[inline]
+    pub fn is_unit(&self) -> bool {
+        unsafe { fmpz_poly::fmpz_poly_is_unit(self.as_ptr()) == 1}
+    }
+    
+    #[inline]
+    pub fn is_gen(&self) -> bool {
+        unsafe { fmpz_poly::fmpz_poly_is_gen(self.as_ptr()) == 1}
+    }
+
+    #[inline]
     pub fn get_coeff(&self, i: i64) -> Integer {
         let mut res = Integer::default();
         unsafe {

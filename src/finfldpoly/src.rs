@@ -16,7 +16,14 @@
  */
 
 use crate::{
-    FinFldElem, FiniteField, FqCtx, IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef,
+    FinFldElem, 
+    FiniteField, 
+    FqCtx, 
+    IntModPoly, 
+    IntModPolyRing, 
+    IntPoly, 
+    Integer, 
+    ValOrRef,
 };
 //use flint_sys::{fmpz, fmpz_mod, fmpz_mod_poly};
 use flint_sys::fq_default as fq;
@@ -279,6 +286,46 @@ impl FinFldPoly {
     #[inline]
     pub fn degree(&self) -> i64 {
         unsafe { fq_poly::fq_default_poly_degree(self.as_ptr(), self.ctx_as_ptr()) }
+    }
+    
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        unsafe { 
+            fq_poly::fq_default_poly_is_zero(
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            ) == 1
+        }
+    }
+
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        unsafe { 
+            fq_poly::fq_default_poly_is_one(
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            ) == 1
+        }
+    }
+    
+    #[inline]
+    pub fn is_gen(&self) -> bool {
+        unsafe { 
+            fq_poly::fq_default_poly_is_gen(
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            ) == 1
+        }
+    }
+    
+    #[inline]
+    pub fn is_unit(&self) -> bool {
+        unsafe { 
+            fq_poly::fq_default_poly_is_unit(
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            ) == 1
+        }
     }
 
     #[inline]

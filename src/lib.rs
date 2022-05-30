@@ -254,6 +254,7 @@ pub use intmodmat::*;
 pub use intmodpoly::*;
 pub use intmpoly::*;
 pub use intpoly::*;
+pub use macros::*;
 pub use ops::*;
 pub use rational::*;
 pub use ratmat::*;

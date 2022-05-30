@@ -172,6 +172,7 @@ macro_rules! call_unsafe {
 }
 
 /// Macros for overloading comparison operators
+#[macro_export]
 macro_rules! impl_cmp {
     // a = a
     (
@@ -433,6 +434,7 @@ macro_rules! impl_cmp_unsafe {
 }
 
 /// Macros for overloading unary operators.
+#[macro_export]
 macro_rules! impl_unop {
     (
         // assign
@@ -557,6 +559,7 @@ macro_rules! impl_unop_unsafe {
 }
 
 /// Macros for overloading binary operators.
+#[macro_export]
 macro_rules! impl_binop {
     (
         // a + a = a
@@ -1330,6 +1333,7 @@ macro_rules! impl_binop_unsafe {
 }
 
 /// Macros for implementing `From` for conversions.
+#[macro_export]
 macro_rules! impl_from {
     (
         $t1:ident, $t2:ident
@@ -1423,6 +1427,7 @@ macro_rules! impl_from {
 }
 
 /// Macros for implementing `TryFrom` for conversions.
+#[macro_export]
 macro_rules! impl_tryfrom {
     (
         $t1:ident, $t2:ident

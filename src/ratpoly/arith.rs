@@ -18,7 +18,7 @@
 use std::ops::*;
 use flint_sys::{fmpz, fmpq, fmpq_poly};
 use libc::{c_int, c_long, c_ulong};
-use crate::{Integer, IntPoly, Rational, RatPoly};
+use crate::{Integer, Rational, RatPoly};
 use crate::ops::*;
 use std::mem::MaybeUninit;
 

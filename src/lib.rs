@@ -23,7 +23,6 @@
 //! [FLINT](https://flintlib.org/doc/), [Arb](https://arblib.org/), and
 //! [Antic](https://github.com/wbhart/antic) C libraries.
 use std::borrow::Borrow;
-use std::rc::{Rc, Weak};
 
 #[macro_use]
 pub mod macros;
@@ -42,10 +41,6 @@ pub mod rational;
 pub mod ratmat;
 pub mod ratpoly;
 
-pub enum RcPtr<T> {
-    Strong(Rc<T>),
-    Weak(Weak<T>),
-}
 
 /// Enum holding either an owned or borrowed T. Nearly identical to [std::borrow::Cow] but we add
 /// blanket implementations of some conversions.
@@ -55,6 +50,18 @@ where
 {
     Ref(&'a T),
     Val(<T as ToOwned>::Owned),
+}
+
+impl<B: ?Sized + ToOwned> Clone for ValOrRef<'_, B> {
+    fn clone(&self) -> Self {
+        match *self {
+            ValOrRef::Ref(b) => ValOrRef::Ref(b),
+            ValOrRef::Val(ref o) => {
+                let b: &B = o.borrow();
+                ValOrRef::Val(b.to_owned())
+            }
+        }
+    }
 }
 
 /// Dereference a `ValOrRef<T>` to get a borrow of type T.
@@ -82,15 +89,27 @@ where
     }
 }
 
-/*
-/// Blanket implementation of conversion from vectors.
-impl<'a, T> From<Vec<T>> for ValOrRef<'a, [T]> where
-    [T]: 'a + ToOwned<Owned = Vec<T>>
-{
-    fn from(x: Vec<T>) -> Self {
-        ValOrRef::Val(x)
+impl<B: ?Sized + ToOwned> ValOrRef<'_, B> {
+   pub fn into_owned(self) -> <B as ToOwned>::Owned {
+        match self {
+            ValOrRef::Ref(borrowed) => borrowed.to_owned(),
+            ValOrRef::Val(owned) => owned,
+        }
     }
-}*/
+
+   pub fn to_mut(&mut self) -> &mut <B as ToOwned>::Owned {
+        match *self {
+            ValOrRef::Ref(borrowed) => {
+                *self = ValOrRef::Val(borrowed.to_owned());
+                match *self {
+                    ValOrRef::Ref(..) => unreachable!(),
+                    ValOrRef::Val(ref mut owned) => owned,
+                }
+            }
+            ValOrRef::Val(ref mut owned) => owned,
+        }
+    }
+}
 
 pub mod util {
     #[must_use]

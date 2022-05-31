@@ -122,19 +122,20 @@ impl_from! {
     }
 }
 
-/* TODO: improve conversions.
-impl<'a, T> From<T> for IntPoly where
-    T: Into<ValOrRef<'a, [Integer]>>
+/*
+impl<'a, T> From<&[T]> for IntPoly
+where
+    T: Into<ValOrRef<'a, Integer>> + Clone
 {
-    fn from(src: T) -> IntPoly {
+    fn from(src: &[T]) -> IntPoly {
         let mut res = IntPoly::default();
-        for (i, x) in src.into().iter().enumerate() {
-            res.set_coeff(i as i64, x);
+        for (i, x) in src.iter().enumerate() {
+            res.set_coeff(i as i64, x.clone());
         }
         res
     }
-}
-*/
+}*/
+
 impl<'a, T: 'a> From<&'a [T]> for IntPoly
 where
     &'a T: Into<ValOrRef<'a, Integer>>,

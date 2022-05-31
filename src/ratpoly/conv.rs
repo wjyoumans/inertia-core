@@ -117,13 +117,13 @@ impl_from! {
     }
 }
 
-impl<'a, T: 'a> From<&[T]> for RatPoly
+impl<'a, T: 'a> From<&'a [T]> for RatPoly
 where
-    T: Into<ValOrRef<'a, Rational>> + Clone,
+    &'a T: Into<ValOrRef<'a, Rational>>,
 {
-    fn from(src: &[T]) -> RatPoly {
+    fn from(src: &'a [T]) -> RatPoly {
         let mut res = RatPoly::default();
-        for (i, x) in src.iter().cloned().enumerate() {
+        for (i, x) in src.iter().enumerate() {
             res.set_coeff(i as i64, x);
         }
         res
@@ -132,10 +132,14 @@ where
 
 impl<'a, T: 'a> From<Vec<T>> for RatPoly
 where
-    T: Into<ValOrRef<'a, Rational>> + Clone,
+    T: Into<ValOrRef<'a, Rational>>
 {
     #[inline]
     fn from(src: Vec<T>) -> RatPoly {
-        RatPoly::from(src.as_slice())
+        let mut res = RatPoly::default();
+        for (i, x) in src.into_iter().enumerate() {
+            res.set_coeff(i as i64, x);
+        }
+        res
     }
 }

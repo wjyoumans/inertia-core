@@ -15,22 +15,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{FinFldElem, IntModPoly, IntModPolyRing, IntPoly, ValOrRef};
-
-impl<'a, T> From<T> for ValOrRef<'a, IntModPoly>
-where
-    T: Into<IntModPoly>,
-{
-    fn from(x: T) -> ValOrRef<'a, IntModPoly> {
-        ValOrRef::Val(x.into())
-    }
-}
+use crate::*;
 
 impl_from! {
     String, IntModPoly
     {
         fn from(x: &IntModPoly) -> String {
-            String::from(IntPoly::from(x))
+            IntPoly::from(x).to_string()
         }
     }
 }

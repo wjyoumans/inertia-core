@@ -14,31 +14,3 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-use crate::{FinFldElem, ValOrRef};
-use flint_sys::fq_default as fq;
-use std::ffi::CStr;
-
-impl<'a, T> From<T> for ValOrRef<'a, FinFldElem>
-where
-    T: Into<FinFldElem>,
-{
-    fn from(x: T) -> ValOrRef<'a, FinFldElem> {
-        ValOrRef::Val(x.into())
-    }
-}
-
-impl_from! {
-    String, FinFldElem
-    {
-        fn from(x: &FinFldElem) -> String {
-            unsafe {
-                let s = fq::fq_default_get_str_pretty(x.as_ptr(), x.ctx_as_ptr());
-                match CStr::from_ptr(s).to_str() {
-                    Ok(s) => s.to_owned(),
-                    Err(_) => panic!("Flint returned invalid UTF-8!"),
-                }
-            }
-        }
-    }
-}

@@ -15,11 +15,14 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+mod arith;
+mod conv;
+
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
-use crate::Integer;
+use crate::*;
 use flint_sys::fmpq;
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeTuple, Serializer};
@@ -65,6 +68,23 @@ pub struct Rational {
     inner: fmpq::fmpq,
 }
 
+impl AsRef<Rational> for Rational {
+    fn as_ref(&self) -> &Rational {
+        self
+    }
+}
+
+impl<'a, T> Assign<T> for Rational
+where
+    T: AsRef<Rational>,
+{
+    fn assign(&mut self, other: T) {
+        unsafe {
+            fmpq::fmpq_set(self.as_mut_ptr(), other.as_ref().as_ptr());
+        }
+    }
+}
+
 impl Clone for Rational {
     #[inline]
     fn clone(&self) -> Self {
@@ -92,7 +112,13 @@ impl Default for Rational {
 impl fmt::Display for Rational {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        let n = self.numerator();
+        let d = self.denominator();
+        if d == 1 {
+            write!(f, "{}", n)
+        } else {
+            write!(f, "{}/{}", n, d)
+        }
     }
 }
 

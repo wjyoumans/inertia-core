@@ -15,39 +15,3 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{FinFldMat, ValOrRef};
-
-impl<'a, T> From<T> for ValOrRef<'a, FinFldMat>
-where
-    T: Into<FinFldMat>,
-{
-    fn from(x: T) -> ValOrRef<'a, FinFldMat> {
-        ValOrRef::Val(x.into())
-    }
-}
-
-impl_from! {
-    String, FinFldMat
-    {
-        fn from(x: &FinFldMat) -> String {
-            let r = x.nrows();
-            let c = x.ncols();
-            let mut out = Vec::with_capacity(usize::try_from(r).ok().unwrap());
-
-            for i in 0..r {
-                let mut row = Vec::with_capacity(usize::try_from(c).ok().unwrap() + 2);
-                row.push("[".to_string());
-                for j in 0..c {
-                    row.push(format!(" {} ", x.get_entry(i, j)));
-                }
-                if i == r - 1 {
-                    row.push("]".to_string());
-                } else {
-                    row.push("]\n".to_string());
-                }
-                out.push(row.join(""));
-            }
-            out.join("")
-        }
-    }
-}

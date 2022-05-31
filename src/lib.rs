@@ -22,96 +22,31 @@
 //! [Inertia](https://github.com/wjyoumans/inertia) crate, providing high-level wrappers for the
 //! [FLINT](https://flintlib.org/doc/), [Arb](https://arblib.org/), and
 //! [Antic](https://github.com/wbhart/antic) C libraries.
-use std::borrow::Borrow;
 
 #[macro_use]
-pub mod macros;
+mod macros;
 
-pub mod finfld;
-pub mod finfldmat;
-pub mod finfldpoly;
-pub mod integer;
-pub mod intmat;
-pub mod intmod;
-pub mod intmodmat;
-pub mod intmodpoly;
-pub mod intmpoly;
-pub mod intpoly;
-pub mod rational;
-pub mod ratmat;
-pub mod ratpoly;
+mod finfld;
+mod finfldmat;
+mod finfldpoly;
+mod integer;
+mod intmat;
+mod intmod;
+mod intmodmat;
+mod intmodpoly;
+mod intmpoly;
+mod intpoly;
+mod rational;
+mod ratmat;
+mod ratpoly;
 
 
-/// Enum holding either an owned or borrowed T. Nearly identical to [std::borrow::Cow] but we add
-/// blanket implementations of some conversions.
-pub enum ValOrRef<'a, T>
-where
-    T: 'a + ToOwned + ?Sized,
-{
-    Ref(&'a T),
-    Val(<T as ToOwned>::Owned),
+pub trait New<A> {
+    type Output;
+    fn new(&self, a: A) -> Self::Output;
 }
 
-impl<B: ?Sized + ToOwned> Clone for ValOrRef<'_, B> {
-    fn clone(&self) -> Self {
-        match *self {
-            ValOrRef::Ref(b) => ValOrRef::Ref(b),
-            ValOrRef::Val(ref o) => {
-                let b: &B = o.borrow();
-                ValOrRef::Val(b.to_owned())
-            }
-        }
-    }
-}
-
-/// Dereference a `ValOrRef<T>` to get a borrow of type T.
-impl<T: ?Sized + ToOwned> std::ops::Deref for ValOrRef<'_, T>
-where
-    T::Owned: Borrow<T>,
-{
-    type Target = T;
-    #[inline]
-    fn deref(&self) -> &T {
-        match *self {
-            ValOrRef::Val(ref x) => x.borrow(),
-            ValOrRef::Ref(x) => x,
-        }
-    }
-}
-
-/// Blanket implementation of conversion from borrows.
-impl<'a, T> From<&'a T> for ValOrRef<'a, T>
-where
-    T: 'a + ToOwned + ?Sized,
-{
-    fn from(x: &'a T) -> Self {
-        ValOrRef::Ref(&x)
-    }
-}
-
-impl<B: ?Sized + ToOwned> ValOrRef<'_, B> {
-   pub fn into_owned(self) -> <B as ToOwned>::Owned {
-        match self {
-            ValOrRef::Ref(borrowed) => borrowed.to_owned(),
-            ValOrRef::Val(owned) => owned,
-        }
-    }
-
-   pub fn to_mut(&mut self) -> &mut <B as ToOwned>::Owned {
-        match *self {
-            ValOrRef::Ref(borrowed) => {
-                *self = ValOrRef::Val(borrowed.to_owned());
-                match *self {
-                    ValOrRef::Ref(..) => unreachable!(),
-                    ValOrRef::Val(ref mut owned) => owned,
-                }
-            }
-            ValOrRef::Val(ref mut owned) => owned,
-        }
-    }
-}
-
-pub mod util {
+mod util {
     #[must_use]
     #[inline]
     pub fn is_digit(c: char) -> bool {
@@ -123,7 +58,7 @@ pub mod util {
 }
 
 /// Expand on the operations provided in `std::ops`.
-pub mod ops {
+mod ops {
     pub trait Assign<T = Self> {
         fn assign(&mut self, other: T);
     }
@@ -263,6 +198,8 @@ pub mod ops {
     }
 }
 
+pub use macros::*;
+pub use ops::*;
 pub use finfld::*;
 pub use finfldmat::*;
 pub use finfldpoly::*;
@@ -273,8 +210,6 @@ pub use intmodmat::*;
 pub use intmodpoly::*;
 pub use intmpoly::*;
 pub use intpoly::*;
-pub use macros::*;
-pub use ops::*;
 pub use rational::*;
 pub use ratmat::*;
 pub use ratpoly::*;

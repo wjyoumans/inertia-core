@@ -15,22 +15,14 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{IntMat, IntModMat, ValOrRef};
-
-impl<'a, T> From<T> for ValOrRef<'a, IntModMat>
-where
-    T: Into<IntModMat>,
-{
-    fn from(x: T) -> ValOrRef<'a, IntModMat> {
-        ValOrRef::Val(x.into())
-    }
-}
+use crate::*;
+use std::ops::Rem;
 
 impl_from! {
     String, IntModMat
     {
         fn from(x: &IntModMat) -> String {
-            String::from(IntMat::from(x) % x.modulus())
+            IntMat::from(x).rem(x.modulus()).to_string()
         }
     }
 }

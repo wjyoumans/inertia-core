@@ -15,7 +15,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{ops::Assign, Rational, RationalField, ValOrRef};
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::{fmpq, fmpq_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
@@ -72,29 +75,6 @@ impl RatMatSpace {
     }
 
     #[inline]
-    pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> RatMat
-    where
-        &'a T: Into<ValOrRef<'a, Rational>>,
-    {
-        let nrows = self.nrows() as usize;
-        let ncols = self.ncols() as usize;
-        assert_eq!(entries.len(), nrows * ncols);
-
-        let mut row = 0;
-        let mut col;
-        let mut res = self.default();
-        for (i, x) in entries.iter().enumerate() {
-            col = (i % ncols) as i64;
-            if col == 0 && i != 0 {
-                row += 1;
-            }
-
-            res.set_entry(row, col, x);
-        }
-        res
-    }
-
-    #[inline]
     pub fn nrows(&self) -> i64 {
         self.nrows
     }
@@ -110,17 +90,69 @@ impl RatMatSpace {
     }
 }
 
+impl New<&[Rational]> for RatMatSpace {
+    type Output = RatMat;
+    fn new(&self, entries: &[Rational]) -> RatMat {
+        let nrows = self.nrows() as usize;
+        let ncols = self.ncols() as usize;
+        assert_eq!(entries.len(), nrows * ncols);
+
+        let mut row = 0;
+        let mut col;
+        let mut res = self.default();
+        for (i, x) in entries.iter().enumerate() {
+            col = (i % ncols) as i64;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+            res.set_entry(row, col, x);
+        }
+        res
+    }
+}
+
+impl<'a, T> New<&'a [T]> for RatMatSpace
+where
+    &'a T: Into<Rational>
+{
+    type Output = RatMat;
+    fn new(&self, entries: &'a [T]) -> RatMat {
+        let nrows = self.nrows() as usize;
+        let ncols = self.ncols() as usize;
+        assert_eq!(entries.len(), nrows * ncols);
+
+        let mut row = 0;
+        let mut col;
+        let mut res = self.default();
+        for (i, x) in entries.iter().enumerate() {
+            col = (i % ncols) as i64;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+
+            res.set_entry(row, col, x.into());
+        }
+        res
+    }
+}
+
 #[derive(Debug)]
 pub struct RatMat {
     inner: fmpq_mat::fmpq_mat_struct,
 }
 
+impl AsRef<RatMat> for RatMat {
+    fn as_ref(&self) -> &RatMat {
+        self
+    }
+}
+
 impl<'a, T> Assign<T> for RatMat
 where
-    T: Into<ValOrRef<'a, RatMat>>,
+    T: AsRef<RatMat>,
 {
     fn assign(&mut self, other: T) {
-        let x = other.into();
+        let x = other.as_ref();
         assert_eq!(self.nrows(), x.nrows());
         assert_eq!(self.ncols(), x.ncols());
         unsafe {
@@ -145,7 +177,24 @@ impl Clone for RatMat {
 impl fmt::Display for RatMat {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        let r = self.nrows();
+        let c = self.ncols();
+        let mut out = Vec::with_capacity(usize::try_from(r).ok().unwrap());
+
+        for i in 0..r {
+            let mut row = Vec::with_capacity(usize::try_from(c).ok().unwrap() + 2);
+            row.push("[".to_string());
+            for j in 0..c {
+                row.push(format!(" {} ", self.get_entry(i, j)));
+            }
+            if i == r - 1 {
+                row.push("]".to_string());
+            } else {
+                row.push("]\n".to_string());
+            }
+            out.push(row.join(""));
+        }
+        write!(f, "{}", out.join(""))
     }
 }
 
@@ -248,11 +297,11 @@ impl RatMat {
     #[inline]
     pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
     where
-        T: Into<ValOrRef<'a, Rational>>,
+        T: AsRef<Rational>,
     {
         unsafe {
             let x = fmpq_mat::fmpq_mat_entry(self.as_ptr(), i, j);
-            fmpq::fmpq_set(x, e.into().as_ptr());
+            fmpq::fmpq_set(x, e.as_ref().as_ptr());
         }
     }
 
@@ -316,7 +365,7 @@ impl<'de> Visitor<'de> for RatMatVisitor {
         }
 
         let zm = RatMatSpace::init(nrows, ncols);
-        Ok(zm.new(&entries))
+        Ok(zm.new(&entries[..]))
     }
 }
 

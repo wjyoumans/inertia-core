@@ -15,20 +15,11 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{util::is_digit, IntMod, Integer, Rational, ValOrRef};
+use crate::{util::is_digit, *};
 use flint_sys::fmpz;
-use std::convert::TryFrom;
 use std::ffi::CString;
 use std::str::FromStr;
 
-impl<'a, T> From<T> for ValOrRef<'a, Integer>
-where
-    T: Into<Integer>,
-{
-    fn from(x: T) -> ValOrRef<'a, Integer> {
-        ValOrRef::Val(x.into())
-    }
-}
 
 impl FromStr for Integer {
     type Err = &'static str;
@@ -98,15 +89,6 @@ impl_tryfrom! {
             } else {
                 Err("Rational cannot be coerced to an Integer.")
             }
-        }
-    }
-}
-
-impl_from! {
-    String, Integer
-    {
-        fn from(x: &Integer) -> String {
-           format!("{}", &x.to_str_radix(10))
         }
     }
 }

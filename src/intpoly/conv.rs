@@ -15,18 +15,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{FinFldElem, IntMod, IntModPoly, IntPoly, IntPolyRing, Integer, ValOrRef};
+use crate::*;
 use flint_sys::fmpz_poly;
-use std::ffi::{CStr, CString};
 
-impl<'a, T> From<T> for ValOrRef<'a, IntPoly>
-where
-    T: Into<IntPoly>,
-{
-    fn from(x: T) -> ValOrRef<'a, IntPoly> {
-        ValOrRef::Val(x.into())
-    }
-}
 
 impl_from_unsafe! {
     None
@@ -107,57 +98,24 @@ impl_from! {
     }
 }*/
 
-impl_from! {
-    String, IntPoly
-    {
-        fn from(x: &IntPoly) -> String {
-            let v = CString::new(x.var()).unwrap();
-            unsafe {
-                let ptr = fmpz_poly::fmpz_poly_get_str_pretty(x.as_ptr(), v.as_ptr());
-                let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
-                flint_sys::flint::flint_free(ptr as _);
-                s
-            }
-        }
-    }
-}
-
-/*
-impl<'a, T> From<&[T]> for IntPoly
-where
-    T: Into<ValOrRef<'a, Integer>> + Clone
-{
-    fn from(src: &[T]) -> IntPoly {
+impl From<&[Integer]> for IntPoly {
+    fn from(src: &[Integer]) -> IntPoly {
         let mut res = IntPoly::default();
         for (i, x) in src.iter().enumerate() {
-            res.set_coeff(i as i64, x.clone());
+            res.set_coeff(i as i64, x);
         }
         res
     }
-}*/
+}
 
 impl<'a, T: 'a> From<&'a [T]> for IntPoly
 where
-    &'a T: Into<ValOrRef<'a, Integer>>,
+    &'a T: Into<Integer>,
 {
     fn from(src: &'a [T]) -> IntPoly {
         let mut res = IntPoly::default();
         for (i, x) in src.iter().enumerate() {
-            res.set_coeff(i as i64, x);
-        }
-        res
-    }
-}
-
-impl<'a, T: 'a> From<Vec<T>> for IntPoly
-where
-    T: Into<ValOrRef<'a, Integer>>,
-{
-    #[inline]
-    fn from(src: Vec<T>) -> IntPoly {
-        let mut res = IntPoly::default();
-        for (i, x) in src.into_iter().enumerate() {
-            res.set_coeff(i as i64, x);
+            res.set_coeff(i as i64, x.into());
         }
         res
     }

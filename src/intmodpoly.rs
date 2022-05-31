@@ -15,7 +15,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{FmpzModCtx, IntMod, IntModRing, IntPoly, Integer, ValOrRef};
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::{fmpz_mod, fmpz_mod_poly};
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
@@ -76,13 +79,13 @@ impl IntModPolyRing {
     }
 
     #[inline]
-    pub fn init<'a, T>(n: T, var: &str) -> Self
+    pub fn init<T>(n: T, var: &str) -> Self
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         let mut ctx = MaybeUninit::uninit();
         unsafe {
-            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
+            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.as_ref().as_ptr());
             IntModPolyRing {
                 ctx: Rc::new(FmpzModCtx(ctx.assume_init())),
                 var: Rc::new(RefCell::new(var.to_string())),
@@ -104,7 +107,10 @@ impl IntModPolyRing {
     }
 
     #[inline]
-    pub fn new<T: Into<IntPoly>>(&self, x: T) -> IntModPoly {
+    pub fn new<T>(&self, x: T) -> IntModPoly 
+    where
+        T: Into<IntPoly>
+    {
         let mut res = self.default();
         unsafe {
             fmpz_mod_poly::fmpz_mod_poly_set_fmpz_poly(
@@ -124,7 +130,7 @@ impl IntModPolyRing {
     /// Return the variable of the polynomial as a `&str`.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.borrow().to_string()
+        (*self.var).borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
@@ -147,6 +153,24 @@ pub struct IntModPoly {
     ctx: Rc<FmpzModCtx>,
     var: Rc<RefCell<String>>,
 }
+
+impl AsRef<IntModPoly> for IntModPoly {
+    fn as_ref(&self) -> &IntModPoly {
+        self
+    }
+}
+
+/*
+impl<'a, T> Assign<T> for IntModPoly
+where
+    T: AsRef<IntModPoly>,
+{
+    fn assign(&mut self, other: T) {
+        unsafe {
+            fmpz::fmpz_set(self.as_mut_ptr(), other.as_ref().as_ptr());
+        }
+    }
+}*/
 
 impl Clone for IntModPoly {
     #[inline]
@@ -238,7 +262,7 @@ impl IntModPoly {
     /// Return the variable of the polynomial as a string.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.borrow().to_string()
+        (*self.var).borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
@@ -308,13 +332,13 @@ impl IntModPoly {
     #[inline]
     pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
-        unsafe {
+        unsafe { 
             fmpz_mod_poly::fmpz_mod_poly_set_coeff_fmpz(
                 self.as_mut_ptr(),
                 i,
-                coeff.into().as_ptr(),
+                coeff.as_ref().as_ptr(),
                 self.ctx_as_ptr(),
             );
         }
@@ -379,7 +403,7 @@ impl<'de> Visitor<'de> for IntModPolyVisitor {
             coeffs.push(x);
         }
         let zn = IntModPolyRing::init(m, "x");
-        Ok(zn.new(coeffs))
+        Ok(zn.new(&coeffs[..]))
     }
 }
 

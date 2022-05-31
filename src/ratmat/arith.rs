@@ -15,8 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::ops::*;
-use crate::RatMat;
+use crate::*;
 use flint_sys::fmpq_mat;
 //use libc::{c_long, c_ulong};
 //use std::mem::MaybeUninit;

@@ -15,6 +15,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::{fmpz_mat, fmpz_mod, fmpz_mod_mat};
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -22,7 +26,6 @@ use std::mem::MaybeUninit;
 use std::rc::Rc;
 //use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 //use serde::ser::{Serialize, SerializeSeq, Serializer};
-use crate::{ops::Assign, FmpzModCtx, IntMod, IntModRing, Integer, ValOrRef};
 
 #[derive(Clone, Debug)]
 pub struct IntModMatSpace {
@@ -83,11 +86,11 @@ impl IntModMatSpace {
     #[inline]
     pub fn init<'a, T>(nrows: i64, ncols: i64, n: T) -> Self
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         let mut ctx = MaybeUninit::uninit();
         unsafe {
-            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
+            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.as_ref().as_ptr());
             IntModMatSpace {
                 nrows,
                 ncols,
@@ -116,7 +119,7 @@ impl IntModMatSpace {
     #[inline]
     pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> IntModMat
     where
-        &'a T: Into<ValOrRef<'a, Integer>>,
+        &'a T: Into<Integer>,
     {
         let nrows = self.nrows() as usize;
         let ncols = self.ncols() as usize;
@@ -130,7 +133,7 @@ impl IntModMatSpace {
             if col == 0 && i != 0 {
                 row += 1;
             }
-            res.set_entry(row, col, x);
+            res.set_entry(row, col, x.into());
         }
         res
     }
@@ -159,15 +162,21 @@ pub struct IntModMat {
     ctx: Rc<FmpzModCtx>,
 }
 
+impl AsRef<IntModMat> for IntModMat {
+    fn as_ref(&self) -> &IntModMat {
+        self
+    }
+}
+
 impl<'a, T> Assign<T> for IntModMat
 where
-    T: Into<ValOrRef<'a, IntModMat>>,
+    T: AsRef<IntModMat>,
 {
     fn assign(&mut self, other: T) {
-        let x = other.into();
-        assert_eq!(self.parent(), x.parent());
+        let other = other.as_ref();
+        assert_eq!(self.parent(), other.parent());
         unsafe {
-            fmpz_mod_mat::fmpz_mod_mat_set(self.as_mut_ptr(), x.as_ptr());
+            fmpz_mod_mat::fmpz_mod_mat_set(self.as_mut_ptr(), other.as_ptr());
         }
     }
 }
@@ -235,14 +244,14 @@ impl IntModMat {
     #[inline]
     pub fn default<'a, T>(nrows: i64, ncols: i64, n: T) -> IntModMat
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         let mut ctx = MaybeUninit::uninit();
         let mut z = MaybeUninit::uninit();
-        let m = n.into();
+        let n = n.as_ref();
         unsafe {
-            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), m.as_ptr());
-            fmpz_mod_mat::fmpz_mod_mat_init(z.as_mut_ptr(), nrows, ncols, m.as_ptr());
+            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.as_ptr());
+            fmpz_mod_mat::fmpz_mod_mat_init(z.as_mut_ptr(), nrows, ncols, n.as_ptr());
             IntModMat {
                 inner: z.assume_init(),
                 ctx: Rc::new(FmpzModCtx(ctx.assume_init())),
@@ -314,10 +323,10 @@ impl IntModMat {
     #[inline]
     pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         unsafe {
-            fmpz_mod_mat::fmpz_mod_mat_set_entry(self.as_mut_ptr(), i, j, e.into().as_ptr());
+            fmpz_mod_mat::fmpz_mod_mat_set_entry(self.as_mut_ptr(), i, j, e.as_ref().as_ptr());
         }
     }
 

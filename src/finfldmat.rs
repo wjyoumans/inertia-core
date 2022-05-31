@@ -15,6 +15,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::fq_default as fq;
 use flint_sys::fq_default_mat as fq_mat;
 use std::ffi::CString;
@@ -24,10 +28,6 @@ use std::mem::MaybeUninit;
 use std::rc::Rc;
 //use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 //use serde::ser::{Serialize, SerializeSeq, Serializer};
-use crate::{
-    ops::Assign, FinFldElem, FiniteField, FqCtx, IntModPoly, IntModPolyRing, IntPoly, Integer,
-    ValOrRef,
-};
 
 #[derive(Clone, Debug)]
 pub struct FinFldMatSpace {
@@ -79,41 +79,33 @@ impl FinFldMatSpace {
     #[inline]
     pub fn init<'a, P, K>(p: P, k: K, nrows: i64, ncols: i64) -> Self
     where
-        P: Into<ValOrRef<'a, Integer>>,
-        K: TryInto<i64>,
+        P: AsRef<Integer>,
+        K: Into<i64>,
     {
-        let p = &*p.into();
-        match k.try_into() {
-            Ok(k) => {
-                assert!(p.is_prime());
-                assert!(k > 0);
-
-                Self::init_unchecked(p, k, nrows, ncols)
-            }
-            Err(_) => panic!("Input cannot be converted into a signed long!"),
-        }
+        let p = p.as_ref();
+        let k = k.into();
+        assert!(p.is_prime());
+        assert!(k > 0);
+        Self::init_unchecked(p, k, nrows, ncols)
     }
 
     pub fn init_unchecked<'a, P, K>(p: P, k: K, nrows: i64, ncols: i64) -> Self
     where
-        P: Into<ValOrRef<'a, Integer>>,
-        K: TryInto<i64>,
+        P: AsRef<Integer>,
+        K: Into<i64>,
     {
-        match k.try_into() {
-            Ok(k) => {
-                let var = CString::new("o").unwrap();
-                let mut ctx = MaybeUninit::uninit();
-                unsafe {
-                    fq::fq_default_ctx_init(ctx.as_mut_ptr(), p.into().as_ptr(), k, var.as_ptr());
-                    FinFldMatSpace {
-                        nrows,
-                        ncols,
-                        ctx: Rc::new(FqCtx(ctx.assume_init())),
-                    }
-                }
+        let var = CString::new("o").unwrap();
+        let mut ctx = MaybeUninit::uninit();
+        unsafe {
+            fq::fq_default_ctx_init(ctx.as_mut_ptr(), 
+                                    p.as_ref().as_ptr(), k.into(), var.as_ptr());
+            FinFldMatSpace {
+                nrows,
+                ncols,
+                ctx: Rc::new(FqCtx(ctx.assume_init())),
             }
-            Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
+
     }
 
     #[inline]
@@ -144,28 +136,6 @@ impl FinFldMatSpace {
     }
 
     #[inline]
-    pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> FinFldMat
-    where
-        &'a T: Into<ValOrRef<'a, IntPoly>>,
-    {
-        let nrows = self.nrows() as usize;
-        let ncols = self.ncols() as usize;
-        assert_eq!(entries.len(), nrows * ncols);
-
-        let mut row = 0;
-        let mut col;
-        let mut res = self.default();
-        for (i, x) in entries.iter().enumerate() {
-            col = (i % ncols) as i64;
-            if col == 0 && i != 0 {
-                row += 1;
-            }
-            res.set_entry(row, col, x);
-        }
-        res
-    }
-
-    #[inline]
     pub fn nrows(&self) -> i64 {
         self.nrows
     }
@@ -183,18 +153,69 @@ impl FinFldMatSpace {
     }
 }
 
+impl New<&[FinFldElem]> for FinFldMatSpace {
+    type Output = FinFldMat;
+    fn new(&self, entries: &[FinFldElem]) -> FinFldMat {
+        let nrows = self.nrows() as usize;
+        let ncols = self.ncols() as usize;
+        assert_eq!(entries.len(), nrows * ncols);
+
+        let mut row = 0;
+        let mut col;
+        let mut res = self.default();
+        for (i, x) in entries.iter().enumerate() {
+            col = (i % ncols) as i64;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+            res.set_entry(row, col, x);
+        }
+        res
+    }
+}
+
+impl<'a, T> New<&'a [T]> for FinFldMatSpace
+where
+    &'a T: Into<FinFldElem>
+{
+    type Output = FinFldMat;
+    fn new(&self, entries: &'a [T]) -> FinFldMat {
+        let nrows = self.nrows() as usize;
+        let ncols = self.ncols() as usize;
+        assert_eq!(entries.len(), nrows * ncols);
+
+        let mut row = 0;
+        let mut col;
+        let mut res = self.default();
+        for (i, x) in entries.iter().enumerate() {
+            col = (i % ncols) as i64;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+            res.set_entry(row, col, x.into());
+        }
+        res
+    }
+}
+
 #[derive(Debug)]
 pub struct FinFldMat {
     inner: fq_mat::fq_default_mat_struct,
     ctx: Rc<FqCtx>,
 }
 
+impl AsRef<FinFldMat> for FinFldMat {
+    fn as_ref(&self) -> &FinFldMat {
+        self
+    }
+}
+
 impl<'a, T> Assign<T> for FinFldMat
 where
-    T: Into<ValOrRef<'a, FinFldMat>>,
+    T: AsRef<FinFldMat>
 {
     fn assign(&mut self, other: T) {
-        let x = other.into();
+        let x = other.as_ref();
         assert_eq!(self.parent(), x.parent());
         unsafe {
             fq_mat::fq_default_mat_set(self.as_mut_ptr(), x.as_ptr(), self.ctx_as_ptr());
@@ -219,7 +240,24 @@ impl Clone for FinFldMat {
 impl fmt::Display for FinFldMat {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        let r = self.nrows();
+        let c = self.ncols();
+        let mut out = Vec::with_capacity(usize::try_from(r).ok().unwrap());
+
+        for i in 0..r {
+            let mut row = Vec::with_capacity(usize::try_from(c).ok().unwrap() + 2);
+            row.push("[".to_string());
+            for j in 0..c {
+                row.push(format!(" {} ", self.get_entry(i, j)));
+            }
+            if i == r - 1 {
+                row.push("]".to_string());
+            } else {
+                row.push("]\n".to_string());
+            }
+            out.push(row.join(""));
+        }
+        write!(f, "{}", out.join(""))
     }
 }
 
@@ -338,16 +376,17 @@ impl FinFldMat {
 
     /// Set the `(i, j)`-th entry of the matrix.
     #[inline]
-    pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
+    pub fn set_entry<S, T>(&mut self, i: S, j: S, e: T)
     where
-        T: Into<ValOrRef<'a, IntPoly>>,
+        S: Into<i64>,
+        T: AsRef<FinFldElem>
     {
-        let x = self.base_ring().new(e);
+        let x = self.base_ring().new(e.as_ref());
         unsafe {
             fq_mat::fq_default_mat_entry_set(
                 self.as_mut_ptr(),
-                i,
-                j,
+                i.into(),
+                j.into(),
                 x.as_ptr(),
                 self.ctx_as_ptr(),
             );

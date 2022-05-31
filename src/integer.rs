@@ -15,13 +15,15 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+mod arith;
+mod conv;
+
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
-use crate::{ops::Assign, ValOrRef};
+use crate::*;
 use flint_sys::fmpz;
-use libc::{c_int, c_long, c_ulong};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 
@@ -99,13 +101,19 @@ pub struct Integer {
     inner: fmpz::fmpz,
 }
 
+impl AsRef<Integer> for Integer {
+    fn as_ref(&self) -> &Integer {
+        self
+    }
+}
+
 impl<'a, T> Assign<T> for Integer
 where
-    T: Into<ValOrRef<'a, Integer>>,
+    T: AsRef<Integer>,
 {
     fn assign(&mut self, other: T) {
         unsafe {
-            fmpz::fmpz_set(self.as_mut_ptr(), other.into().as_ptr());
+            fmpz::fmpz_set(self.as_mut_ptr(), other.as_ref().as_ptr());
         }
     }
 }
@@ -146,7 +154,7 @@ impl Drop for Integer {
 impl fmt::Display for Integer {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        write!(f, "{}", self.to_str_radix(10))
     }
 }
 
@@ -215,13 +223,14 @@ impl Integer {
     pub fn to_str_radix(&self, base: u8) -> String {
         unsafe {
             // Extra two bytes are for possible minus sign and null terminator
-            let len = fmpz::fmpz_sizeinbase(self.as_ptr(), base as c_int) as usize + 2;
+            let len = fmpz::fmpz_sizeinbase(self.as_ptr(), base as i32) as usize + 2;
 
             // Allocate and write into a raw *c_char of the correct length
             let mut vector: Vec<u8> = Vec::with_capacity(len);
             vector.set_len(len);
 
-            fmpz::fmpz_get_str(vector.as_mut_ptr() as *mut _, base as c_int, self.as_ptr());
+            fmpz::fmpz_get_str(vector.as_mut_ptr() as *mut _, 
+                               base as i32, self.as_ptr());
 
             let mut first_nul = None;
             let mut index: usize = 0;
@@ -252,8 +261,9 @@ impl Integer {
     /// assert_eq!(8, z.sizeinbase(7));
     /// ```
     #[inline]
-    pub fn sizeinbase(&self, base: u8) -> usize {
-        unsafe { flint_sys::fmpz::fmpz_sizeinbase(self.as_ptr(), base as i32) as usize }
+    pub fn sizeinbase(&self, base: i32) -> usize {
+        assert!(1 < base && base < 63);
+        unsafe { fmpz::fmpz_sizeinbase(self.as_ptr(), base) }
     }
 
     /// Returns the number of limbs required to store the absolute value of an
@@ -266,7 +276,7 @@ impl Integer {
     /// assert_eq!(2, z.size());
     /// ```
     #[inline]
-    pub fn size(&self) -> c_long {
+    pub fn size(&self) -> i64 {
         unsafe { flint_sys::fmpz::fmpz_size(self.as_ptr()) }
     }
 
@@ -280,8 +290,8 @@ impl Integer {
     /// assert_eq!(x.bits(), 5);
     /// ```
     #[inline]
-    pub fn bits(&self) -> c_ulong {
-        unsafe { flint_sys::fmpz::fmpz_bits(self.as_ptr()) }
+    pub fn bits(&self) -> u64 {
+        unsafe { fmpz::fmpz_bits(self.as_ptr()) }
     }
 
     /// Determine if the `Integer` fits in a signed long.
@@ -294,7 +304,7 @@ impl Integer {
     /// ```
     #[inline]
     pub fn fits_si(&self) -> bool {
-        unsafe { flint_sys::fmpz::fmpz_fits_si(self.as_ptr()) == 1 }
+        unsafe { fmpz::fmpz_fits_si(self.as_ptr()) == 1 }
     }
 
     /// Determine if the absolute value of an `Integer` fits in an unsigned long.
@@ -307,7 +317,7 @@ impl Integer {
     /// ```
     #[inline]
     pub fn abs_fits_ui(&self) -> bool {
-        unsafe { flint_sys::fmpz::fmpz_abs_fits_ui(self.as_ptr()) == 1 }
+        unsafe { fmpz::fmpz_abs_fits_ui(self.as_ptr()) == 1 }
     }
 
     /// Return an `Option` containing the input as a signed long (`libc::c_long`)
@@ -320,9 +330,9 @@ impl Integer {
     /// assert_eq!(z.get_si().unwrap(), -1234);
     /// ```
     #[inline]
-    pub fn get_si(&self) -> Option<c_long> {
+    pub fn get_si(&self) -> Option<i64> {
         if self.fits_si() {
-            unsafe { Some(flint_sys::fmpz::fmpz_get_si(self.as_ptr())) }
+            unsafe { Some(fmpz::fmpz_get_si(self.as_ptr())) }
         } else {
             None
         }
@@ -338,7 +348,7 @@ impl Integer {
     /// assert!(z.get_ui().is_none());
     /// ```
     #[inline]
-    pub fn get_ui(&self) -> Option<c_ulong> {
+    pub fn get_ui(&self) -> Option<u64> {
         if self.sign() < 0 {
             return None;
         }
@@ -373,12 +383,12 @@ impl Integer {
     /// assert_eq!(x, t);
     /// ```
     #[inline]
-    pub fn get_ui_vector(&self) -> Vec<c_ulong> {
+    pub fn get_ui_vector(&self) -> Vec<u64> {
         if self.is_zero() {
             vec![]
         } else {
             let n = self.size();
-            let mut out = Vec::<c_ulong>::with_capacity(n as usize);
+            let mut out = Vec::with_capacity(n as usize);
             unsafe {
                 fmpz::fmpz_get_ui_array(out.as_mut_ptr(), n, self.as_ptr());
                 out.set_len(n as usize);
@@ -401,12 +411,13 @@ impl Integer {
     /// assert_eq!(z, Integer::from(2).pow(65u8));
     /// ```
     #[inline]
-    pub fn set_ui_vector(&mut self, vec: Vec<c_ulong>) {
+    pub fn set_ui_vector(&mut self, vec: Vec<u64>) {
         if vec.is_empty() {
-            self.assign(0);
+            self.zero_assign();
         } else {
             unsafe {
-                fmpz::fmpz_set_ui_array(self.as_mut_ptr(), vec.as_ptr(), vec.len() as c_long);
+                fmpz::fmpz_set_ui_array(
+                    self.as_mut_ptr(), vec.as_ptr(), vec.len() as i64);
             }
         }
     }
@@ -459,6 +470,16 @@ impl Integer {
     #[inline]
     pub fn is_one(&self) -> bool {
         unsafe { fmpz::fmpz_is_one(self.as_ptr()) == 1 }
+    }
+    
+    #[inline]
+    pub fn zero_assign(&mut self) {
+        unsafe { fmpz::fmpz_zero(self.as_mut_ptr()) }
+    }
+    
+    #[inline]
+    pub fn one_assign(&mut self) {
+        unsafe { fmpz::fmpz_one(self.as_mut_ptr()) }
     }
 
     /// Check if the `Integer` is even.
@@ -551,14 +572,18 @@ impl Integer {
     #[inline]
     pub fn invmod<'a, T>(&self, modulus: T) -> Option<Integer>
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
-        let modulus = &*modulus.into();
+        let modulus = modulus.as_ref();
         assert!(modulus > &0);
 
         let mut res = Integer::default();
         unsafe {
-            let r = fmpz::fmpz_invmod(res.as_mut_ptr(), self.as_ptr(), modulus.as_ptr());
+            let r = fmpz::fmpz_invmod(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                modulus.as_ptr()
+            );
 
             if r == 0 {
                 None
@@ -594,8 +619,8 @@ impl Integer {
     /// assert_eq!(1025, z);
     /// ```
     #[inline]
-    pub fn setbit(&mut self, bit_index: usize) {
-        unsafe { fmpz::fmpz_setbit(self.as_mut_ptr(), bit_index as c_ulong) }
+    pub fn setbit(&mut self, bit_index: u64) {
+        unsafe { fmpz::fmpz_setbit(self.as_mut_ptr(), bit_index) }
     }
 
     /// Test the bit index `bit_index` of an `Integer`. Return `true` if it is 1,
@@ -608,8 +633,8 @@ impl Integer {
     /// assert!(z.testbit(0));
     /// ```
     #[inline]
-    pub fn testbit(&self, bit_index: usize) -> bool {
-        unsafe { fmpz::fmpz_tstbit(self.as_ptr(), bit_index as c_ulong) == 1 }
+    pub fn testbit(&self, bit_index: u64) -> bool {
+        unsafe { fmpz::fmpz_tstbit(self.as_ptr(), bit_index) == 1 }
     }
 
     /// Outputs `self * x * y` where `x, y` can be converted to unsigned longs.
@@ -623,19 +648,12 @@ impl Integer {
     #[inline]
     pub fn mul2_uiui<S>(&self, x: S, y: S) -> Integer
     where
-        S: TryInto<c_ulong>,
-        S::Error: fmt::Debug,
+        S: Into<u64>,
     {
-        let x = x
-            .try_into()
-            .expect("Input cannot be converted to an unsigned long.");
-        let y = y
-            .try_into()
-            .expect("Input cannot be converted to an unsigned long.");
-
         let mut res = Integer::default();
         unsafe {
-            fmpz::fmpz_mul2_uiui(res.as_mut_ptr(), self.as_ptr(), x, y);
+            fmpz::fmpz_mul2_uiui(res.as_mut_ptr(), self.as_ptr(), 
+                                 x.into(), y.into());
         }
         res
     }
@@ -652,18 +670,11 @@ impl Integer {
     #[inline]
     pub fn mul2_uiui_assign<S>(&mut self, x: S, y: S)
     where
-        S: TryInto<c_ulong>,
-        S::Error: fmt::Debug,
+        S: Into<u64>,
     {
-        let x = x
-            .try_into()
-            .expect("Input cannot be converted to an unsigned long.");
-        let y = y
-            .try_into()
-            .expect("Input cannot be converted to an unsigned long.");
-
         unsafe {
-            fmpz::fmpz_mul2_uiui(self.as_mut_ptr(), self.as_ptr(), x, y);
+            fmpz::fmpz_mul2_uiui(self.as_mut_ptr(), self.as_ptr(), 
+                                 x.into(), y.into());
         }
     }
 
@@ -678,16 +689,11 @@ impl Integer {
     #[inline]
     pub fn mul_2exp<S>(&self, exp: S) -> Integer
     where
-        S: TryInto<c_ulong>,
-        S::Error: fmt::Debug,
+        S: Into<u64>,
     {
-        let exp = exp
-            .try_into()
-            .expect("Input cannot be converted to an unsigned long.");
-
         let mut res = Integer::default();
         unsafe {
-            fmpz::fmpz_mul_2exp(res.as_mut_ptr(), self.as_ptr(), exp);
+            fmpz::fmpz_mul_2exp(res.as_mut_ptr(), self.as_ptr(), exp.into());
         }
         res
     }
@@ -704,14 +710,10 @@ impl Integer {
     #[inline]
     pub fn mul_2exp_assign<S>(&mut self, exp: S)
     where
-        S: TryInto<c_ulong>,
-        S::Error: fmt::Debug,
+        S: Into<u64>,
     {
-        let exp = exp
-            .try_into()
-            .expect("Input cannot be converted to an unsigned long.");
         unsafe {
-            fmpz::fmpz_mul_2exp(self.as_mut_ptr(), self.as_ptr(), exp);
+            fmpz::fmpz_mul_2exp(self.as_mut_ptr(), self.as_ptr(), exp.into());
         }
     }
 
@@ -726,11 +728,12 @@ impl Integer {
     #[inline]
     pub fn addmul<'a, T>(&self, x: T, y: T) -> Integer
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         let mut res = self.clone();
         unsafe {
-            fmpz::fmpz_addmul(res.as_mut_ptr(), x.into().as_ptr(), y.into().as_ptr());
+            fmpz::fmpz_addmul(res.as_mut_ptr(), 
+                              x.as_ref().as_ptr(), y.as_ref().as_ptr());
         }
         res
     }
@@ -747,10 +750,11 @@ impl Integer {
     #[inline]
     pub fn addmul_assign<'a, T>(&mut self, x: T, y: T)
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         unsafe {
-            fmpz::fmpz_addmul(self.as_mut_ptr(), x.into().as_ptr(), y.into().as_ptr());
+            fmpz::fmpz_addmul(self.as_mut_ptr(), x.as_ref().as_ptr(), 
+                              y.as_ref().as_ptr());
         }
     }
 
@@ -765,16 +769,12 @@ impl Integer {
     #[inline]
     pub fn addmul_ui<'a, S, T>(&self, x: T, y: S) -> Integer
     where
-        S: TryInto<c_ulong>,
-        S::Error: fmt::Debug,
-        T: Into<ValOrRef<'a, Integer>>,
+        S: Into<u64>,
+        T: AsRef<Integer>,
     {
-        let y = y
-            .try_into()
-            .expect("Input cannot be converted to an unsigned long.");
         let mut res = self.clone();
         unsafe {
-            fmpz::fmpz_addmul_ui(res.as_mut_ptr(), x.into().as_ptr(), y);
+            fmpz::fmpz_addmul_ui(res.as_mut_ptr(), x.as_ref().as_ptr(), y.into());
         }
         res
     }
@@ -792,15 +792,11 @@ impl Integer {
     #[inline]
     pub fn addmul_ui_assign<'a, S, T>(&mut self, x: T, y: S)
     where
-        S: TryInto<c_ulong>,
-        S::Error: fmt::Debug,
-        T: Into<ValOrRef<'a, Integer>>,
+        S: Into<u64>,
+        T: AsRef<Integer>,
     {
-        let y = y
-            .try_into()
-            .expect("Input cannot be converted to an unsigned long.");
         unsafe {
-            fmpz::fmpz_addmul_ui(self.as_mut_ptr(), x.into().as_ptr(), y);
+            fmpz::fmpz_addmul_ui(self.as_mut_ptr(), x.as_ref().as_ptr(), y.into());
         }
     }
 }

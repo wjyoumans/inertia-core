@@ -15,7 +15,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{ops::Assign, Integer, IntegerRing, IntPoly, RatMat, ValOrRef};
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::{fmpz, fmpz_mat, fmpq_mat};
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
@@ -71,29 +74,6 @@ impl IntMatSpace {
     }
 
     #[inline]
-    pub fn new<'a, T: 'a>(&self, entries: &'a [T]) -> IntMat
-    where
-        &'a T: Into<ValOrRef<'a, Integer>>,
-    {
-        let nrows = self.nrows() as usize;
-        let ncols = self.ncols() as usize;
-        assert_eq!(entries.len(), nrows * ncols);
-
-        let mut row = 0;
-        let mut col;
-        let mut res = self.default();
-        for (i, x) in entries.iter().enumerate() {
-            col = (i % ncols) as i64;
-            if col == 0 && i != 0 {
-                row += 1;
-            }
-
-            res.set_entry(row, col, x);
-        }
-        res
-    }
-
-    #[inline]
     pub fn nrows(&self) -> i64 {
         self.nrows
     }
@@ -109,17 +89,69 @@ impl IntMatSpace {
     }
 }
 
+impl New<&[Integer]> for IntMatSpace {
+    type Output = IntMat;
+    fn new(&self, entries: &[Integer]) -> IntMat {
+        let nrows = self.nrows() as usize;
+        let ncols = self.ncols() as usize;
+        assert_eq!(entries.len(), nrows * ncols);
+
+        let mut row = 0;
+        let mut col;
+        let mut res = self.default();
+        for (i, x) in entries.iter().enumerate() {
+            col = (i % ncols) as i64;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+            res.set_entry(row, col, x);
+        }
+        res
+    }
+}
+
+impl<'a, T> New<&'a [T]> for IntMatSpace
+where
+    &'a T: Into<Integer>
+{
+    type Output = IntMat;
+    fn new(&self, entries: &'a [T]) -> IntMat {
+        let nrows = self.nrows() as usize;
+        let ncols = self.ncols() as usize;
+        assert_eq!(entries.len(), nrows * ncols);
+
+        let mut row = 0;
+        let mut col;
+        let mut res = self.default();
+        for (i, x) in entries.iter().enumerate() {
+            col = (i % ncols) as i64;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+
+            res.set_entry(row, col, x.into());
+        }
+        res
+    }
+}
+
 #[derive(Debug)]
 pub struct IntMat {
     inner: fmpz_mat::fmpz_mat_struct,
 }
 
+impl AsRef<IntMat> for IntMat {
+    fn as_ref(&self) -> &IntMat {
+        self
+    }
+}
+
 impl<'a, T> Assign<T> for IntMat
 where
-    T: Into<ValOrRef<'a, IntMat>>,
+    T: AsRef<IntMat>,
 {
     fn assign(&mut self, other: T) {
-        let x = other.into();
+        let x = other.as_ref();
         assert_eq!(self.nrows(), x.nrows());
         assert_eq!(self.ncols(), x.ncols());
         unsafe {
@@ -144,7 +176,24 @@ impl Clone for IntMat {
 impl fmt::Display for IntMat {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        let r = self.nrows();
+        let c = self.ncols();
+        let mut out = Vec::with_capacity(usize::try_from(r).ok().unwrap());
+
+        for i in 0..r {
+            let mut row = Vec::with_capacity(usize::try_from(c).ok().unwrap() + 2);
+            row.push("[".to_string());
+            for j in 0..c {
+                row.push(format!(" {} ", self.get_entry(i, j)));
+            }
+            if i == r - 1 {
+                row.push("]".to_string());
+            } else {
+                row.push("]\n".to_string());
+            }
+            out.push(row.join(""));
+        }
+        write!(f, "{}", out.join(""))
     }
 }
 
@@ -242,13 +291,10 @@ impl IntMat {
     /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
     pub fn get_entry<S>(&self, i: S, j: S) -> Integer where 
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug
+        S: Into<i64>,
     {
-        let i = i.try_into().unwrap();
-        let j = j.try_into().unwrap();
         unsafe { 
-            Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j)) 
+            Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i.into(), j.into())) 
         }
     }
     
@@ -256,14 +302,13 @@ impl IntMat {
     /// Avoids unnecessary allocation.
     #[inline]
     pub fn get_entry_assign<S>(&self, i: S, j: S, out: &mut Integer) where
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug
+        S: Into<i64>,
     {
         unsafe {
             let x = fmpz_mat::fmpz_mat_entry(
                 self.as_ptr(), 
-                i.try_into().unwrap(), 
-                j.try_into().unwrap()
+                i.into(),
+                j.into(),
             );
             fmpz::fmpz_set(out.as_mut_ptr(), x);
         }
@@ -273,11 +318,11 @@ impl IntMat {
     #[inline]
     pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         unsafe {
             let x = fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j);
-            fmpz::fmpz_set(x, e.into().as_ptr());
+            fmpz::fmpz_set(x, e.as_ref().as_ptr());
         }
     }
 
@@ -305,11 +350,10 @@ impl IntMat {
 
     /// Swap the rows `r` and `s` of an integer matrix. 
     pub fn swap_rows<S>(&mut self, r: S, s: S) where 
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug
+        S: Into<i64>,
     {
-        let r = r.try_into().unwrap();
-        let s = s.try_into().unwrap();
+        let r = r.into();
+        let s = s.into();
         assert!(r < self.nrows());
         assert!(s < self.nrows());
 
@@ -325,11 +369,10 @@ impl IntMat {
     
     /// Swap the columns `r` and `s` of an integer matrix. 
     pub fn swap_cols<S>(&mut self, r: S, s: S) where 
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug
+        S: Into<i64>,
     {
-        let r = r.try_into().unwrap();
-        let s = s.try_into().unwrap();
+        let r = r.into();
+        let s = s.into();
         assert!(r < self.ncols());
         assert!(s < self.ncols());
 
@@ -398,13 +441,12 @@ impl IntMat {
 
     /// Return true if row `i` is all zeros.
     pub fn is_zero_row<S>(&self, i: S) -> bool where 
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug
+        S: Into<i64>,
     {
         unsafe {
             fmpz_mat::fmpz_mat_is_zero_row(
                 self.as_ptr(), 
-                i.try_into().unwrap()
+                i.into()
             ) != 0
         }
     }
@@ -438,9 +480,9 @@ impl IntMat {
     /// Return the matrix obtained by horizontally concatenating `self` with 
     /// `other` in that order. The number of rows of both matrices must agree.
     pub fn hcat<'a, T>(&self, other: T) -> IntMat where
-        T: Into<ValOrRef<'a, IntMat>>
+        T: AsRef<IntMat>
     {
-        let other = other.into();
+        let other = other.as_ref();
         assert_eq!(self.nrows(), other.nrows());
 
         let mut res = MaybeUninit::uninit();
@@ -462,9 +504,9 @@ impl IntMat {
     /// Return the matrix obtained by vertically concatenating `self` with 
     /// `other` in that order. The number of columns of both matrices must agree.
     pub fn vcat<'a, T>(&self, other: T) -> IntMat where
-        T: Into<ValOrRef<'a, IntMat>>
+        T: AsRef<IntMat>
     {
-        let other = other.into();
+        let other = other.as_ref();
         assert_eq!(self.ncols(), other.ncols());
 
         let mut res = MaybeUninit::uninit();
@@ -486,13 +528,12 @@ impl IntMat {
     /// Return a new matrix containing the `r2 - r1` by `c2 - c1` submatrix of 
     /// an integer matrix whose `(0, 0)` entry is the `(r1, c1)` entry of the input.
     pub fn submatrix<S>(&self, r1: S, c1: S, r2: S, c2: S) -> IntMat where 
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug
+        S: Into<i64>,
     {
-        let r1 = r1.try_into().unwrap();
-        let r2 = r2.try_into().unwrap();
-        let c1 = c1.try_into().unwrap();
-        let c2 = c2.try_into().unwrap();
+        let r1 = r1.into();
+        let r2 = r2.into();
+        let c1 = c1.into();
+        let c2 = c2.into();
 
         assert!((r2+r1) <= self.nrows());
         assert!((c2+c1) <= self.ncols());
@@ -521,21 +562,19 @@ impl IntMat {
     
     /// Return row `i` as an integer matrix.
     #[inline]
-    pub fn row<S>(&self, i: i64) -> IntMat where 
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug
+    pub fn row<S>(&self, i: S) -> IntMat where 
+        S: Into<i64>,
     {
-        let i = i.try_into().unwrap();
+        let i = i.into();
         self.submatrix(i, 0, i + 1, self.ncols())
     }
    
     /// Return column `j` as an integer matrix.
     #[inline]
     pub fn col<S>(&self, j: S) -> IntMat where
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug
+        S: Into<i64>,
     {
-        let j = j.try_into().unwrap();
+        let j = j.into();
         self.submatrix(0, j, self.nrows(), j + 1)
     }
 
@@ -561,9 +600,9 @@ impl IntMat {
     
     /// Return the kronecker product of two integer matrices.
     pub fn kronecker_product<'a, T>(&self, other: T) -> IntMat where 
-        T: Into<ValOrRef<'a, IntMat>>
+        T: AsRef<IntMat>
     {
-        let other = other.into();
+        let other = other.as_ref();
         let mut res = MaybeUninit::uninit();
         unsafe { 
             fmpz_mat::fmpz_mat_init(
@@ -641,17 +680,16 @@ impl IntMat {
     /// is the identity matrix whose zero entries in row `r` have been replaced 
     /// by `d`, this transform is equivalent to `P^-1 * M * P`. 
     pub fn similarity<'a, S, T>(&self, r: S, d: T) -> IntMat where 
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug,
-        T: Into<ValOrRef<'a, Integer>>
+        S: Into<i64>,
+        T: AsRef<Integer>
     {
         assert!(self.is_square());
         let mut res = self.clone();
         unsafe { 
             fmpz_mat::fmpz_mat_similarity(
                 res.as_mut_ptr(), 
-                r.try_into().unwrap(), 
-                d.into().as_ptr()
+                r.into(),
+                d.as_ref().as_ptr()
             ); 
         }
         res
@@ -659,16 +697,15 @@ impl IntMat {
     
     /// Applies a similarity transform to an `n` by `n` integer matrix in place.
     pub fn similarity_assign<'a, S, T>(&mut self, r: S, d: T) where 
-        S: TryInto<i64>,
-        <S as TryInto<i64>>::Error: fmt::Debug,
-        T: Into<ValOrRef<'a, Integer>>
+        S: Into<i64>,
+        T: AsRef<Integer>
     {
         assert!(self.is_square());
         unsafe { 
             fmpz_mat::fmpz_mat_similarity(
                 self.as_mut_ptr(), 
-                r.try_into().unwrap(), 
-                d.into().as_ptr()
+                r.into(),
+                d.as_ref().as_ptr()
             ); 
         }
     }
@@ -705,9 +742,9 @@ impl IntMat {
 
     /// Solve `AX = B` for nonsingular `A`.
     pub fn solve<'a, T>(&self, rhs: T) -> Option<RatMat> where 
-        T: Into<ValOrRef<'a, IntMat>>
+        T: AsRef<IntMat>
     {
-        let b = rhs.into();
+        let b = rhs.as_ref();
         assert_eq!(self.nrows(), b.nrows());
 
         let mut res = MaybeUninit::uninit();
@@ -920,14 +957,14 @@ impl IntMat {
     }
     
     pub fn rref_mod<'a, T>(&self, modulus: T) -> (i64, IntMat) where 
-        T: Into<ValOrRef<'a, Integer>> 
+        T: AsRef<Integer> 
     {
         let mut res = self.parent().default();
         unsafe {
             let rank = fmpz_mat::fmpz_mat_rref_mod(
                 std::ptr::null_mut(),
                 res.as_mut_ptr(),
-                modulus.into().as_ptr()
+                modulus.as_ref().as_ptr()
             );
             (rank, res)
         }
@@ -939,27 +976,27 @@ impl IntMat {
     }*/
 
     pub fn strong_echelon_form_mod<'a, T>(&self, modulus: T) -> IntMat where 
-        T: Into<ValOrRef<'a, Integer>>
+        T: AsRef<Integer>
     {
         let mut res = self.parent().default();
         unsafe {
             fmpz_mat::fmpz_mat_strong_echelon_form_mod(
                 res.as_mut_ptr(),
-                modulus.into().as_ptr()
+                modulus.as_ref().as_ptr()
             );
         }
         res
     }
     
     pub fn howell_form_mod<'a, T>(&self, modulus: T) -> (i64, IntMat) where 
-        T: Into<ValOrRef<'a, Integer>>
+        T: AsRef<Integer>
     {
         assert!(self.ncols() <= self.nrows());
         let mut res = self.parent().default();
         unsafe {
             let rank = fmpz_mat::fmpz_mat_howell_form_mod(
                 res.as_mut_ptr(),
-                modulus.into().as_ptr()
+                modulus.as_ref().as_ptr()
             );
             (rank, res)
         }
@@ -1130,7 +1167,7 @@ impl<'de> Visitor<'de> for IntMatVisitor {
         }
 
         let zm = IntMatSpace::init(nrows, ncols);
-        Ok(zm.new(&entries))
+        Ok(zm.new(&entries[..]))
     }
 }
 

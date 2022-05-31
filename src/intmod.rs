@@ -15,13 +15,17 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, ValOrRef};
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::{fmpz, fmpz_mod};
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeTuple, Serializer};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
+use std::ops::Rem;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -73,13 +77,13 @@ impl IntModRing {
     }
 
     #[inline]
-    pub fn init<'a, T>(n: T) -> IntModRing
+    pub fn init<T>(n: T) -> IntModRing
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         let mut ctx = MaybeUninit::uninit();
         unsafe {
-            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.into().as_ptr());
+            fmpz_mod::fmpz_mod_ctx_init(ctx.as_mut_ptr(), n.as_ref().as_ptr());
             IntModRing {
                 ctx: Rc::new(FmpzModCtx(ctx.assume_init())),
             }
@@ -87,9 +91,9 @@ impl IntModRing {
     }
 
     #[inline]
-    pub fn new<'a, T>(&self, x: T) -> IntMod
+    pub fn new<T>(&self, x: T) -> IntMod
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: Into<Integer>
     {
         let mut res = self.default();
         unsafe {
@@ -130,6 +134,14 @@ pub struct IntMod {
     pub ctx: Rc<FmpzModCtx>,
 }
 
+impl AsRef<IntMod> for IntMod {
+    fn as_ref(&self) -> &IntMod {
+        self
+    }
+}
+
+// impl assign
+
 impl Clone for IntMod {
     fn clone(&self) -> Self {
         let mut res = self.parent().default();
@@ -142,7 +154,7 @@ impl Clone for IntMod {
 
 impl fmt::Display for IntMod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        write!(f, "{}", Integer::from(self).rem(self.modulus()).to_string())
     }
 }
 

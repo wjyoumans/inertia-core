@@ -14,23 +14,3 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-use crate::{IntMod, Integer, ValOrRef};
-
-impl<'a, T> From<T> for ValOrRef<'a, IntMod>
-where
-    T: Into<IntMod>,
-{
-    fn from(x: T) -> ValOrRef<'a, IntMod> {
-        ValOrRef::Val(x.into())
-    }
-}
-
-impl_from! {
-    String, IntMod
-    {
-        fn from(x: &IntMod) -> String {
-            String::from(Integer::from(x) % x.modulus())
-        }
-    }
-}

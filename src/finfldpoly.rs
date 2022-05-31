@@ -15,17 +15,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{
-    FinFldElem, 
-    FiniteField, 
-    FqCtx, 
-    IntModPoly, 
-    IntModPolyRing, 
-    IntPoly, 
-    Integer, 
-    ValOrRef,
-};
-//use flint_sys::{fmpz, fmpz_mod, fmpz_mod_poly};
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::fq_default as fq;
 use flint_sys::fq_default_poly as fq_poly;
 //use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
@@ -82,39 +75,30 @@ impl FinFldPolyRing {
     #[inline]
     pub fn init<'a, P, K>(p: P, k: K, var: &str) -> Self
     where
-        P: Into<ValOrRef<'a, Integer>>,
-        K: TryInto<i64>,
+        P: AsRef<Integer>,
+        K: Into<i64>,
     {
-        let p = &*p.into();
-        match k.try_into() {
-            Ok(k) => {
-                assert!(p.is_prime());
-                assert!(k > 0);
-
-                Self::init_unchecked(p, k, var)
-            }
-            Err(_) => panic!("Input cannot be converted into a signed long!"),
-        }
+        let p = p.as_ref();
+        let k = k.into();
+        assert!(p.is_prime());
+        assert!(k > 0);
+        Self::init_unchecked(p, k, var)
     }
 
     pub fn init_unchecked<'a, P, K>(p: P, k: K, var: &str) -> Self
     where
-        P: Into<ValOrRef<'a, Integer>>,
-        K: TryInto<i64>,
+        P: AsRef<Integer>,
+        K: Into<i64>,
     {
-        match k.try_into() {
-            Ok(k) => {
-                let v = CString::new("o").unwrap();
-                let mut ctx = MaybeUninit::uninit();
-                unsafe {
-                    fq::fq_default_ctx_init(ctx.as_mut_ptr(), p.into().as_ptr(), k, v.as_ptr());
-                    FinFldPolyRing {
-                        ctx: Rc::new(FqCtx(ctx.assume_init())),
-                        var: Rc::new(RefCell::new(var.to_string())),
-                    }
-                }
+        let v = CString::new("o").unwrap();
+        let mut ctx = MaybeUninit::uninit();
+        unsafe {
+            fq::fq_default_ctx_init(ctx.as_mut_ptr(), 
+                                    p.as_ref().as_ptr(), k.into(), v.as_ptr());
+            FinFldPolyRing {
+                ctx: Rc::new(FqCtx(ctx.assume_init())),
+                var: Rc::new(RefCell::new(var.to_string())),
             }
-            Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
     }
 
@@ -162,7 +146,7 @@ impl FinFldPolyRing {
     /// Return the variable of the polynomial as a `&str`.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.borrow().to_string()
+        (*self.var).borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
@@ -184,6 +168,26 @@ pub struct FinFldPoly {
     inner: fq_poly::fq_default_poly_struct,
     ctx: Rc<FqCtx>,
     var: Rc<RefCell<String>>,
+}
+
+impl AsRef<FinFldPoly> for FinFldPoly {
+    fn as_ref(&self) -> &FinFldPoly {
+        self
+    }
+}
+
+impl<T> Assign<T> for FinFldPoly 
+where
+    T: AsRef<FinFldPoly>
+{
+    fn assign(&mut self, other: T) {
+        let other = other.as_ref();
+        assert_eq!(self.parent(), other.parent());
+        unsafe {
+            fq_poly::fq_default_poly_set(
+                self.as_mut_ptr(), other.as_ptr(), self.ctx_as_ptr())
+        }
+    }
 }
 
 impl Clone for FinFldPoly {
@@ -269,7 +273,7 @@ impl FinFldPoly {
     /// Return the variable of the polynomial as a string.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.borrow().to_string()
+        (*self.var).borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
@@ -343,15 +347,16 @@ impl FinFldPoly {
     }
 
     #[inline]
-    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
+    pub fn set_coeff<S, T>(&mut self, i: S, coeff: T)
     where
-        T: Into<ValOrRef<'a, FinFldElem>>,
+        S: Into<i64>,
+        T: AsRef<FinFldElem>,
     {
         unsafe {
             fq_poly::fq_default_poly_set_coeff(
                 self.as_mut_ptr(),
-                i,
-                coeff.into().as_ptr(),
+                i.into(),
+                coeff.as_ref().as_ptr(),
                 self.ctx_as_ptr(),
             );
         }
@@ -431,7 +436,6 @@ impl<'de> Deserialize<'de> for FinFldPoly {
 
 #[cfg(test)]
 mod tests {
-    use crate::{FinFldPoly, FinFldPolyRing};
 
     #[test]
     fn serde() {

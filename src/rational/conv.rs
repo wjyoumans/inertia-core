@@ -15,18 +15,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{IntMod, Integer, Rational, ValOrRef};
+use crate::*;
 use flint_sys::fmpq;
 use std::str::FromStr;
-
-impl<'a, T> From<T> for ValOrRef<'a, Rational>
-where
-    T: Into<Rational>,
-{
-    fn from(x: T) -> ValOrRef<'a, Rational> {
-        ValOrRef::Val(x.into())
-    }
-}
 
 impl FromStr for Rational {
     type Err = &'static str;
@@ -87,102 +78,44 @@ impl_from! {
 }
 */
 
-impl_from! {
-    String, Rational
-    {
-        fn from(x: &Rational) -> String {
-            if x.denominator() == 1 {
-                x.numerator().to_str_radix(10)
-            } else {
-                format!("{}/{}", &x.numerator().to_str_radix(10), &x.denominator().to_str_radix(10))
-            }
+impl From<[&Integer; 2]> for Rational {
+    fn from(src: [&Integer; 2]) -> Rational {
+        let n = src[0];
+        let d = src[1];
+        assert!(!d.is_zero());
+
+        let mut res = Rational::default();
+        unsafe {
+            fmpq::fmpq_set_fmpz_frac(res.as_mut_ptr(), n.as_ptr(), d.as_ptr());
         }
+        res
     }
 }
 
+#[allow(unreachable_patterns)]
 impl<'a, T: 'a> From<[T; 2]> for Rational
 where
-    T: Into<ValOrRef<'a, Integer>> + Clone,
+    T: Into<Integer>
 {
     fn from(src: [T; 2]) -> Rational {
-        let n = src[0].clone().into();
-        let d = src[1].clone().into();
-        assert!(!d.is_zero());
+        match src {
+            [n, d] => {
+                let n = n.into();
+                let d = d.into();
+                assert!(!d.is_zero());
 
-        let mut res = Rational::default();
-        unsafe {
-            fmpq::fmpq_set_fmpz_frac(res.as_mut_ptr(), n.as_ptr(), d.as_ptr());
+                let mut res = Rational::default();
+                unsafe {
+                    fmpq::fmpq_set_fmpz_frac(res.as_mut_ptr(), n.as_ptr(), d.as_ptr());
+                }
+                res
+            },
+            _ => unreachable!()
         }
-        res
+
     }
 }
 
-impl<'a, T: 'a> From<&[T]> for Rational
-where
-    T: Into<ValOrRef<'a, Integer>> + Clone,
-{
-    fn from(src: &[T]) -> Rational {
-        assert_eq!(src.len(), 2);
-
-        let n = src[0].clone().into();
-        let d = src[1].clone().into();
-        assert!(!d.is_zero());
-
-        let mut res = Rational::default();
-        unsafe {
-            fmpq::fmpq_set_fmpz_frac(res.as_mut_ptr(), n.as_ptr(), d.as_ptr());
-        }
-        res
-    }
-}
-
-impl<'a, T: 'a> From<Vec<T>> for Rational
-where
-    T: Into<ValOrRef<'a, Integer>> + Clone,
-{
-    #[inline]
-    fn from(src: Vec<T>) -> Rational {
-        Rational::from(src.as_slice())
-    }
-}
-
-/*
-impl<'a, T: 'a> From<Vec<T>> for IntPoly where
-    T: IntoValOrRef<'a, Integer> + Clone
-{
-    #[inline]
-    fn from(src: Vec<T>) -> IntPoly {
-        IntPoly::from(src.as_slice())
-    }
-
-}
-
-impl<T> From<[T; 2]> for Rational where
-    T: Copy,
-    T: Into<Integer>,
-{
-    #[inline]
-    fn from(src: [T; 2]) -> Rational {
-        Rational::from([&src[0].into(), &src[1].into()])
-    }
-}
-
-impl From<[&Integer; 2]> for Rational {
-    #[inline]
-    fn from(src: [&Integer; 2]) -> Rational {
-        assert!(!src[1].is_zero());
-        let mut res = Rational::default();
-        unsafe {
-            fmpq::fmpq_set_fmpz_frac(
-                res.as_mut_ptr(),
-                src[0].as_ptr(),
-                src[1].as_ptr()
-            );
-        }
-        res
-    }
-}
-*/
 #[cfg(test)]
 mod tests {
     //use crate::{Rational, IntModRing};

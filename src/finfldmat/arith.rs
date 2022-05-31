@@ -15,8 +15,8 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::ops::*;
-use crate::{Integer, IntMat, IntModMat};
+/*
+use crate::*;
 use flint_sys::{fmpz, fmpz_mod_mat};
 use libc::{c_long, c_ulong};
 use std::mem::MaybeUninit;
@@ -37,6 +37,7 @@ impl_cmp! {
         }
     }
 }
+*/
 
 /*
 impl_unop_unsafe! {

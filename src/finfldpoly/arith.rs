@@ -15,8 +15,8 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::ops::*;
-use crate::{IntMod, IntModPoly, Integer};
+/*
+use crate::*;
 use flint_sys::{fmpz, fmpz_mod, fmpz_mod_poly};
 use libc::{c_long, c_ulong};
 use std::mem::MaybeUninit;
@@ -433,4 +433,4 @@ unsafe fn fmpz_mod_poly_si_scalar_mul(
     ctx: *const fmpz_mod::fmpz_mod_ctx_struct,
 ) {
     fmpz_mod_poly_scalar_mul_si(res, g, x, ctx);
-}
+}*/

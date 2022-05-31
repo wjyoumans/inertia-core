@@ -15,11 +15,15 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{ops::Assign, Integer, Rational, RationalField, ValOrRef};
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::fmpq_poly;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::cell::RefCell;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
@@ -89,9 +93,9 @@ impl RatPolyRing {
         1
     }
 
-    /// Return the variable of the polynomial as a `&str`.
+    /// Return the variable of the polynomial as a String.
     pub fn var(&self) -> String {
-        self.var.borrow().to_string()
+        (*self.var).borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
@@ -110,13 +114,19 @@ pub struct RatPoly {
     var: Rc<RefCell<String>>,
 }
 
+impl AsRef<RatPoly> for RatPoly {
+    fn as_ref(&self) -> &RatPoly {
+        self
+    }
+}
+
 impl<'a, T> Assign<T> for RatPoly
 where
-    T: Into<ValOrRef<'a, RatPoly>>,
+    T: AsRef<RatPoly>,
 {
     fn assign(&mut self, other: T) {
         unsafe {
-            fmpq_poly::fmpq_poly_set(self.as_mut_ptr(), other.into().as_ptr());
+            fmpq_poly::fmpq_poly_set(self.as_mut_ptr(), other.as_ref().as_ptr());
         }
     }
 }
@@ -149,7 +159,13 @@ impl Default for RatPoly {
 impl fmt::Display for RatPoly {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        let v = CString::new(self.var()).unwrap();
+        unsafe {
+            let ptr = fmpq_poly::fmpq_poly_get_str_pretty(self.as_ptr(), v.as_ptr());
+            let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+            flint_sys::flint::flint_free(ptr as _);
+            write!(f, "{}", s)
+        }
     }
 }
 
@@ -175,7 +191,8 @@ impl RatPoly {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner [FLINT rational polynomial][fmpq_poly::fmpq_poly].
+    /// Returns a mutable pointer to the inner 
+    /// [FLINT rational polynomial][fmpq_poly::fmpq_poly].
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut fmpq_poly::fmpq_poly_struct {
         &mut self.inner
@@ -206,7 +223,7 @@ impl RatPoly {
     /// Return the variable of the polynomial as a string.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.borrow().to_string()
+        (*self.var).borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
@@ -252,10 +269,10 @@ impl RatPoly {
     #[inline]
     pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
     where
-        T: Into<ValOrRef<'a, Rational>>,
+        T: AsRef<Rational>,
     {
         unsafe {
-            fmpq_poly::fmpq_poly_set_coeff_fmpq(self.as_mut_ptr(), i, coeff.into().as_ptr());
+            fmpq_poly::fmpq_poly_set_coeff_fmpq(self.as_mut_ptr(), i, coeff.as_ref().as_ptr());
         }
     }
 
@@ -309,7 +326,7 @@ impl<'de> Visitor<'de> for RatPolyVisitor {
             coeffs.push(x);
         }
 
-        Ok(RatPoly::from(coeffs))
+        Ok(RatPoly::from(&coeffs[..]))
     }
 }
 

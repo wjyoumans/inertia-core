@@ -15,15 +15,19 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::fmpz_mpoly;
 use std::cell::RefCell;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 //use serde::ser::{Serialize, Serializer, SerializeSeq};
 //use serde::de::{Deserialize, Deserializer, Visitor, SeqAccess};
-use crate::{Integer, IntegerRing, ValOrRef};
 
 const ORD_MPOLY: u32 = 0; // ORD_LEX = 0, ORD_DEGLEX = 1, ORD_DEGREVLEX = 2
 
@@ -114,7 +118,7 @@ impl IntMPolyRing {
     /// Return the variables of the polynomial ring.
     #[inline]
     pub fn vars(&self) -> Vec<String> {
-        self.vars.borrow().to_owned()
+        (*self.vars).borrow().to_owned()
     }
 
     /// Change the variables of the polynomial ring.
@@ -151,7 +155,19 @@ impl Clone for IntMPoly {
 impl fmt::Display for IntMPoly {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        let u: Vec<_> = self.vars().iter().map(|x| CString::new(x.clone()).unwrap()).collect();
+        let v: Vec<_> = u.iter().map(|x| x.as_ptr()).collect();
+        unsafe {
+            let s = fmpz_mpoly::fmpz_mpoly_get_str_pretty(
+                self.as_ptr(),
+                v.as_ptr(),
+                self.ctx_as_ptr()
+            );
+            match CStr::from_ptr(s).to_str() {
+                Ok(s) => write!(f, "{}", s),
+                Err(_) => panic!("Flint returned invalid UTF-8!")
+            }
+        }
     }
 }
 
@@ -205,7 +221,7 @@ impl IntMPoly {
     /// Return the variables of the polynomial ring.
     #[inline]
     pub fn vars(&self) -> Vec<String> {
-        self.vars.borrow().to_owned()
+        (*self.vars).borrow().to_owned()
     }
 
     /// Change the variables of the polynomial ring.
@@ -239,10 +255,10 @@ impl IntMPoly {
     #[inline]
     pub fn get_coeff<'a, T: 'a>(&self, exp_vec: &'a [T]) -> Integer
     where
-        &'a T: Into<ValOrRef<'a, Integer>>,
+        &'a T: AsRef<Integer>
     {
         let mut res = Integer::default();
-        let v: Vec<_> = exp_vec.iter().map(|x| x.into().as_ptr()).collect();
+        let v: Vec<_> = exp_vec.iter().map(|x| x.as_ref().as_ptr()).collect();
         unsafe {
             fmpz_mpoly::fmpz_mpoly_get_coeff_fmpz_fmpz(
                 res.as_mut_ptr(),
@@ -258,13 +274,13 @@ impl IntMPoly {
     #[inline]
     pub fn set_coeff<'a, T>(&mut self, exp_vec: &'a [T], coeff: &'a T)
     where
-        &'a T: Into<ValOrRef<'a, Integer>>,
+        &'a T: AsRef<Integer>,
     {
-        let v: Vec<_> = exp_vec.iter().map(|x| x.into().as_ptr()).collect();
+        let v: Vec<_> = exp_vec.iter().map(|x| x.as_ref().as_ptr()).collect();
         unsafe {
             fmpz_mpoly::fmpz_mpoly_set_coeff_fmpz_fmpz(
                 self.as_mut_ptr(),
-                coeff.into().as_ptr(),
+                coeff.as_ref().as_ptr(),
                 v.as_ptr(),
                 self.ctx_as_ptr(),
             );

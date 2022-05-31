@@ -15,11 +15,15 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{ops::Assign, Integer, IntegerRing, ValOrRef};
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::fmpz_poly;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::cell::RefCell;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
@@ -94,7 +98,7 @@ impl IntPolyRing {
     /// Return the variable of the polynomial as a `&str`.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.borrow().to_string()
+        (*self.var).borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
@@ -115,13 +119,19 @@ pub struct IntPoly {
     var: Rc<RefCell<String>>,
 }
 
+impl AsRef<IntPoly> for IntPoly {
+    fn as_ref(&self) -> &IntPoly {
+        self
+    }
+}
+
 impl<'a, T> Assign<T> for IntPoly
 where
-    T: Into<ValOrRef<'a, IntPoly>>,
+    T: AsRef<IntPoly>,
 {
     fn assign(&mut self, other: T) {
         unsafe {
-            fmpz_poly::fmpz_poly_set(self.as_mut_ptr(), other.into().as_ptr());
+            fmpz_poly::fmpz_poly_set(self.as_mut_ptr(), other.as_ref().as_ptr());
         }
     }
 }
@@ -154,7 +164,13 @@ impl Default for IntPoly {
 impl fmt::Display for IntPoly {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        let v = CString::new(self.var()).unwrap();
+        unsafe {
+            let ptr = fmpz_poly::fmpz_poly_get_str_pretty(self.as_ptr(), v.as_ptr());
+            let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+            flint_sys::flint::flint_free(ptr as _);
+            write!(f, "{}", s)
+        }
     }
 }
 
@@ -211,7 +227,7 @@ impl IntPoly {
     /// Return the variable of the polynomial as a string.
     #[inline]
     pub fn var(&self) -> String {
-        self.var.borrow().to_string()
+        (*self.var).borrow().to_string()
     }
 
     /// Change the variable of the polynomial.
@@ -262,10 +278,11 @@ impl IntPoly {
     #[inline]
     pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
     where
-        T: Into<ValOrRef<'a, Integer>>,
+        T: AsRef<Integer>,
     {
         unsafe {
-            fmpz_poly::fmpz_poly_set_coeff_fmpz(self.as_mut_ptr(), i, coeff.into().as_ptr());
+            fmpz_poly::fmpz_poly_set_coeff_fmpz(self.as_mut_ptr(), 
+                                                i, coeff.as_ref().as_ptr());
         }
     }
 
@@ -319,7 +336,7 @@ impl<'de> Visitor<'de> for IntPolyVisitor {
             coeffs.push(x);
         }
 
-        Ok(IntPoly::from(coeffs))
+        Ok(IntPoly::from(&coeffs[..]))
     }
 }
 

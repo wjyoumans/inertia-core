@@ -15,11 +15,11 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*
+use crate::*;
 use std::ops::*;
 use flint_sys::{fmpz, fmpz_poly};
 use libc::{c_long, c_ulong};
-use crate::{Integer, IntPoly};
-use crate::ops::*;
 
 impl_unop_unsafe! {
     None
@@ -372,4 +372,4 @@ unsafe fn fmpz_poly_si_scalar_mod(
 {
     fmpz_poly::fmpz_poly_set_si(res, f);
     fmpz_poly::fmpz_poly_rem(res, res, g);
-}
+}*/

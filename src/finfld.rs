@@ -15,9 +15,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{IntModPoly, IntModPolyRing, IntPoly, Integer, ValOrRef};
+mod arith;
+mod conv;
+
+use crate::*;
 use flint_sys::fq_default as fq;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
@@ -75,38 +78,33 @@ impl FiniteField {
     #[inline]
     pub fn init<'a, P, K>(p: P, k: K) -> FiniteField
     where
-        P: Into<ValOrRef<'a, Integer>>,
-        K: TryInto<i64>,
+        P: AsRef<Integer>,
+        K: Into<i64>,
     {
-        let p = &*p.into();
-        match k.try_into() {
-            Ok(k) => {
-                assert!(p.is_prime());
-                assert!(k > 0);
-
-                Self::init_unchecked(p, k)
-            }
-            Err(_) => panic!("Input cannot be converted into a signed long!"),
-        }
+        let p = p.as_ref();
+        let k = k.into();
+        assert!(p.is_prime());
+        assert!(k > 0);
+        Self::init_unchecked(p, k)
     }
 
     pub fn init_unchecked<'a, P, K>(p: P, k: K) -> FiniteField
     where
-        P: Into<ValOrRef<'a, Integer>>,
-        K: TryInto<i64>,
+        P: AsRef<Integer>,
+        K: Into<i64>,
     {
-        match k.try_into() {
-            Ok(k) => {
-                let var = CString::new("o").unwrap();
-                let mut ctx = MaybeUninit::uninit();
-                unsafe {
-                    fq::fq_default_ctx_init(ctx.as_mut_ptr(), p.into().as_ptr(), k, var.as_ptr());
-                    FiniteField {
-                        ctx: Rc::new(FqCtx(ctx.assume_init())),
-                    }
-                }
+        let var = CString::new("o").unwrap();
+        let mut ctx = MaybeUninit::uninit();
+        unsafe {
+            fq::fq_default_ctx_init(
+                ctx.as_mut_ptr(), 
+                p.as_ref().as_ptr(), 
+                k.into(), 
+                var.as_ptr()
+            );
+            FiniteField {
+                ctx: Rc::new(FqCtx(ctx.assume_init())),
             }
-            Err(_) => panic!("Input cannot be converted into a signed long!"),
         }
     }
 
@@ -125,11 +123,12 @@ impl FiniteField {
     #[inline]
     pub fn new<'a, T>(&self, x: T) -> FinFldElem
     where
-        T: Into<ValOrRef<'a, IntPoly>>,
+        T: Into<IntPoly>,
     {
         let mut res = self.default();
         unsafe {
-            fq::fq_default_set_fmpz_poly(res.as_mut_ptr(), x.into().as_ptr(), self.ctx_as_ptr());
+            fq::fq_default_set_fmpz_poly(
+                res.as_mut_ptr(), x.into().as_ptr(), self.ctx_as_ptr());
         }
         res
     }
@@ -181,6 +180,25 @@ pub struct FinFldElem {
     ctx: Rc<FqCtx>,
 }
 
+impl AsRef<FinFldElem> for FinFldElem {
+    fn as_ref(&self) -> &FinFldElem {
+        self
+    }
+}
+
+impl<'a, T> Assign<T> for FinFldElem
+where
+    T: AsRef<FinFldElem>,
+{
+    fn assign(&mut self, other: T) {
+        let other = other.as_ref();
+        assert_eq!(self.parent(), other.parent());
+        unsafe {
+            fq::fq_default_set(self.as_mut_ptr(), other.as_ptr(), self.ctx_as_ptr());
+        }
+    }
+}
+
 impl Clone for FinFldElem {
     fn clone(&self) -> Self {
         let mut res = self.parent().default();
@@ -199,7 +217,13 @@ impl Drop for FinFldElem {
 
 impl fmt::Display for FinFldElem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        unsafe {
+            let s = fq::fq_default_get_str_pretty(self.as_ptr(), self.ctx_as_ptr());
+            match CStr::from_ptr(s).to_str() {
+                Ok(s) => write!(f, "{}", s),
+                Err(_) => panic!("Flint returned invalid UTF-8!"),
+            }
+        }
     }
 }
 

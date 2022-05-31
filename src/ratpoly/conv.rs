@@ -15,18 +15,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{FinFldElem, IntMod, IntModPoly, IntPoly, Integer, RatPoly, Rational, ValOrRef};
+use crate::*;
 use flint_sys::fmpq_poly;
-use std::ffi::{CStr, CString};
 
-impl<'a, T> From<T> for ValOrRef<'a, RatPoly>
-where
-    T: Into<RatPoly>,
-{
-    fn from(x: T) -> ValOrRef<'a, RatPoly> {
-        ValOrRef::Val(x.into())
-    }
-}
 
 impl_from_unsafe! {
     None
@@ -102,26 +93,8 @@ impl_from! {
     }
 }*/
 
-impl_from! {
-    String, RatPoly
-    {
-        fn from(x: &RatPoly) -> String {
-            let v = CString::new(x.var()).unwrap();
-            unsafe {
-                let ptr = fmpq_poly::fmpq_poly_get_str_pretty(x.as_ptr(), v.as_ptr());
-                let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
-                flint_sys::flint::flint_free(ptr as _);
-                s
-            }
-        }
-    }
-}
-
-impl<'a, T: 'a> From<&'a [T]> for RatPoly
-where
-    &'a T: Into<ValOrRef<'a, Rational>>,
-{
-    fn from(src: &'a [T]) -> RatPoly {
+impl From<&[Rational]> for RatPoly {
+    fn from(src: &[Rational]) -> RatPoly {
         let mut res = RatPoly::default();
         for (i, x) in src.iter().enumerate() {
             res.set_coeff(i as i64, x);
@@ -130,15 +103,14 @@ where
     }
 }
 
-impl<'a, T: 'a> From<Vec<T>> for RatPoly
+impl<'a, T: 'a> From<&'a [T]> for RatPoly
 where
-    T: Into<ValOrRef<'a, Rational>>
+    &'a T: Into<Rational>,
 {
-    #[inline]
-    fn from(src: Vec<T>) -> RatPoly {
+    fn from(src: &'a [T]) -> RatPoly {
         let mut res = RatPoly::default();
-        for (i, x) in src.into_iter().enumerate() {
-            res.set_coeff(i as i64, x);
+        for (i, x) in src.iter().enumerate() {
+            res.set_coeff(i as i64, x.into());
         }
         res
     }

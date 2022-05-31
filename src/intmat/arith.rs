@@ -15,8 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::ops::*;
-use crate::{IntMat, Integer};
+use crate::*;
 use flint_sys::{fmpz, fmpz_mat};
 use libc::{c_long, c_ulong};
 use std::mem::MaybeUninit;

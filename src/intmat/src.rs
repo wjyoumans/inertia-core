@@ -60,7 +60,8 @@ impl Hash for IntMatSpace {
 impl IntMatSpace {
     /// Initialize the space of matrices with the given number of rows and columns.
     #[inline]
-    pub fn init(nrows: i64, ncols: i64) -> Self {
+    pub fn init(nrows: i64, ncols: i64) -> Self where 
+    {
         IntMatSpace { nrows, ncols }
     }
 
@@ -889,15 +890,10 @@ impl IntMat {
 
     /// Return the rank and (A, den) a fraction-free LU decomposition of the input.
     pub fn fflu(&self) -> (i64, IntMat, Integer) {
-        let mut res = MaybeUninit::uninit();
+        let mut res = self.parent().default();
         let mut den = Integer::default();
 
         unsafe {
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(),
-                self.nrows(),
-                self.ncols()
-            );
             let rank = fmpz_mat::fmpz_mat_fflu(
                 res.as_mut_ptr(), 
                 den.as_mut_ptr(), 
@@ -905,45 +901,35 @@ impl IntMat {
                 self.as_ptr(), 
                 0
             );
-            (rank, IntMat::from_raw(res.assume_init()), den)
+            (rank, res, den)
         }
     }
    
     pub fn rref(&self) -> (i64, IntMat, Integer) {
-        let mut res = MaybeUninit::uninit();
+        let mut res = self.parent().default();
         let mut den = Integer::default();
 
         unsafe {
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(),
-                self.nrows(),
-                self.ncols()
-            );
             let rank = fmpz_mat::fmpz_mat_rref(
                 res.as_mut_ptr(), 
                 den.as_mut_ptr(), 
                 self.as_ptr()
             );
-            (rank, IntMat::from_raw(res.assume_init()), den)
+            (rank, res, den)
         }
     }
     
     pub fn rref_mod<'a, T>(&self, modulus: T) -> (i64, IntMat) where 
         T: Into<ValOrRef<'a, Integer>> 
     {
-        let mut res = MaybeUninit::uninit();
+        let mut res = self.parent().default();
         unsafe {
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(),
-                self.nrows(),
-                self.ncols()
-            );
             let rank = fmpz_mat::fmpz_mat_rref_mod(
                 std::ptr::null_mut(),
                 res.as_mut_ptr(),
                 modulus.into().as_ptr()
             );
-            (rank, IntMat::from_raw(res.assume_init()))
+            (rank, res)
         }
     }
 
@@ -955,38 +941,27 @@ impl IntMat {
     pub fn strong_echelon_form_mod<'a, T>(&self, modulus: T) -> IntMat where 
         T: Into<ValOrRef<'a, Integer>>
     {
-        let mut res = MaybeUninit::uninit();
+        let mut res = self.parent().default();
         unsafe {
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(),
-                self.nrows(),
-                self.ncols()
-            );
             fmpz_mat::fmpz_mat_strong_echelon_form_mod(
                 res.as_mut_ptr(),
                 modulus.into().as_ptr()
             );
-            IntMat::from_raw(res.assume_init())
         }
+        res
     }
     
     pub fn howell_form_mod<'a, T>(&self, modulus: T) -> (i64, IntMat) where 
         T: Into<ValOrRef<'a, Integer>>
     {
         assert!(self.ncols() <= self.nrows());
-        let mut res = MaybeUninit::uninit();
-
+        let mut res = self.parent().default();
         unsafe {
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(),
-                self.nrows(),
-                self.ncols()
-            );
             let rank = fmpz_mat::fmpz_mat_howell_form_mod(
                 res.as_mut_ptr(),
                 modulus.into().as_ptr()
             );
-            (rank, IntMat::from_raw(res.assume_init()))
+            (rank, res)
         }
     }
   
@@ -1011,37 +986,41 @@ impl IntMat {
     }*/
     
     pub fn hnf(&self) -> IntMat {
-        let mut res = MaybeUninit::uninit();
+        let mut res = self.parent().default();
         unsafe { 
             fmpz_mat::fmpz_mat_hnf(res.as_mut_ptr(), self.as_ptr()); 
-            IntMat::from_raw(res.assume_init())
         }
+        res
     }
     
-    /*
-    pub fn hnf_transform(&self) -> (IntMat<'a>, IntMat<'a>) {
-        let mut H = IntMat<'a>::zero(self.nrows(), self.ncols());
-        let mut U = IntMat<'a>::zero(self.nrows(), self.nrows());
+    pub fn hnf_transform(&self) -> (IntMat, IntMat) {
+        let mut h = self.parent().default();
+        let mut u = self.parent().default();
         unsafe { 
-            flint_sys::fmpz_mat::fmpz_mat_hnf_transform(H.as_mut_ptr(), U.as_mut_ptr(), self.as_ptr()); 
+            fmpz_mat::fmpz_mat_hnf_transform(
+                h.as_mut_ptr(), 
+                u.as_mut_ptr(), 
+                self.as_ptr()
+            ); 
         }
-        (H, U)
+        (h, u)
     }
     
     pub fn is_hnf(&self) -> bool {
-        unsafe { flint_sys::fmpz_mat::fmpz_mat_is_in_hnf(self.as_ptr()) == 1 }
+        unsafe { fmpz_mat::fmpz_mat_is_in_hnf(self.as_ptr()) == 1 }
     }
     
-    pub fn snf(&self) -> IntMat<'a> {
-        let mut H = IntMat<'a>::zero(self.nrows(), self.ncols());
-        unsafe { flint_sys::fmpz_mat::fmpz_mat_snf(H.as_mut_ptr(), self.as_ptr()); }
-        H
+    pub fn snf(&self) -> IntMat {
+        let mut res = self.parent().default();
+        unsafe { fmpz_mat::fmpz_mat_snf(res.as_mut_ptr(), self.as_ptr()); }
+        res
     }
     
     pub fn is_snf(&self) -> bool {
-        unsafe { flint_sys::fmpz_mat::fmpz_mat_is_in_snf(self.as_ptr()) == 1 }
+        unsafe { fmpz_mat::fmpz_mat_is_in_snf(self.as_ptr()) == 1 }
     }
     
+    /*
     pub fn gram(&self) -> IntMat<'a> {
         let mut B = IntMat<'a>::zero(self.nrows(), self.ncols());
         unsafe { flint_sys::fmpz_mat::fmpz_mat_gram(B.as_mut_ptr(), self.as_ptr()); }
@@ -1143,8 +1122,8 @@ impl<'de> Visitor<'de> for IntMatVisitor {
     {
         let mut entries: Vec<Integer> = Vec::with_capacity(
             access.size_hint().unwrap_or(0));
-        let nrows = access.next_element()?.unwrap();
-        let ncols = access.next_element()?.unwrap();
+        let nrows: i64 = access.next_element()?.unwrap();
+        let ncols: i64 = access.next_element()?.unwrap();
 
         while let Some(x) = access.next_element()? {
             entries.push(x);

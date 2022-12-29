@@ -21,78 +21,12 @@ mod conv;
 #[cfg(feature = "serde")]
 mod serde;
 
-use crate::Integer;
-
+use crate::{New, Integer};
 use flint_sys::{fmpz, fmpq};
-
-use std::any::TypeId;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
 
-#[derive(Clone, Debug)]
-pub struct RationalField {}
-
-impl Eq for RationalField {}
-
-impl PartialEq for RationalField {
-    #[inline]
-    fn eq(&self, _: &RationalField) -> bool {
-        true
-    }
-}
-
-impl fmt::Display for RationalField {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Rational field")
-    }
-}
-
-impl Hash for RationalField {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        TypeId::of::<Self>().hash(state)
-    }
-}
-
-impl RationalField {
-    #[inline]
-    pub fn init() -> Self {
-        RationalField {}
-    }
-    
-    #[inline]
-    pub fn new<T: Into<Rational>>(&self, value: T) -> Rational {
-        Rational::new(value)
-    }
-    
-    /// Return zero.
-    ///
-    /// ```
-    /// use inertia_core::Rational;
-    ///
-    /// assert_eq!(Rational::zero(), 0);
-    /// ```
-    #[inline]
-    pub fn zero(&self) -> Rational {
-        Rational::default()
-    }
-
-    /// Return one.
-    ///
-    /// ```
-    /// use inertia_core::Rational;
-    ///
-    /// assert_eq!(Rational::one(), 1);
-    /// ```
-    #[inline]
-    pub fn one(&self) -> Rational {
-        let mut res = Rational::default();
-        unsafe { fmpq::fmpq_one(res.as_mut_ptr()); }
-        res
-    }
-}
 
 #[derive(Debug)]
 pub struct Rational {
@@ -156,12 +90,21 @@ impl Hash for Rational {
     }
 }
 
-impl Rational {
+impl<T: Into<Rational>> New<T> for Rational {
     #[inline]
-    pub fn new<T: Into<Rational>>(value: T) -> Self {
-        value.into()
+    fn new(src: T) -> Self {
+        src.into()
     }
+}
 
+impl New<&Rational> for Rational {
+    #[inline]
+    fn new(src: &Rational) -> Self {
+        src.clone()
+    }
+}
+
+impl Rational {
     /// Return zero.
     ///
     /// ```

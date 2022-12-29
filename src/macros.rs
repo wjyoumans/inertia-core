@@ -21,8 +21,7 @@
 macro_rules! default {
     // Unary ops and From
     ($op:ident, ctx, $out_ty:ident, $in:ident) => {
-        $in.parent().zero()
-        //$out_ty::zero($in.context())
+        $out_ty::zero($in.context())
     };
     ($op:ident, ctx_in, $out_ty:ident, $in:ident) => {
         $out_ty::zero()
@@ -36,16 +35,13 @@ macro_rules! default {
 
     // Binary ops
     ($op:ident, ctx, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $lhs.parent().zero()
-        //$out_ty::zero($lhs.context())
+        $out_ty::zero($lhs.context())
     };
     ($op:ident, ctx_lhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $lhs.parent().zero()
-        //$out_ty::zero($lhs.context())
+        $out_ty::zero($lhs.context())
     };
     ($op:ident, ctx_rhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $rhs.parent().zero()
-        //$out_ty::zero($rhs.context())
+        $out_ty::zero($rhs.context())
     };
     ($op:ident, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
         $out_ty::zero($lhs.nrows_si(), $rhs.ncols_si())
@@ -76,7 +72,7 @@ macro_rules! op_guard {
     // Binary ops
     ($op:ident, ctx, $out_ty:ident, $lhs:ident, $rhs:ident) => {
         // check contexts agree
-        assert_eq!($lhs.parent(), $rhs.parent())
+        assert_eq!($lhs.context(), $rhs.context())
     };
     (Mul, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
         assert_eq!($lhs.ncols_si(), $rhs.nrows_si())
@@ -104,7 +100,6 @@ macro_rules! call_unsafe {
     (ctx, $func:path, $out:ident, $in:ident) => {
         unsafe {
             $func($out.as_mut_ptr(), $in.as_ptr(), $out.ctx_as_ptr());
-            //$func($out.as_mut_ptr(), $in.as_ptr(), $out.ctx_as_ptr());
         }
     };
     (ctx_in, $func:path, $out:ident, $in:ident) => {

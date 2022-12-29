@@ -22,79 +22,16 @@ mod conv;
 mod serde;
 
 use crate::{
+    New,
     Integer, 
     Rational, 
     IntPoly
 };
-
-use flint_sys::{fmpz, fmpq_poly};
-
-use std::any::TypeId;
+use flint_sys::fmpq_poly;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
 
-
-#[derive(Clone, Debug)]
-pub struct RatPolyRing {}
-
-impl Eq for RatPolyRing {}
-
-impl PartialEq for RatPolyRing {
-    #[inline]
-    fn eq(&self, _: &RatPolyRing) -> bool {
-        true
-    }
-}
-
-impl fmt::Display for RatPolyRing {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ring of integer polynomials")
-    }
-}
-
-impl Hash for RatPolyRing {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        TypeId::of::<Self>().hash(state)
-    }
-}
-
-impl RatPolyRing {
-    #[inline]
-    pub fn init() -> Self {
-        RatPolyRing {}
-    }
-
-    #[inline]
-    pub fn new<T: Into<RatPoly>>(&self, value: T) -> RatPoly {
-        RatPoly::new(value)
-    }
-    
-    pub fn with_capacity(capacity: usize) -> RatPoly {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpq_poly::fmpq_poly_init2(
-                z.as_mut_ptr(), 
-                capacity.try_into().expect("Cannot convert input to a signed long.")
-            );
-            RatPoly::from_raw(z.assume_init())
-        }
-    }
-
-    #[inline]
-    pub fn zero(&self) -> RatPoly {
-        RatPoly::default()
-    }
-
-    #[inline]
-    pub fn one(&self) -> RatPoly {
-        let mut res = RatPoly::default();
-        unsafe { fmpq_poly::fmpq_poly_one(res.as_mut_ptr()); }
-        res
-    }
-}
 
 #[derive(Debug)]
 pub struct RatPoly {
@@ -213,12 +150,21 @@ impl Hash for RatPoly {
     }
 }
 
-impl RatPoly {
+impl<T: Into<RatPoly>> New<T> for RatPoly {
     #[inline]
-    pub fn new<T: Into<RatPoly>>(value: T) -> Self {
-        value.into()
+    fn new(src: T) -> Self {
+        src.into()
     }
-    
+}
+
+impl New<&RatPoly> for RatPoly {
+    #[inline]
+    fn new(src: &RatPoly) -> Self {
+        src.clone()
+    }
+}
+
+impl RatPoly {
     pub fn with_capacity(capacity: usize) -> Self {
         let mut z = MaybeUninit::uninit();
         unsafe {

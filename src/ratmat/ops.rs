@@ -16,16 +16,17 @@
  */
 
 use crate::*;
-use crate::ops::*;
+
 use flint_sys::{
     fmpz, 
-    fmpq, 
+    //fmpq, 
     fmpz_mat, 
     fmpq_mat
 };
+use inertia_algebra::ops::*;
 use libc::{c_long, c_ulong};
+
 use std::mem::MaybeUninit;
-use std::ops::*;
 
 // TODO: Pow
 
@@ -231,6 +232,7 @@ unsafe fn fmpq_mat_fmpz_scalar_mul(
     fmpq_mat::fmpq_mat_scalar_mul_fmpz(res, g, f);
 }
 
+/*
 #[inline]
 unsafe fn fmpq_mat_fmpq_scalar_mul(
     res: *mut fmpq_mat::fmpq_mat_struct,
@@ -238,7 +240,7 @@ unsafe fn fmpq_mat_fmpq_scalar_mul(
     g: *const fmpq_mat::fmpq_mat_struct,
 ) {
     fmpq_mat::fmpq_mat_scalar_mul_fmpq(res, g, f);
-}
+}*/
 
 #[inline]
 unsafe fn fmpq_mat_ui_scalar_mul(

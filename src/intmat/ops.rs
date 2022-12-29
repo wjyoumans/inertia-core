@@ -16,11 +16,12 @@
  */
 
 use crate::*;
-use crate::ops::*;
+
 use flint_sys::{fmpz, fmpz_mat};
+use inertia_algebra::ops::*;
+
 use libc::{c_long, c_ulong};
 use std::mem::MaybeUninit;
-use std::ops::*;
 
 impl_assign_unsafe! {
     matrix

@@ -22,59 +22,11 @@ mod ops;
 //mod serde;
 
 use crate::*;
-
-use flint_sys::{fmpz, fmpz_mat, fmpq_mat};
-
-use std::any::TypeId;
+use flint_sys::{fmpz, fmpz_mat};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
-#[derive(Clone, Debug)]
-pub struct IntMatSpace {
-    nrows: i64,
-    ncols: i64
-}
-
-impl Eq for IntMatSpace {}
-
-impl PartialEq for IntMatSpace {
-    #[inline]
-    fn eq(&self, _: &IntMatSpace) -> bool {
-        true
-    }
-}
-
-impl fmt::Display for IntMatSpace {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ring of integer polynomials")
-    }
-}
-
-impl Hash for IntMatSpace {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        TypeId::of::<Self>().hash(state);
-        self.nrows.hash(state);
-        self.ncols.hash(state);
-    }
-}
-
-impl IntMatSpace {
-    #[inline]
-    pub fn init(nrows: i64, ncols: i64) -> Self {
-        IntMatSpace { nrows, ncols }
-    }
-
-    #[inline]
-    pub fn new<T>(&self, value: T) -> IntMat
-    where
-        IntMat: NewMatrix<T>
-    {
-        IntMat::new(self.nrows, self.ncols, value)
-    }
-}
 
 #[derive(Debug)]
 pub struct IntMat {
@@ -140,7 +92,7 @@ impl Hash for IntMat {
 }
 
 impl<const CAP: usize> NewMatrix<[&Integer; CAP]> for IntMat {
-    fn new_matrix(nrows: i64, ncols: i64, src: [&Integer; CAP]) -> Self {
+    fn new(src: [&Integer; CAP], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
             "Cannot convert signed long to usize.");
         let ncols_ui: usize = ncols.try_into().expect(
@@ -166,7 +118,7 @@ impl<T, const CAP: usize> NewMatrix<[T; CAP]> for IntMat
 where
     T: Into<Integer>
 {
-    fn new_matrix(nrows: i64, ncols: i64, src: [T; CAP]) -> Self {
+    fn new(src: [T; CAP], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
             "Cannot convert signed long to usize.");
         let ncols_ui: usize = ncols.try_into().expect(
@@ -189,7 +141,7 @@ where
 }
 
 impl NewMatrix<&[Integer]> for IntMat {
-    fn new_matrix(nrows: i64, ncols: i64, src: &[Integer]) -> Self {
+    fn new(src: &[Integer], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
             "Cannot convert signed long to usize.");
         let ncols_ui: usize = ncols.try_into().expect(
@@ -215,7 +167,7 @@ impl<'a, T> NewMatrix<&'a [T]> for IntMat
 where
     &'a T: Into<Integer>
 {
-    fn new_matrix(nrows: i64, ncols: i64, src: &'a [T]) -> Self {
+    fn new(src: &'a [T], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
             "Cannot convert signed long to usize.");
         let ncols_ui: usize = ncols.try_into().expect(
@@ -257,11 +209,11 @@ impl IntMat {
     }
 
     #[inline]
-    pub fn new<S>(nrows: i64, ncols: i64, src: S) -> IntMat 
+    pub fn new<S>(src: S, nrows: i64, ncols: i64) -> IntMat 
     where
         Self: NewMatrix<S>
     {
-        IntMat::new_matrix(nrows, ncols, src)
+        <IntMat as NewMatrix<S>>::new(src, nrows, ncols)
     }
 
     /// Returns a pointer to the inner [FLINT integer matrix][fmpz_mat::fmpz_mat].

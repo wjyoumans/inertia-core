@@ -16,11 +16,11 @@
  */
 
 use crate::*;
-use crate::ops::*;
+
 use flint_sys::fmpz;
 use flint_sys::fq_default as fq;
+use inertia_algebra::ops::*;
 use libc::{c_long, c_ulong};
-use std::ops::*;
 
 impl_cmp! {
     eq

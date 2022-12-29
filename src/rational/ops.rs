@@ -16,12 +16,13 @@
  */
 
 use crate::{Integer, Rational};
-use crate::ops::*;
+
 use flint_sys::{fmpq, fmpz};
+use inertia_algebra::ops::*;
 use libc::{c_int, c_long, c_ulong};
+
 use std::cmp::Ordering::{self, Equal, Greater, Less};
 use std::mem::MaybeUninit;
-use std::ops::*;
 
 
 impl_assign_unsafe! {

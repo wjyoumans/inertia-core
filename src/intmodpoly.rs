@@ -19,117 +19,16 @@ mod ops;
 mod conv;
 
 use crate::*;
-
 use flint_sys::{fmpz, fmpz_mod, fmpz_mod_poly};
-
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::rc::Rc;
 
-#[derive(Clone, Debug)]
-pub struct IntModPolyRing {
-    inner: Rc<FmpzModCtx>
-}
-
-impl Eq for IntModPolyRing {}
-
-impl PartialEq for IntModPolyRing {
-    fn eq(&self, rhs: &IntModPolyRing) -> bool {
-        Rc::ptr_eq(&self.inner, &rhs.inner) || (self.modulus() == rhs.modulus())
-    }
-}
-
-impl fmt::Display for IntModPolyRing {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ring of polynomials over {}", self.base_ring())
-    }
-}
-
-impl Hash for IntModPolyRing {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.modulus().hash(state)
-    }
-}
-
-impl IntModPolyRing {
-    #[inline]
-    pub fn init<T: Into<Integer>>(modulus: T) -> Self {
-        IntModPolyRing {
-            inner: Rc::new(FmpzModCtx::new(modulus.into()))
-        }
-    }
-    
-    pub fn new<T: Into<IntPoly>>(&self, value: T) -> IntModPoly {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpz_mod_poly::fmpz_mod_poly_init(z.as_mut_ptr(), self.as_ptr());
-            fmpz_mod_poly::fmpz_mod_poly_set_fmpz_poly(
-                z.as_mut_ptr(), 
-                value.into().as_ptr(),
-                self.as_ptr()
-            );
-            IntModPoly::from_raw(z.assume_init(), self.clone())
-        }
-
-    }
-    
-    pub fn with_capacity(&self, capacity: usize) -> IntModPoly {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpz_mod_poly::fmpz_mod_poly_init2(
-                z.as_mut_ptr(),
-                capacity.try_into().expect("Cannot convert input to a signed long."),
-                self.as_ptr()
-            );
-            IntModPoly::from_raw(z.assume_init(), self.clone())
-        }
-    }
-    
-    #[inline]
-    pub fn zero(&self) -> IntModPoly {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpz_mod_poly::fmpz_mod_poly_init(z.as_mut_ptr(), self.as_ptr());
-            IntModPoly::from_raw(z.assume_init(), self.clone())
-        }
-    }
-
-    #[inline]
-    pub fn one(&self) -> IntModPoly {
-        let mut res = self.zero();
-        unsafe{ fmpz_mod_poly::fmpz_mod_poly_one(res.as_mut_ptr(), self.as_ptr()); }
-        res
-    }
-    
-    #[inline]
-    pub fn base_ring(&self) -> IntModRing {
-        IntModRing { inner: Rc::clone(&self.inner) }
-    }
-    
-    #[inline]
-    pub fn as_ptr(&self) -> *const fmpz_mod::fmpz_mod_ctx_struct {
-        &self.inner.0
-    }
-    
-    #[inline]
-    pub fn modulus_as_ptr(&self) -> *const fmpz::fmpz {
-        unsafe { fmpz_mod::fmpz_mod_ctx_modulus(self.as_ptr()) }
-    }
-   
-    #[inline]
-    pub fn modulus(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe { fmpz::fmpz_set(res.as_mut_ptr(), self.modulus_as_ptr()); }
-        res
-    }
-    
-}
 
 #[derive(Debug)]
 pub struct IntModPoly {
     inner: fmpz_mod_poly::fmpz_mod_poly_struct,
-    parent: IntModPolyRing,
+    ctx: IntModCtx,
 }
 
 impl AsRef<IntModPoly> for IntModPoly {
@@ -142,7 +41,7 @@ impl AsRef<IntModPoly> for IntModPoly {
 impl Clone for IntModPoly {
     #[inline]
     fn clone(&self) -> Self {
-        let mut res = self.parent().zero();
+        let mut res = IntModPoly::zero(self.context());
         unsafe {
             fmpz_mod_poly::fmpz_mod_poly_set(
                 res.as_mut_ptr(), 
@@ -154,7 +53,6 @@ impl Clone for IntModPoly {
     }
 }
 
-// TODO: avoid allocation
 impl fmt::Display for IntModPoly {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -175,12 +73,55 @@ impl Drop for IntModPoly {
 impl Hash for IntModPoly {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.parent().hash(state);
+        self.context().hash(state);
         IntPoly::from(self).hash(state);
     }
 }
 
+impl<T: Into<IntPoly>> NewCtx<T, IntModCtx> for IntModPoly {
+    fn new(src: T, ctx: &IntModCtx) -> Self {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fmpz_mod_poly::fmpz_mod_poly_init(z.as_mut_ptr(), ctx.as_ptr());
+            fmpz_mod_poly::fmpz_mod_poly_set_fmpz_poly(
+                z.as_mut_ptr(), 
+                src.into().as_ptr(),
+                ctx.as_ptr()
+            );
+            IntModPoly::from_raw(z.assume_init(), ctx.clone())
+        }
+    }
+}
+
 impl IntModPoly {
+    pub fn with_capacity(capacity: usize, ctx: &IntModCtx) -> Self {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fmpz_mod_poly::fmpz_mod_poly_init2(
+                z.as_mut_ptr(),
+                capacity.try_into().expect("Cannot convert input to a signed long."),
+                ctx.as_ptr()
+            );
+            IntModPoly::from_raw(z.assume_init(), ctx.clone())
+        }
+    }
+    
+    #[inline]
+    pub fn zero(ctx: &IntModCtx) -> IntModPoly {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fmpz_mod_poly::fmpz_mod_poly_init(z.as_mut_ptr(), ctx.as_ptr());
+            IntModPoly::from_raw(z.assume_init(), ctx.clone())
+        }
+    }
+
+    #[inline]
+    pub fn one(ctx: &IntModCtx) -> IntModPoly {
+        let mut res = IntModPoly::zero(ctx);
+        unsafe{ fmpz_mod_poly::fmpz_mod_poly_one(res.as_mut_ptr(), ctx.as_ptr()); }
+        res
+    }
+    
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz_mod_poly::fmpz_mod_poly_struct {
         &self.inner
@@ -193,12 +134,12 @@ impl IntModPoly {
 
     #[inline]
     pub fn ctx_as_ptr(&self) -> *const fmpz_mod::fmpz_mod_ctx_struct {
-        self.parent().as_ptr()
+        self.context().as_ptr()
     }
     
     #[inline]
     pub fn modulus_as_ptr(&self) -> *const fmpz::fmpz {
-        self.parent().modulus_as_ptr()
+        self.context().modulus_as_ptr()
     }
 
     /*
@@ -217,9 +158,9 @@ impl IntModPoly {
     #[inline]
     pub const unsafe fn from_raw(
         inner: fmpz_mod_poly::fmpz_mod_poly_struct, 
-        parent: IntModPolyRing
+        ctx: IntModCtx
     ) -> Self {
-        IntModPoly { inner, parent }
+        IntModPoly { inner, ctx }
     }
     
     #[inline]
@@ -230,18 +171,13 @@ impl IntModPoly {
     }
     
     #[inline]
-    pub fn parent(&self) -> &IntModPolyRing {
-        &self.parent
-    }
-    
-    #[inline]
-    pub fn base_ring(&self) -> IntModRing {
-        self.parent().base_ring()
+    pub fn context(&self) -> &IntModCtx {
+        &self.ctx
     }
     
     #[inline]
     pub fn modulus(&self) -> Integer {
-        self.parent().modulus()
+        self.context().modulus()
     }
 
     #[inline]
@@ -293,13 +229,14 @@ impl IntModPoly {
     }
     
     pub fn get_coeff(&self, i: usize) -> IntMod {
-        let mut res = self.base_ring().zero();
+        let ctx = self.context();
+        let mut res = IntMod::zero(&ctx);
         unsafe { 
             fmpz_mod_poly::fmpz_mod_poly_get_coeff_fmpz(
                 res.as_mut_ptr(), 
                 self.as_ptr(), 
                 i.try_into().expect("Cannot convert index to a signed long."),
-                res.parent().as_ptr()
+                ctx.as_ptr()
             )
         }
         res

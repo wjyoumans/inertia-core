@@ -257,19 +257,35 @@ impl Hash for FinFldElem {
     }
 }
 
-impl FinFldElem {
-    pub fn new<T: Into<IntPoly>>(value: T, ctx: &FinFldCtx) -> FinFldElem {
+impl<T: Into<IntPoly>> NewCtx<T, FinFldCtx> for FinFldElem {
+    fn new(src: T, ctx: &FinFldCtx) -> Self {
         let mut res = FinFldElem::zero(ctx);
         unsafe {
             fq::fq_default_set_fmpz_poly(
                 res.as_mut_ptr(), 
-                value.into().as_ptr(), 
+                src.into().as_ptr(), 
                 ctx.as_ptr()
             );
         }
         res
     }
+}
 
+impl NewCtx<&IntPoly, FinFldCtx> for FinFldElem {
+    fn new(src: &IntPoly, ctx: &FinFldCtx) -> Self {
+        let mut res = FinFldElem::zero(ctx);
+        unsafe {
+            fq::fq_default_set_fmpz_poly(
+                res.as_mut_ptr(), 
+                src.as_ptr(), 
+                ctx.as_ptr()
+            );
+        }
+        res
+    }
+}
+
+impl FinFldElem {
     #[inline]
     pub fn zero(ctx: &FinFldCtx) -> FinFldElem {
         let mut z = MaybeUninit::uninit();

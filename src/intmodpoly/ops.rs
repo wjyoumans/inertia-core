@@ -16,11 +16,12 @@
  */
 
 use crate::{IntMod, IntModPoly, Integer};
-use crate::ops::*;
+
 use flint_sys::{fmpz, fmpz_mod, fmpz_mod_poly};
+use inertia_algebra::ops::*;
 use libc::{c_long, c_ulong};
+
 use std::mem::MaybeUninit;
-use std::ops::*;
 
 impl_cmp! {
     eq
@@ -28,7 +29,7 @@ impl_cmp! {
     {
         fn eq(&self, rhs: &IntModPoly) -> bool {
             unsafe {
-                self.parent() == rhs.parent() && 
+                self.context() == rhs.context() && 
                     fmpz_mod_poly::fmpz_mod_poly_equal(
                         self.as_ptr(),
                         rhs.as_ptr(),
@@ -44,7 +45,7 @@ impl_cmp! {
     IntModPoly, IntMod
     {
         fn eq(&self, rhs: &IntMod) -> bool {
-            &self.base_ring() == rhs.parent() && 
+            self.context() == rhs.context() && 
                 self.degree() == 0 && self.get_coeff(0) == rhs
         }
     }

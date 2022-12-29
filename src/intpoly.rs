@@ -21,77 +21,11 @@ mod conv;
 #[cfg(feature = "serde")]
 mod serde;
 
-use crate::Integer;
-
-use flint_sys::{fmpz, fmpz_poly};
-
-use std::any::TypeId;
+use crate::{New, Integer};
+use flint_sys::fmpz_poly;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
-
-
-#[derive(Clone, Debug)]
-pub struct IntPolyRing {}
-
-impl Eq for IntPolyRing {}
-
-impl PartialEq for IntPolyRing {
-    #[inline]
-    fn eq(&self, _: &IntPolyRing) -> bool {
-        true
-    }
-}
-
-impl fmt::Display for IntPolyRing {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ring of integer polynomials")
-    }
-}
-
-impl Hash for IntPolyRing {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        TypeId::of::<Self>().hash(state)
-    }
-}
-
-impl IntPolyRing {
-    #[inline]
-    pub fn init() -> Self {
-        IntPolyRing {}
-    }
-
-    #[inline]
-    pub fn new<T: Into<IntPoly>>(&self, value: T) -> IntPoly {
-        IntPoly::new(value)
-    }
-    
-    pub fn with_capacity(&self, capacity: usize) -> IntPoly {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpz_poly::fmpz_poly_init2(
-                z.as_mut_ptr(), 
-                capacity.try_into().expect("Cannot convert input to a signed long.")
-            );
-            IntPoly::from_raw(z.assume_init())
-        }
-    }
-
-    #[inline]
-    pub fn zero(&self) -> IntPoly {
-        IntPoly::default()
-    }
-
-    #[inline]
-    pub fn one(&self) -> IntPoly {
-        let mut res = IntPoly::default();
-        unsafe { fmpz_poly::fmpz_poly_one(res.as_mut_ptr()); }
-        res
-    }
-    
-}
 
 #[derive(Debug)]
 pub struct IntPoly {
@@ -208,12 +142,21 @@ impl Hash for IntPoly {
     }
 }
 
-impl IntPoly {
+impl<T: Into<IntPoly>> New<T> for IntPoly {
     #[inline]
-    pub fn new<T: Into<IntPoly>>(value: T) -> Self {
-        value.into()
+    fn new(src: T) -> Self {
+        src.into()
     }
-    
+}
+
+impl New<&IntPoly> for IntPoly {
+    #[inline]
+    fn new(src: &IntPoly) -> Self {
+        src.clone()
+    }
+}
+
+impl IntPoly {
     pub fn with_capacity(capacity: usize) -> Self {
         let mut z = MaybeUninit::uninit();
         unsafe {
@@ -391,9 +334,5 @@ impl IntPoly {
         }
         res
     }
-
-    // TODO: any way to do: 
-    // get(&self) -> &Integer
-    // get_mut(&mut self) -> &mut Integer?
 }
 

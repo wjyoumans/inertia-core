@@ -53,12 +53,11 @@ impl_from_unsafe! {
     fmpz_mod_poly::fmpz_mod_poly_get_fmpz_poly
 }
 
-/*
 impl_from_unsafe! {
     ctx_in
     IntPoly, FinFldElem
     fq::fq_default_get_fmpz_poly
-}*/
+}
 
 impl<T, const CAP: usize> From<[T; CAP]> for IntPoly
 where

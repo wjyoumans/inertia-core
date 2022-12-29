@@ -16,10 +16,10 @@
  */
 
 use crate::{IntMod, Integer, Rational};
-use crate::ops::*;
+
 use flint_sys::{fmpq, fmpz, fmpz_mod};
+use inertia_algebra::ops::*;
 use libc::{c_int, c_long, c_ulong};
-use std::ops::*;
 
 impl_assign_unsafe! {
     ctx

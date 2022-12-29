@@ -22,6 +22,11 @@ flint-sys = {version = "0.7", features = ["disable-make-check"] }
 arb-sys = {version = "0.3", features = ["disable-make-check"] }
 antic-sys = {version = "0.3", features = ["disable-make-check"] }
 
+[dependencies.inertia-algebra]
+path = "../inertia-algebra"
+version = "0.1"
+default-features = false
+
 [dependencies.serde]
 optional = true
 version = "1.0"

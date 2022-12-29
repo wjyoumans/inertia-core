@@ -21,42 +21,18 @@ use flint_sys::{
     fq_default as fq
 };
 
-use std::rc::Rc;
-
-/* TODO: maybe fix macros so this work
 impl_from_unsafe! {
     ctx
     IntModPoly, IntMod
     fmpz_mod_poly::fmpz_mod_poly_set_fmpz
 }
-*/
 
-impl_from! {
-    IntModPoly, IntMod
-    {
-        fn from(x: &IntMod) -> IntModPoly {
-            let temp = &x.parent.inner;
-            let parent = IntModPolyRing { inner: Rc::clone(temp) };
-            let mut res = parent.zero();
-            unsafe {
-                fmpz_mod_poly::fmpz_mod_poly_set_fmpz(
-                    res.as_mut_ptr(),
-                    x.as_ptr(),
-                    x.ctx_as_ptr(),
-                );
-            }
-            res
-        }
-    }
-}
-
-/*
 impl_from! {
     IntModPoly, FinFldElem
     {
         fn from(x: &FinFldElem) -> IntModPoly {
-            let parent = IntModPolyRing::init(x.prime());
-            let mut res = parent.zero();
+            let ctx = IntModCtx::new(x.prime());
+            let mut res = IntModPoly::zero(&ctx);
             unsafe {
                 fq::fq_default_get_fmpz_mod_poly(
                     res.as_mut_ptr(),
@@ -68,4 +44,3 @@ impl_from! {
         }
     }
 }
-*/

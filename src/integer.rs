@@ -21,93 +21,11 @@ mod conv;
 #[cfg(feature = "serde")]
 mod serde;
 
+use crate::New;
 use flint_sys::fmpz;
-
-use std::any::TypeId;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
-
-#[derive(Clone, Debug)]
-pub struct IntegerRing {}
-
-impl Eq for IntegerRing {}
-
-impl PartialEq for IntegerRing {
-    #[inline]
-    fn eq(&self, _: &IntegerRing) -> bool {
-        true
-    }
-}
-
-impl fmt::Display for IntegerRing {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Integer ring")
-    }
-}
-
-impl Hash for IntegerRing {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        TypeId::of::<Self>().hash(state)
-    }
-}
-
-impl IntegerRing {
-    #[inline]
-    pub fn init() -> Self {
-        IntegerRing {}
-    }
-
-    #[inline]
-    pub fn new<T: Into<Integer>>(&self, value: T) -> Integer {
-        Integer::new(value)
-    }
-    
-    /// Initialize a new `Integer` with the given number of limbs.
-    ///
-    /// ```
-    /// use inertia_core::Integer;
-    ///
-    /// let x = Integer::with_capacity(2);
-    /// assert_eq!(x, 0);
-    /// ```
-    #[inline]
-    pub fn with_capacity(&self, limbs: u64) -> Integer {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpz::fmpz_init2(z.as_mut_ptr(), limbs);
-            Integer::from_raw(z.assume_init())
-        }
-    }
-
-    /// Return zero.
-    ///
-    /// ```
-    /// use inertia_core::Integer;
-    ///
-    /// assert_eq!(Integer::zero(), 0);
-    /// ```
-    #[inline]
-    pub fn zero(&self) -> Integer {
-        Integer::default()
-    }
-
-    /// Return one.
-    ///
-    /// ```
-    /// use inertia_core::Integer;
-    ///
-    /// assert_eq!(Integer::one(), 1);
-    /// ```
-    #[inline]
-    pub fn one(&self) -> Integer {
-        let mut res = Integer::default();
-        unsafe { fmpz::fmpz_one(res.as_mut_ptr()); }
-        res
-    }
-}
 
 #[derive(Debug)]
 pub struct Integer {
@@ -115,7 +33,6 @@ pub struct Integer {
 }
 
 impl AsRef<Integer> for Integer {
-    #[inline]
     fn as_ref(&self) -> &Integer {
         self
     }
@@ -160,22 +77,25 @@ impl Drop for Integer {
 impl Hash for Integer {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.parent().hash(state);
         self.get_ui_vector().hash(state);
     }
 }
 
+impl<T: Into<Integer>> New<T> for Integer {
+    #[inline]
+    fn new(src: T) -> Self {
+        src.into()
+    }
+}
+
+impl New<&Integer> for Integer {
+    #[inline]
+    fn new(src: &Integer) -> Self {
+        src.clone()
+    }
+}
+
 impl Integer {
-    #[inline]
-    pub fn parent(&self) -> IntegerRing {
-        IntegerRing {}
-    }
-
-    #[inline]
-    pub fn new<T: Into<Integer>>(value: T) -> Self {
-        value.into()
-    }
-
     /// Initialize a new `Integer` with the given number of limbs.
     ///
     /// ```

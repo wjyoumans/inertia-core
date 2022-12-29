@@ -22,60 +22,11 @@ mod ops;
 //mod serde;
 
 use crate::*;
-
-use flint_sys::{fmpz, fmpq, fmpz_mat, fmpq_mat};
-
-use std::any::TypeId;
+use flint_sys::{fmpq, fmpq_mat};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
-
-#[derive(Clone, Debug)]
-pub struct RatMatSpace {
-    nrows: i64,
-    ncols: i64
-}
-
-impl Eq for RatMatSpace {}
-
-impl PartialEq for RatMatSpace {
-    #[inline]
-    fn eq(&self, _: &RatMatSpace) -> bool {
-        true
-    }
-}
-
-impl fmt::Display for RatMatSpace {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ring of integer polynomials")
-    }
-}
-
-impl Hash for RatMatSpace {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        TypeId::of::<Self>().hash(state);
-        self.nrows.hash(state);
-        self.ncols.hash(state);
-    }
-}
-
-impl RatMatSpace {
-    #[inline]
-    pub fn init(nrows: i64, ncols: i64) -> Self {
-        RatMatSpace { nrows, ncols }
-    }
-
-    #[inline]
-    pub fn new<T>(&self, value: T) -> RatMat
-    where
-        RatMat: NewMatrix<T>
-    {
-        RatMat::new(self.nrows, self.ncols, value)
-    }
-}
 
 #[derive(Debug)]
 pub struct RatMat {
@@ -141,7 +92,7 @@ impl Hash for RatMat {
 }
 
 impl<const CAP: usize> NewMatrix<[&Rational; CAP]> for RatMat {
-    fn new_matrix(nrows: i64, ncols: i64, src: [&Rational; CAP]) -> Self {
+    fn new(src: [&Rational; CAP], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
             "Cannot convert signed long to usize.");
         let ncols_ui: usize = ncols.try_into().expect(
@@ -167,7 +118,7 @@ impl<T, const CAP: usize> NewMatrix<[T; CAP]> for RatMat
 where
     T: Into<Rational>
 {
-    fn new_matrix(nrows: i64, ncols: i64, src: [T; CAP]) -> Self {
+    fn new(src: [T; CAP], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
             "Cannot convert signed long to usize.");
         let ncols_ui: usize = ncols.try_into().expect(
@@ -190,7 +141,7 @@ where
 }
 
 impl NewMatrix<&[Rational]> for RatMat {
-    fn new_matrix(nrows: i64, ncols: i64, src: &[Rational]) -> Self {
+    fn new(src: &[Rational], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
             "Cannot convert signed long to usize.");
         let ncols_ui: usize = ncols.try_into().expect(
@@ -216,7 +167,7 @@ impl<'a, T> NewMatrix<&'a [T]> for RatMat
 where
     &'a T: Into<Rational>
 {
-    fn new_matrix(nrows: i64, ncols: i64, src: &'a [T]) -> Self {
+    fn new(src: &'a [T], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
             "Cannot convert signed long to usize.");
         let ncols_ui: usize = ncols.try_into().expect(
@@ -258,11 +209,11 @@ impl RatMat {
     }
 
     #[inline]
-    pub fn new<S>(nrows: i64, ncols: i64, src: S) -> RatMat 
+    pub fn new<S>(src: S, nrows: i64, ncols: i64) -> RatMat 
     where
         Self: NewMatrix<S>
     {
-        RatMat::new_matrix(nrows, ncols, src)
+        <RatMat as NewMatrix<S>>::new(src, nrows, ncols)
     }
 
     #[inline]

@@ -16,11 +16,12 @@
  */
 
 use crate::*;
-use crate::ops::*;
+
 use flint_sys::{fmpz, fmpq, fmpz_poly, fmpq_poly};
+use inertia_algebra::ops::*;
 use libc::{c_int, c_long, c_ulong};
+
 use std::mem::MaybeUninit;
-use std::ops::*;
 
 // TODO: Rem, Pow
 

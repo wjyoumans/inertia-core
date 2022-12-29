@@ -19,7 +19,6 @@
 
 #[macro_use]
 mod macros;
-pub mod ops;
 
 mod integer;
 mod intpoly;
@@ -33,12 +32,11 @@ mod intmod;
 mod intmodpoly;
 //mod intmodmat;
 
-//mod finfld;
+mod finfld;
 //mod finfldpoly;
 //mod finfldmat;
 
 //mod intmpoly;
-//
 
 mod util {
     #[must_use]
@@ -51,17 +49,37 @@ mod util {
     }
 }
 
-pub trait NewMatrix<T> {
-    fn new_matrix(nrows: i64, ncols: i64, src: T) -> Self;
+// constructors
+
+pub trait New<T> {
+    fn new(src: T) -> Self;
 }
 
 /*
-// TODO: something like this for polynomial pretty printing where sign_fn takes
-// a coefficient and returns the sign (+ == true, - == false etc)
-pub trait PrettyPrint {
-    fn pretty_print(&self, var: &str, sign_fn: Fn(Self) -> bool) -> String;
+impl<T, S: Into<T>> New<S> for T {
+    #[inline]
+    fn new(src: S) -> T {
+        src.into()
+    }
+}
+
+impl<T: Clone> New<&T> for T {
+    #[inline]
+    fn new(src: &T) -> T {
+        src.clone()
+    }
 }
 */
+
+pub trait NewCtx<T, Ctx> {
+    fn new(src: T, ctx: &Ctx) -> Self;
+}
+
+pub trait NewMatrix<T> {
+    fn new(src: T, nrows: i64, ncols: i64) -> Self;
+}
+
+pub use inertia_algebra::ops::*;
 
 pub use integer::*;
 pub use intpoly::*;
@@ -75,7 +93,7 @@ pub use intmod::*;
 pub use intmodpoly::*;
 //pub use intmodmat::*;
 
-//pub use finfld::*;
+pub use finfld::*;
 //pub use finfldpoly::*;
 //pub use finfldmat::*;
 

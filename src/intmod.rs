@@ -21,14 +21,14 @@ mod conv;
 #[cfg(feature = "serde")]
 mod serde;
 
-use crate::Integer;
+use crate::{NewCtx, Integer};
 use flint_sys::{fmpz, fmpz_mod};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::rc::Rc;
 
-pub(crate) struct FmpzModCtx(pub(crate) fmpz_mod::fmpz_mod_ctx_struct);
+pub(crate) struct FmpzModCtx(fmpz_mod::fmpz_mod_ctx_struct);
 
 // Certain fields can be uninitialized so manually implement.
 impl fmt::Debug for FmpzModCtx {
@@ -67,58 +67,36 @@ impl FmpzModCtx {
 }
 
 #[derive(Clone, Debug)]
-pub struct IntModRing {
-    pub(crate) inner: Rc<FmpzModCtx>
+pub struct IntModCtx {
+    inner: Rc<FmpzModCtx>
 }
 
-impl Eq for IntModRing {}
+impl Eq for IntModCtx {}
 
-impl PartialEq for IntModRing {
-    fn eq(&self, rhs: &IntModRing) -> bool {
+impl PartialEq for IntModCtx {
+    fn eq(&self, rhs: &IntModCtx) -> bool {
         Rc::ptr_eq(&self.inner, &rhs.inner) || (self.modulus() == rhs.modulus())
     }
 }
 
-impl fmt::Display for IntModRing {
+impl fmt::Display for IntModCtx {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ring of integers mod {}", self.modulus())
+        write!(f, "Context for ring of integers modulo {}", self.modulus())
     }
 }
 
-impl Hash for IntModRing {
+impl Hash for IntModCtx {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.modulus().hash(state)
     }
 }
 
-impl IntModRing {
+impl IntModCtx {
     #[inline]
-    pub fn init<T: Into<Integer>>(modulus: T) -> Self {
-        IntModRing {
+    pub fn new<T: Into<Integer>>(modulus: T) -> Self {
+        IntModCtx {
             inner: Rc::new(FmpzModCtx::new(modulus.into()))
         }
-    }
-    
-    pub fn new<T: Into<Integer>>(&self, value: T) -> IntMod {
-        let mut res = unsafe { 
-            IntMod::from_raw(value.into().into_raw(), self.clone())
-        };
-        res.canonicalize();
-        res
-    }
-    
-    pub fn zero(&self) -> IntMod {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpz::fmpz_init(z.as_mut_ptr());
-            IntMod::from_raw(z.assume_init(), self.clone())
-        }
-    }
-
-    pub fn one(&self) -> IntMod {
-        let mut res = self.zero();
-        unsafe{ fmpz::fmpz_one(res.as_mut_ptr()); }
-        res
     }
     
     #[inline]
@@ -143,7 +121,7 @@ impl IntModRing {
 #[derive(Debug)]
 pub struct IntMod {
     pub(crate) inner: fmpz::fmpz,
-    pub(crate) parent: IntModRing,
+    pub(crate) ctx: IntModCtx,
 }
 
 impl AsRef<IntMod> for IntMod {
@@ -155,13 +133,12 @@ impl AsRef<IntMod> for IntMod {
 
 impl Clone for IntMod {
     fn clone(&self) -> Self {
-        let mut res = self.parent().zero();
+        let mut res = IntMod::zero(self.context());
         unsafe { fmpz::fmpz_set(res.as_mut_ptr(), self.as_ptr()); }
         res
     }
 }
 
-// TODO: avoid Integer allocation
 impl fmt::Display for IntMod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", Integer::from(self).to_string())
@@ -175,11 +152,21 @@ impl Drop for IntMod {
 }
 
 
-// TODO: avoid Integer allocation
+// TODO: avoid Integer allocation?
 impl Hash for IntMod {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.parent().hash(state);
+        self.context().hash(state);
         Integer::from(self).hash(state);
+    }
+}
+
+impl<T: Into<Integer>> NewCtx<T, IntModCtx> for IntMod {
+    fn new(src: T, ctx: &IntModCtx) -> Self {
+        let mut res = unsafe { 
+            IntMod::from_raw(src.into().into_raw(), ctx.clone())
+        };
+        res.canonicalize();
+        res
     }
 }
 
@@ -197,16 +184,6 @@ impl IntMod {
         }
     }
    
-    /* TODO: Maybe do new/zero/one here as well
-    #[inline]
-    pub fn new<T: Into<Integer>>(value: T, ctx: &IntModCtx) -> Self {
-        let mut res = unsafe { 
-            IntMod::from_raw(value.into().into_raw(), ctx.clone())
-        };
-        res.canonicalize();
-        res
-    }
-   
     #[inline]
     pub fn zero(ctx: &IntModCtx) -> IntMod {
         let mut z = MaybeUninit::uninit();
@@ -222,7 +199,6 @@ impl IntMod {
         unsafe{ fmpz::fmpz_one(res.as_mut_ptr()); }
         res
     }
-    */
     
     #[inline]
     pub fn zero_assign(&mut self) {
@@ -249,20 +225,20 @@ impl IntMod {
     /// Returns a pointer to the [FLINT context][fmpz_mod::fmpz_mod_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> *const fmpz_mod::fmpz_mod_ctx_struct {
-        self.parent().as_ptr()
+        self.context().as_ptr()
     }
     
     /// Returns a pointer to the [FLINT context][fmpz_mod::fmpz_mod_ctx_struct].
     #[inline]
     pub fn modulus_as_ptr(&self) -> *const fmpz::fmpz {
-        self.parent().modulus_as_ptr()
+        self.context().modulus_as_ptr()
     }
 
     /// Construct an `IntMod` from a raw [fmpz::fmpz] and reference to an 
     /// `IntModRing`. This does not canonicalize the output!
     #[inline]
-    pub const unsafe fn from_raw(inner: fmpz::fmpz, parent: IntModRing) -> IntMod {
-        IntMod { inner, parent }
+    pub const unsafe fn from_raw(inner: fmpz::fmpz, ctx: IntModCtx) -> IntMod {
+        IntMod { inner, ctx }
     }
   
     #[inline]
@@ -274,14 +250,14 @@ impl IntMod {
     }
     
     #[inline]
-    pub const fn parent(&self) -> &IntModRing {
-        &self.parent
+    pub const fn context(&self) -> &IntModCtx {
+        &self.ctx
     }
     
     /// Return the modulus of `IntMod`.
     #[inline]
     pub fn modulus(&self) -> Integer {
-        self.parent().modulus()
+        self.context().modulus()
     }
 
     #[inline]

@@ -64,7 +64,6 @@ impl_from! {
     }
 }
 
-/*
 impl_from! {
     RatPoly, FinFldElem
     {
@@ -72,7 +71,7 @@ impl_from! {
             RatPoly::from(IntPoly::from(x))
         }
     }
-}*/
+}
 
 impl<T, const CAP: usize> From<[T; CAP]> for RatPoly
 where

@@ -15,28 +15,33 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-mod arith;
+mod ops;
 mod conv;
 
-use crate::*;
-use flint_sys::fmpq_poly;
-use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
-use std::cell::RefCell;
-use std::ffi::{CStr, CString};
+#[cfg(feature = "serde")]
+mod serde;
+
+use crate::{
+    Integer, 
+    Rational, 
+    IntPoly
+};
+
+use flint_sys::{fmpz, fmpq_poly};
+
+use std::any::TypeId;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
-use std::rc::Rc;
+use std::mem::{ManuallyDrop, MaybeUninit};
+
 
 #[derive(Clone, Debug)]
-pub struct RatPolyRing {
-    var: Rc<RefCell<String>>,
-}
+pub struct RatPolyRing {}
 
 impl Eq for RatPolyRing {}
 
 impl PartialEq for RatPolyRing {
+    #[inline]
     fn eq(&self, _: &RatPolyRing) -> bool {
         true
     }
@@ -45,73 +50,32 @@ impl PartialEq for RatPolyRing {
 impl fmt::Display for RatPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Univariate polynomial ring in {} over {}",
-            self.var(),
-            self.base_ring()
-        )
+        write!(f, "Ring of integer polynomials")
     }
 }
 
 impl Hash for RatPolyRing {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.base_ring().hash(state);
-        self.nvars().hash(state);
+        TypeId::of::<Self>().hash(state)
     }
 }
 
 impl RatPolyRing {
     #[inline]
-    pub fn init(var: &str) -> Self {
-        RatPolyRing {
-            var: Rc::new(RefCell::new(var.to_string())),
-        }
+    pub fn init() -> Self {
+        RatPolyRing {}
     }
 
     #[inline]
-    pub fn default(&self) -> RatPoly {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpq_poly::fmpq_poly_init(z.as_mut_ptr());
-            RatPoly {
-                inner: z.assume_init(),
-                var: Rc::clone(&self.var),
-            }
-        }
-    }
-
-    #[inline]
-    pub fn new<T: Into<RatPoly>>(&self, x: T) -> RatPoly {
-        let res = x.into();
-        res.set_var(self.var());
-        res
-    }
-
-    pub fn nvars(&self) -> i64 {
-        1
-    }
-
-    /// Return the variable of the polynomial as a String.
-    pub fn var(&self) -> String {
-        (*self.var).borrow().to_string()
-    }
-
-    /// Change the variable of the polynomial.
-    pub fn set_var<T: AsRef<str>>(&self, var: T) {
-        self.var.replace(var.as_ref().to_string());
-    }
-
-    pub fn base_ring(&self) -> RationalField {
-        RationalField {}
+    pub fn new<T: Into<RatPoly>>(&self, value: T) -> RatPoly {
+        RatPoly::new(value)
     }
 }
 
 #[derive(Debug)]
 pub struct RatPoly {
     inner: fmpq_poly::fmpq_poly_struct,
-    var: Rc<RefCell<String>>,
 }
 
 impl AsRef<RatPoly> for RatPoly {
@@ -120,21 +84,10 @@ impl AsRef<RatPoly> for RatPoly {
     }
 }
 
-impl<'a, T> Assign<T> for RatPoly
-where
-    T: AsRef<RatPoly>,
-{
-    fn assign(&mut self, other: T) {
-        unsafe {
-            fmpq_poly::fmpq_poly_set(self.as_mut_ptr(), other.as_ref().as_ptr());
-        }
-    }
-}
-
 impl Clone for RatPoly {
     #[inline]
     fn clone(&self) -> Self {
-        let mut res = self.parent().default();
+        let mut res = RatPoly::default();
         unsafe {
             fmpq_poly::fmpq_poly_set(res.as_mut_ptr(), self.as_ptr());
         }
@@ -148,24 +101,76 @@ impl Default for RatPoly {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpq_poly::fmpq_poly_init(z.as_mut_ptr());
-            RatPoly {
-                inner: z.assume_init(),
-                var: Rc::new(RefCell::new("x".to_owned())),
-            }
+            RatPoly::from_raw(z.assume_init())
         }
     }
 }
 
+// TODO: output rational coeffs or 1/denominator times numerator?
 impl fmt::Display for RatPoly {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let v = CString::new(self.var()).unwrap();
-        unsafe {
-            let ptr = fmpq_poly::fmpq_poly_get_str_pretty(self.as_ptr(), v.as_ptr());
-            let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
-            flint_sys::flint::flint_free(ptr as _);
-            write!(f, "{}", s)
+        let deg = self.degree();
+        if deg < 0 {
+            return write!(f, "0");
+        } else if deg == 0 {
+            return write!(f, "{}", self.get_coeff(0).to_string());
         }
+
+        let deg = deg.try_into().unwrap();
+        let mut out = String::new();
+        let coeffs = self.get_coeffs();
+
+        let sign = |s| {
+            if s > 0 { " + " }
+            else if s < 0 { " - " }
+            else { unreachable!() }
+        };
+       
+        for (k, c) in coeffs.iter().enumerate().rev() {
+            let s = c.sign();
+            if s == 0 {
+                continue;
+            }
+
+            let abs = c.abs();
+            if k == 0 {
+                out.push_str(&format!("{}{}", sign(s), abs));
+            } else if k == deg {
+                if abs.is_one() && s > 0 {
+                    if k == 1 {
+                        out.push_str("x")
+                    } else {
+                        out.push_str(&format!("x^{}", k));
+                    }
+                } else if abs.is_one() && s < 0 {
+                    if k == 1 {
+                        out.push_str("-x")
+                    } else {
+                        out.push_str(&format!("-x^{}", k));
+                    }
+                } else {
+                    if k == 1 {
+                        out.push_str(&format!("{}*x", c));
+                    } else {
+                        out.push_str(&format!("{}*x^{}", c, k));
+                    }
+                }
+            } else if k == 1 {
+                if abs.is_one() {
+                    out.push_str(&format!("{}x", sign(s)));
+                } else {
+                    out.push_str(&format!("{}{}*x", sign(s), abs));
+                }
+            } else {
+                if abs.is_one() {
+                    out.push_str(&format!("{}x^{}", sign(s), k));
+                } else {
+                    out.push_str(&format!("{}{}*x^{}", sign(s), abs, k));
+                }
+            }
+        }
+        write!(f, "{}", out)
     }
 }
 
@@ -179,67 +184,92 @@ impl Drop for RatPoly {
 impl Hash for RatPoly {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.parent().hash(state);
-        self.coefficients().hash(state);
+        self.get_coeffs().hash(state)
+        // unsafe { self.get_coeffs_int().hash(state) };
+        // self.denominator().hash(state);
     }
 }
 
 impl RatPoly {
-    /// Returns a pointer to the inner [FLINT rational polynomial][fmpq_poly::fmpq_poly].
+    #[inline]
+    pub fn new<T: Into<RatPoly>>(value: T) -> Self {
+        value.into()
+    }
+    
+    pub fn with_capacity(capacity: usize) -> Self {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fmpq_poly::fmpq_poly_init2(
+                z.as_mut_ptr(), 
+                capacity.try_into().expect("Cannot convert input to a signed long.")
+            );
+            RatPoly::from_raw(z.assume_init())
+        }
+    }
+
+    #[inline]
+    pub fn zero() -> Self {
+        RatPoly::default()
+    }
+
+    #[inline]
+    pub fn one() -> Self {
+        let mut res = RatPoly::default();
+        unsafe { fmpq_poly::fmpq_poly_one(res.as_mut_ptr()); }
+        res
+    }
+    
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpq_poly::fmpq_poly_struct {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner 
-    /// [FLINT rational polynomial][fmpq_poly::fmpq_poly].
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut fmpq_poly::fmpq_poly_struct {
         &mut self.inner
     }
 
-    /// Instantiate an rational polynomial from a
-    /// [FLINT rational polynomial][fmpq_poly::fmpq_poly_struct].
+    /*
+    // TODO: safety?
     #[inline]
-    pub fn from_raw(raw: fmpq_poly::fmpq_poly_struct, var: &str) -> RatPoly {
-        RatPoly {
-            inner: raw,
-            var: Rc::new(RefCell::new(var.to_string())),
+    pub unsafe fn as_slice<'a>(&'a self) -> &'a [fmpz::fmpz] {
+        std::slice::from_raw_parts((*self.as_ptr()).coeffs, self.len())
+    }
+    
+    // TODO: safety?
+    #[inline]
+    pub unsafe fn as_mut_slice<'a>(&'a mut self) -> &'a mut [fmpz::fmpz] {
+        std::slice::from_raw_parts_mut((*self.as_ptr()).coeffs, self.len())
+    }*/
+
+    #[inline]
+    pub const unsafe fn from_raw(inner: fmpq_poly::fmpq_poly_struct) -> Self {
+        RatPoly { inner }
+    }
+
+    #[inline]
+    pub const fn into_raw(self) -> fmpq_poly::fmpq_poly_struct {
+        let inner = self.inner;
+        let _ = ManuallyDrop::new(self);
+        inner
+    }
+
+    #[inline]
+    pub fn numerator(&self) -> IntPoly {
+        let mut res = IntPoly::with_capacity(self.len());
+        unsafe {
+            fmpq_poly::fmpq_poly_get_numerator(res.as_mut_ptr(), self.as_ptr());
         }
+        res
     }
-
-    /// Return the parent [ring of polynomials with rational coefficients][RatPolyRing].
+   
     #[inline]
-    pub fn parent(&self) -> RatPolyRing {
-        RatPolyRing {
-            var: Rc::clone(&self.var),
+    pub fn denominator(&self) -> Integer {
+        let mut res = Integer::default();
+        unsafe {
+            fmpq_poly::fmpq_poly_get_denominator(res.as_mut_ptr(), self.as_ptr());
         }
-    }
-
-    pub fn base_ring(&self) -> RationalField {
-        RationalField {}
-    }
-
-    /// Return the variable of the polynomial as a string.
-    #[inline]
-    pub fn var(&self) -> String {
-        (*self.var).borrow().to_string()
-    }
-
-    /// Change the variable of the polynomial.
-    #[inline]
-    pub fn set_var<T: AsRef<str>>(&self, var: T) {
-        self.var.replace(var.as_ref().to_string());
-    }
-
-    #[inline]
-    pub fn len(&self) -> i64 {
-        unsafe { fmpq_poly::fmpq_poly_length(self.as_ptr()) }
-    }
-
-    #[inline]
-    pub fn degree(&self) -> i64 {
-        unsafe { fmpq_poly::fmpq_poly_degree(self.as_ptr()) }
+        res
     }
 
     #[inline]
@@ -251,104 +281,108 @@ impl RatPoly {
     pub fn is_one(&self) -> bool {
         unsafe { fmpq_poly::fmpq_poly_is_one(self.as_ptr()) == 1}
     }
-    
+
     #[inline]
     pub fn is_gen(&self) -> bool {
         unsafe { fmpq_poly::fmpq_poly_is_gen(self.as_ptr()) == 1}
     }
+    
+    #[inline]
+    pub fn len(&self) -> usize {
+        unsafe {
+            let len = fmpq_poly::fmpq_poly_length(self.as_ptr()); 
+            len.try_into().expect("Cannot convert length to a usize.")
+        }
+    }
 
     #[inline]
-    pub fn get_coeff(&self, i: i64) -> Rational {
+    pub fn degree(&self) -> i64 {
+        unsafe { fmpq_poly::fmpq_poly_degree(self.as_ptr()) }
+    }
+
+    pub fn get_coeff(&self, i: usize) -> Rational {
         let mut res = Rational::default();
-        unsafe {
-            fmpq_poly::fmpq_poly_get_coeff_fmpq(res.as_mut_ptr(), self.as_ptr(), i);
+        unsafe { 
+            fmpq_poly::fmpq_poly_get_coeff_fmpq(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                i.try_into().expect("Cannot convert index to a signed long.")
+            )
         }
         res
     }
-
+    
+    pub fn get_coeff_int(&self, i: usize) -> Integer {
+        let mut res = Integer::default();
+        unsafe { 
+            fmpq_poly::fmpq_poly_get_coeff_fmpz(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                i.try_into().expect("Cannot convert index to a signed long.")
+            )
+        }
+        res
+    }
+    
     #[inline]
-    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
+    pub fn set_coeff<T: AsRef<Rational>>(&mut self, i: usize, coeff: T) {
+        unsafe {
+            fmpq_poly::fmpq_poly_set_coeff_fmpq(
+                self.as_mut_ptr(),                                 
+                i.try_into().expect("Cannot convert index to a signed long."), 
+                coeff.as_ref().as_ptr()
+            );
+        }
+    }
+    
+    #[inline]
+    pub fn set_coeff_int<T: AsRef<Integer>>(&mut self, i: usize, coeff: T) {
+        unsafe {
+            fmpq_poly::fmpq_poly_set_coeff_fmpz(
+                self.as_mut_ptr(),                                 
+                i.try_into().expect("Cannot convert index to a signed long."), 
+                coeff.as_ref().as_ptr()
+            );
+        }
+    }
+    
+    #[inline]
+    pub fn set_coeff_ui<T>(&mut self, i: usize, coeff: T)
     where
-        T: AsRef<Rational>,
+        T: TryInto<u64>,
+        <T as TryInto<u64>>::Error: fmt::Debug
     {
         unsafe {
-            fmpq_poly::fmpq_poly_set_coeff_fmpq(self.as_mut_ptr(), i, coeff.as_ref().as_ptr());
+            fmpq_poly::fmpq_poly_set_coeff_ui(
+                self.as_mut_ptr(),                                 
+                i.try_into().expect("Cannot convert index to a signed long."), 
+                coeff.try_into().expect("Cannot convert coeff to an unsigned long.")
+            );
         }
     }
-
+    
     #[inline]
-    pub fn coefficients(&self) -> Vec<Rational> {
-        let len = self.len();
-
-        let mut vec = Vec::with_capacity(usize::try_from(len).ok().unwrap());
-        for i in 0..len {
-            vec.push(self.get_coeff(i));
-        }
-        vec
-    }
-}
-
-impl Serialize for RatPoly {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn set_coeff_si<T>(&mut self, i: usize, coeff: T)
     where
-        S: Serializer,
+        T: TryInto<i64>,
+        <T as TryInto<i64>>::Error: fmt::Debug
     {
-        let coeffs = self.coefficients();
-        let mut seq = serializer.serialize_seq(Some(coeffs.len()))?;
-        for e in coeffs.iter() {
-            seq.serialize_element(e)?;
+        unsafe {
+            fmpq_poly::fmpq_poly_set_coeff_si(
+                self.as_mut_ptr(),                                 
+                i.try_into().expect("Cannot convert index to a signed long."), 
+                coeff.try_into().expect("Cannot convert coeff to a signed long.")
+            );
         }
-        seq.end()
-    }
-}
-
-struct RatPolyVisitor {}
-
-impl RatPolyVisitor {
-    fn new() -> Self {
-        RatPolyVisitor {}
-    }
-}
-
-impl<'de> Visitor<'de> for RatPolyVisitor {
-    type Value = RatPoly;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a RatPoly")
     }
 
-    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut coeffs: Vec<Integer> = Vec::with_capacity(access.size_hint().unwrap_or(0));
-        while let Some(x) = access.next_element()? {
-            coeffs.push(x);
+    // TODO: anything better?
+    #[inline]
+    pub fn get_coeffs(&self) -> Vec<Rational> {
+        let mut res = Vec::with_capacity(self.len());
+        for i in 0..self.len() {
+            res.push(self.get_coeff(i))
         }
-
-        Ok(RatPoly::from(&coeffs[..]))
+        res
     }
 }
-
-impl<'de> Deserialize<'de> for RatPoly {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_seq(RatPolyVisitor::new())
-    }
-}
-
-/*
-#[cfg(test)]
-mod tests {
-    use crate::RatPoly;
-
-    #[test]
-    fn serde() {
-        let x = RatPoly::from(vec![1, 0, 0, 2, 1]);
-        let ser = bincode::serialize(&x).unwrap();
-        let y: RatPoly = bincode::deserialize(&ser).unwrap();
-        assert_eq!(x, y);
-    }
-}*/

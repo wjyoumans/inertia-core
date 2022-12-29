@@ -15,24 +15,24 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-mod arith;
+mod ops;
 mod conv;
 
-use crate::*;
-use flint_sys::fmpz_poly;
-use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
-use std::cell::RefCell;
-use std::ffi::{CStr, CString};
+#[cfg(feature = "serde")]
+mod serde;
+
+use crate::Integer;
+
+use flint_sys::{fmpz, fmpz_poly};
+
+use std::any::TypeId;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
-use std::rc::Rc;
+use std::mem::{ManuallyDrop, MaybeUninit};
+
 
 #[derive(Clone, Debug)]
-pub struct IntPolyRing {
-    var: Rc<RefCell<String>>,
-}
+pub struct IntPolyRing {}
 
 impl Eq for IntPolyRing {}
 
@@ -46,77 +46,32 @@ impl PartialEq for IntPolyRing {
 impl fmt::Display for IntPolyRing {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Univariate polynomial ring in {} over {}",
-            self.var(),
-            self.base_ring()
-        )
+        write!(f, "Ring of integer polynomials")
     }
 }
 
 impl Hash for IntPolyRing {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.base_ring().hash(state);
-        self.nvars().hash(state);
+        TypeId::of::<Self>().hash(state)
     }
 }
 
 impl IntPolyRing {
     #[inline]
-    pub fn init(var: &str) -> Self {
-        IntPolyRing {
-            var: Rc::new(RefCell::new(var.to_string())),
-        }
+    pub fn init() -> Self {
+        IntPolyRing {}
     }
 
     #[inline]
-    pub fn default(&self) -> IntPoly {
-        let mut z = MaybeUninit::uninit();
-        unsafe {
-            fmpz_poly::fmpz_poly_init(z.as_mut_ptr());
-            IntPoly {
-                inner: z.assume_init(),
-                var: Rc::clone(&self.var),
-            }
-        }
-    }
-
-    #[inline]
-    pub fn new<T: Into<IntPoly>>(&self, x: T) -> IntPoly {
-        let res = x.into();
-        res.set_var(&self.var());
-        res
-    }
-
-    #[inline]
-    pub fn nvars(&self) -> i64 {
-        1
-    }
-
-    /// Return the variable of the polynomial as a `&str`.
-    #[inline]
-    pub fn var(&self) -> String {
-        (*self.var).borrow().to_string()
-    }
-
-    /// Change the variable of the polynomial.
-    #[inline]
-    pub fn set_var<T: AsRef<str>>(&self, var: T) {
-        self.var.replace(var.as_ref().to_string());
-    }
-
-    #[inline]
-    pub fn base_ring(&self) -> IntegerRing {
-        IntegerRing {}
+    pub fn new<T: Into<IntPoly>>(&self, value: T) -> IntPoly {
+        IntPoly::new(value)
     }
 }
 
 #[derive(Debug)]
 pub struct IntPoly {
     inner: fmpz_poly::fmpz_poly_struct,
-    var: Rc<RefCell<String>>,
 }
 
 impl AsRef<IntPoly> for IntPoly {
@@ -125,21 +80,10 @@ impl AsRef<IntPoly> for IntPoly {
     }
 }
 
-impl<'a, T> Assign<T> for IntPoly
-where
-    T: AsRef<IntPoly>,
-{
-    fn assign(&mut self, other: T) {
-        unsafe {
-            fmpz_poly::fmpz_poly_set(self.as_mut_ptr(), other.as_ref().as_ptr());
-        }
-    }
-}
-
 impl Clone for IntPoly {
     #[inline]
     fn clone(&self) -> Self {
-        let mut res = self.parent().default();
+        let mut res = IntPoly::default();
         unsafe {
             fmpz_poly::fmpz_poly_set(res.as_mut_ptr(), self.as_ptr());
         }
@@ -153,24 +97,76 @@ impl Default for IntPoly {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz_poly::fmpz_poly_init(z.as_mut_ptr());
-            IntPoly {
-                inner: z.assume_init(),
-                var: Rc::new(RefCell::new("x".to_owned())),
-            }
+            IntPoly::from_raw(z.assume_init())
         }
     }
 }
 
+// Note: Flint `get_str_pretty` doesnt space between terms.
 impl fmt::Display for IntPoly {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let v = CString::new(self.var()).unwrap();
-        unsafe {
-            let ptr = fmpz_poly::fmpz_poly_get_str_pretty(self.as_ptr(), v.as_ptr());
-            let s = CStr::from_ptr(ptr).to_string_lossy().into_owned();
-            flint_sys::flint::flint_free(ptr as _);
-            write!(f, "{}", s)
+        let deg = self.degree();
+        if deg < 0 {
+            return write!(f, "0");
+        } else if deg == 0 {
+            return write!(f, "{}", self.get_coeff(0).to_string());
         }
+
+        let deg = deg.try_into().unwrap();
+        let mut out = String::new();
+        let coeffs = self.get_coeffs();
+
+        let sign = |s| {
+            if s > 0 { " + " }
+            else if s < 0 { " - " }
+            else { unreachable!() }
+        };
+       
+        for (k, c) in coeffs.iter().enumerate().rev() {
+            let s = c.sign();
+            if s == 0 {
+                continue;
+            }
+
+            let abs = c.abs();
+            if k == 0 {
+                out.push_str(&format!("{}{}", sign(s), abs));
+            } else if k == deg {
+                if abs.is_one() && s > 0 {
+                    if k == 1 {
+                        out.push_str("x")
+                    } else {
+                        out.push_str(&format!("x^{}", k));
+                    }
+                } else if abs.is_one() && s < 0 {
+                    if k == 1 {
+                        out.push_str("-x")
+                    } else {
+                        out.push_str(&format!("-x^{}", k));
+                    }
+                } else {
+                    if k == 1 {
+                        out.push_str(&format!("{}*x", c));
+                    } else {
+                        out.push_str(&format!("{}*x^{}", c, k));
+                    }
+                }
+            } else if k == 1 {
+                if abs.is_one() {
+                    out.push_str(&format!("{}x", sign(s)));
+                } else {
+                    out.push_str(&format!("{}{}*x", sign(s), abs));
+                }
+            } else {
+                if abs.is_one() {
+                    out.push_str(&format!("{}x^{}", sign(s), k));
+                } else {
+                    out.push_str(&format!("{}{}*x^{}", sign(s), abs, k));
+                }
+            }
+        }
+        write!(f, "{}", out)
     }
 }
 
@@ -184,66 +180,82 @@ impl Drop for IntPoly {
 impl Hash for IntPoly {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.parent().hash(state);
-        self.coefficients().hash(state);
+        self.get_coeffs().hash(state);
     }
 }
 
 impl IntPoly {
-    /// Returns a pointer to the inner [FLINT integer polynomial][fmpz_poly::fmpz_poly].
+    #[inline]
+    pub fn new<T: Into<IntPoly>>(value: T) -> Self {
+        value.into()
+    }
+    
+    pub fn with_capacity(capacity: usize) -> Self {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fmpz_poly::fmpz_poly_init2(
+                z.as_mut_ptr(), 
+                capacity.try_into().expect("Cannot convert input to a signed long.")
+            );
+            IntPoly::from_raw(z.assume_init())
+        }
+    }
+
+    #[inline]
+    pub fn zero() -> IntPoly {
+        IntPoly::default()
+    }
+
+    #[inline]
+    pub fn one() -> IntPoly {
+        let mut res = IntPoly::default();
+        unsafe { fmpz_poly::fmpz_poly_one(res.as_mut_ptr()); }
+        res
+    }
+    
+    #[inline]
+    pub fn zero_assign(&mut self) {
+        unsafe { fmpz_poly::fmpz_poly_zero(self.as_mut_ptr()) }
+    }
+    
+    #[inline]
+    pub fn one_assign(&mut self) {
+        unsafe { fmpz_poly::fmpz_poly_one(self.as_mut_ptr()) }
+    }
+    
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz_poly::fmpz_poly_struct {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner [FLINT integer polynomial][fmpz_poly::fmpz_poly].
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut fmpz_poly::fmpz_poly_struct {
         &mut self.inner
     }
 
-    /// Instantiate an integer polynomial from a
-    /// [FLINT integer polynomial][fmpz_poly::fmpz_poly_struct].
+    /*
+    // TODO: safety?
     #[inline]
-    pub fn from_raw(raw: fmpz_poly::fmpz_poly_struct, var: &str) -> IntPoly {
-        IntPoly {
-            inner: raw,
-            var: Rc::new(RefCell::new(var.to_string())),
-        }
+    pub unsafe fn as_slice<'a>(&'a self) -> &'a [fmpz::fmpz] {
+        std::slice::from_raw_parts((*self.as_ptr()).coeffs, self.len())
     }
-
-    /// Return the parent [ring of polynomials with integer coefficients][IntPolyRing].
+    
+    // TODO: safety?
     #[inline]
-    pub fn parent(&self) -> IntPolyRing {
-        IntPolyRing {
-            var: Rc::clone(&self.var),
-        }
-    }
-
-    pub fn base_ring(&self) -> IntegerRing {
-        IntegerRing {}
-    }
-
-    /// Return the variable of the polynomial as a string.
+    pub unsafe fn as_mut_slice<'a>(&'a mut self) -> &'a mut [fmpz::fmpz] {
+        std::slice::from_raw_parts_mut((*self.as_ptr()).coeffs, self.len())
+    }*/
+    
     #[inline]
-    pub fn var(&self) -> String {
-        (*self.var).borrow().to_string()
+    pub const unsafe fn from_raw(inner: fmpz_poly::fmpz_poly_struct) -> IntPoly {
+        IntPoly { inner }
     }
-
-    /// Change the variable of the polynomial.
+    
     #[inline]
-    pub fn set_var<T: AsRef<str>>(&self, var: T) {
-        self.var.replace(var.as_ref().to_string());
-    }
-
-    #[inline]
-    pub fn len(&self) -> i64 {
-        unsafe { fmpz_poly::fmpz_poly_length(self.as_ptr()) }
-    }
-
-    #[inline]
-    pub fn degree(&self) -> i64 {
-        unsafe { fmpz_poly::fmpz_poly_degree(self.as_ptr()) }
+    pub const fn into_raw(self) -> fmpz_poly::fmpz_poly_struct {
+        let inner = self.inner;
+        let _ = ManuallyDrop::new(self);
+        inner
     }
 
     #[inline]
@@ -255,7 +267,7 @@ impl IntPoly {
     pub fn is_one(&self) -> bool {
         unsafe { fmpz_poly::fmpz_poly_is_one(self.as_ptr()) == 1}
     }
-    
+
     #[inline]
     pub fn is_unit(&self) -> bool {
         unsafe { fmpz_poly::fmpz_poly_is_unit(self.as_ptr()) == 1}
@@ -265,99 +277,99 @@ impl IntPoly {
     pub fn is_gen(&self) -> bool {
         unsafe { fmpz_poly::fmpz_poly_is_gen(self.as_ptr()) == 1}
     }
+    
+    #[inline]
+    pub fn len(&self) -> usize {
+        unsafe { 
+            let len = fmpz_poly::fmpz_poly_length(self.as_ptr()); 
+            len.try_into().expect("Cannot convert length to a usize.")
+        }
+    }
 
     #[inline]
-    pub fn get_coeff(&self, i: i64) -> Integer {
+    pub fn degree(&self) -> i64 {
+        unsafe { fmpz_poly::fmpz_poly_degree(self.as_ptr()) }
+    }
+
+    pub fn get_coeff(&self, i: usize) -> Integer {
         let mut res = Integer::default();
+        unsafe { 
+            fmpz_poly::fmpz_poly_get_coeff_fmpz(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                i.try_into().expect("Cannot convert index to a signed long.")
+            )
+        }
+        res
+    }
+   
+    // Check coeff fits ui
+    #[inline]
+    pub unsafe fn get_coeff_ui(&self, i: usize) -> u64 {
+        fmpz_poly::fmpz_poly_get_coeff_ui(
+            self.as_ptr(), 
+            i.try_into().expect("Cannot convert index to a signed long.")
+        )
+    }
+    
+    // Check coeff fits si
+    pub unsafe fn get_coeff_si(&self, i: usize) -> i64 {
+        fmpz_poly::fmpz_poly_get_coeff_si(
+            self.as_ptr(), 
+            i.try_into().expect("Cannot convert index to a signed long.")
+        )
+    }
+    
+    pub fn set_coeff<T: AsRef<Integer>>(&mut self, i: usize, coeff: T) {
         unsafe {
-            fmpz_poly::fmpz_poly_get_coeff_fmpz(res.as_mut_ptr(), self.as_ptr(), i);
+            fmpz_poly::fmpz_poly_set_coeff_fmpz(
+                self.as_mut_ptr(),                                 
+                i.try_into().expect("Cannot convert index to a signed long."), 
+                coeff.as_ref().as_ptr()
+            );
+        }
+    }
+    
+    pub fn set_coeff_ui<T>(&mut self, i: usize, coeff: T)
+    where
+        T: TryInto<u64>,
+        <T as TryInto<u64>>::Error: fmt::Debug
+    {
+        unsafe {
+            fmpz_poly::fmpz_poly_set_coeff_ui(
+                self.as_mut_ptr(),                                 
+                i.try_into().expect("Cannot convert index to a signed long."), 
+                coeff.try_into().expect("Cannot convert coeff to an usigned long.")
+            );
+        }
+    }
+    
+    pub fn set_coeff_si<T>(&mut self, i: usize, coeff: T)
+    where
+        T: TryInto<i64>,
+        <T as TryInto<i64>>::Error: fmt::Debug
+    {
+        unsafe {
+            fmpz_poly::fmpz_poly_set_coeff_si(
+                self.as_mut_ptr(),                                 
+                i.try_into().expect("Cannot convert index to a signed long."), 
+                coeff.try_into().expect("Cannot convert coeff to a signed long.")
+            );
+        }
+    }
+
+    // TODO: anything better?
+    #[inline]
+    pub fn get_coeffs(&self) -> Vec<Integer> {
+        let mut res = Vec::with_capacity(self.len());
+        for i in 0..self.len() {
+            res.push(self.get_coeff(i))
         }
         res
     }
 
-    #[inline]
-    pub fn set_coeff<'a, T>(&mut self, i: i64, coeff: T)
-    where
-        T: AsRef<Integer>,
-    {
-        unsafe {
-            fmpz_poly::fmpz_poly_set_coeff_fmpz(self.as_mut_ptr(), 
-                                                i, coeff.as_ref().as_ptr());
-        }
-    }
-
-    #[inline]
-    pub fn coefficients(&self) -> Vec<Integer> {
-        let len = self.len();
-
-        let mut vec = Vec::<Integer>::with_capacity(usize::try_from(len).ok().unwrap());
-        for i in 0..len {
-            vec.push(self.get_coeff(i));
-        }
-        vec
-    }
+    // TODO: any way to do: 
+    // get(&self) -> &Integer
+    // get_mut(&mut self) -> &mut Integer?
 }
 
-impl Serialize for IntPoly {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let coeffs = self.coefficients();
-        let mut seq = serializer.serialize_seq(Some(coeffs.len()))?;
-        for e in coeffs.iter() {
-            seq.serialize_element(e)?;
-        }
-        seq.end()
-    }
-}
-
-struct IntPolyVisitor {}
-
-impl IntPolyVisitor {
-    fn new() -> Self {
-        IntPolyVisitor {}
-    }
-}
-
-impl<'de> Visitor<'de> for IntPolyVisitor {
-    type Value = IntPoly;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an IntPoly")
-    }
-
-    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut coeffs: Vec<Integer> = Vec::with_capacity(access.size_hint().unwrap_or(0));
-        while let Some(x) = access.next_element()? {
-            coeffs.push(x);
-        }
-
-        Ok(IntPoly::from(&coeffs[..]))
-    }
-}
-
-impl<'de> Deserialize<'de> for IntPoly {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_seq(IntPolyVisitor::new())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::IntPoly;
-
-    #[test]
-    fn serde() {
-        let x = IntPoly::from(vec![1, 0, 0, 2, 1]);
-        let ser = bincode::serialize(&x).unwrap();
-        let y: IntPoly = bincode::deserialize(&ser).unwrap();
-        assert_eq!(x, y);
-    }
-}

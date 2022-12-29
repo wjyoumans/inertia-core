@@ -15,13 +15,38 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::ops::*;
 use crate::{Integer, Rational};
+use crate::ops::*;
 use flint_sys::{fmpq, fmpz};
 use libc::{c_int, c_long, c_ulong};
 use std::cmp::Ordering::{self, Equal, Greater, Less};
 use std::mem::MaybeUninit;
 use std::ops::*;
+
+
+impl_assign_unsafe! {
+    None
+    Rational, Rational
+    fmpq::fmpq_set
+}
+
+impl_assign_unsafe! {
+    None
+    Rational, Integer
+    fmpq::fmpq_set_fmpz_den1
+}
+
+impl_assign_unsafe! {
+    None
+    Rational, u64 {u64 u32 u16 u8}
+    fmpq::fmpq_set_ui_den1
+}
+
+impl_assign_unsafe! {
+    None
+    Rational, i64 {i64 i32 i16 i8}
+    fmpq::fmpq_set_si_den1
+}
 
 impl_cmp_unsafe! {
     eq

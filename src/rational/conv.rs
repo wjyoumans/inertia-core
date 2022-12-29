@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::*;
+use crate::{Integer, Rational, IntMod};
 use flint_sys::fmpq;
 use std::str::FromStr;
 
@@ -29,10 +29,15 @@ impl FromStr for Rational {
                 Integer::from_str(r[0])?,
                 Integer::from_str(r[1])?,
             ])),
-            _ => Err("Input is not a rational."),
+            _ => Err("Input must be of the form \"x\" or \"x/y\" where x and y are 
+                     integers."),
         }
     }
 }
+
+///////////////////////////////////////////////////////////////////
+// From
+///////////////////////////////////////////////////////////////////
 
 impl_from_unsafe! {
     None
@@ -52,92 +57,47 @@ impl_from_unsafe! {
     fmpq::fmpq_set_fmpz_den1
 }
 
-impl_from! {
+impl_from_unsafe! {
+    None
     Rational, IntMod
-    {
-        fn from(x: &IntMod) -> Rational {
-            let mut res = Rational::default();
-            unsafe { fmpq::fmpq_set_fmpz_den1(res.as_mut_ptr(), x.as_ptr()); }
-            res
-        }
-    }
+    fmpq::fmpq_set_fmpz_den1
 }
 
-/*
-impl_from! {
-    Rational, PadicElem
-    {
-        fn from(x: &PadicElem) -> Rational {
-            let mut res = Rational::default();
-            unsafe {
-                padic::padic_get_fmpq(res.as_mut_ptr(), x.as_ptr(), x.ctx_as_ptr());
+impl<T: Into<Integer>> From<[T; 2]> for Rational {
+    fn from(src: [T; 2]) -> Rational {
+        match src {
+            [num, den] => {
+                let d = den.into();
+                assert!(!d.is_zero());
+                let mut res = Rational::default();
+                unsafe {
+                    fmpq::fmpq_set_fmpz_frac(
+                        res.as_mut_ptr(), 
+                        num.into().as_ptr(), 
+                        d.as_ptr()
+                    );
+                }
+                res
             }
-            res
         }
     }
 }
-*/
 
 impl From<[&Integer; 2]> for Rational {
     fn from(src: [&Integer; 2]) -> Rational {
-        let n = src[0];
-        let d = src[1];
-        assert!(!d.is_zero());
-
-        let mut res = Rational::default();
-        unsafe {
-            fmpq::fmpq_set_fmpz_frac(res.as_mut_ptr(), n.as_ptr(), d.as_ptr());
-        }
-        res
-    }
-}
-
-#[allow(unreachable_patterns)]
-impl<'a, T: 'a> From<[T; 2]> for Rational
-where
-    T: Into<Integer>
-{
-    fn from(src: [T; 2]) -> Rational {
         match src {
-            [n, d] => {
-                let n = n.into();
-                let d = d.into();
-                assert!(!d.is_zero());
-
+            [num, den] => {
+                assert!(!den.is_zero());
                 let mut res = Rational::default();
                 unsafe {
-                    fmpq::fmpq_set_fmpz_frac(res.as_mut_ptr(), n.as_ptr(), d.as_ptr());
+                    fmpq::fmpq_set_fmpz_frac(
+                        res.as_mut_ptr(), 
+                        num.as_ptr(), 
+                        den.as_ptr()
+                    );
                 }
                 res
-            },
-            _ => unreachable!()
+            }
         }
-
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    //use crate::{Rational, IntModRing};
-    use crate::Rational;
-
-    #[test]
-    fn conv() {
-        assert_eq!(Rational::from(1u8), 1);
-        assert_eq!(Rational::from(1u16), 1);
-        assert_eq!(Rational::from(1u32), 1);
-        assert_eq!(Rational::from(1u64), 1);
-        assert_eq!(Rational::from(1usize), 1);
-
-        assert_eq!(Rational::from(-1i8), -1);
-        assert_eq!(Rational::from(-1i16), -1);
-        assert_eq!(Rational::from(-1i32), -1);
-        assert_eq!(Rational::from(-1i64), -1);
-        assert_eq!(Rational::from(-1isize), -1);
-        /*
-            let zn = IntModRing::init(10);
-            let z = zn.new(11);
-            assert_eq!(Rational::from(z), 1);
-        */
     }
 }

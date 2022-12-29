@@ -16,10 +16,17 @@
  */
 
 use crate::*;
+use crate::ops::*;
 use flint_sys::{fmpz, fmpz_mat};
 use libc::{c_long, c_ulong};
 use std::mem::MaybeUninit;
 use std::ops::*;
+
+impl_assign_unsafe! {
+    matrix
+    IntMat, IntMat
+    fmpz_mat::fmpz_mat_set
+}
 
 impl_cmp_unsafe! {
     eq
@@ -59,7 +66,7 @@ impl_binop_unsafe! {
 }
 
 impl_binop_unsafe! {
-    rhs_scalar
+    scalar_rhs
     op_assign
     IntMat, Integer, IntMat
 
@@ -76,7 +83,7 @@ impl_binop_unsafe! {
 
 /*
 impl_binop_unsafe! {
-    rhs_scalar
+    scalar_rhs
     IntMat, Integer, RatMat
 
     Div {div}
@@ -89,7 +96,7 @@ impl_binop_unsafe! {
 }*/
 
 impl_binop_unsafe! {
-    rhs_scalar
+    scalar_rhs
     op_assign
     IntMat, u64 {u64 u32 u16 u8}, IntMat
 
@@ -111,7 +118,7 @@ impl_binop_unsafe! {
 
 /* TODO: RatMat
 impl_binop_unsafe! {
-    rhs_scalar
+    scalar_rhs
     IntMat, Integer, RatMat
 
     Div {div}
@@ -121,7 +128,7 @@ impl_binop_unsafe! {
 }*/
 
 impl_binop_unsafe! {
-    rhs_scalar
+    scalar_rhs
     op_assign
     IntMat, i64 {i64 i32 i16 i8}, IntMat
 
@@ -138,7 +145,7 @@ impl_binop_unsafe! {
 
 /* TODO: RatMat
 impl_binop_unsafe! {
-    rhs_scalar
+    scalar_rhs
     IntMat, Integer, RatMat
 
     Div {div}
@@ -153,7 +160,7 @@ impl_binop_unsafe! {
 }*/
 
 impl_binop_unsafe! {
-    lhs_scalar
+    scalar_lhs
     op_from
     Integer, IntMat, IntMat
 
@@ -164,7 +171,7 @@ impl_binop_unsafe! {
 }
 
 impl_binop_unsafe! {
-    lhs_scalar
+    scalar_lhs
     op_from
     u64 {u64 u32 u16 u8}, IntMat, IntMat
 
@@ -175,7 +182,7 @@ impl_binop_unsafe! {
 }
 
 impl_binop_unsafe! {
-    lhs_scalar
+    scalar_lhs
     op_from
     i64 {i64 i32 i16 i8}, IntMat, IntMat
 

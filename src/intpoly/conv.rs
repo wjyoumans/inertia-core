@@ -16,7 +16,11 @@
  */
 
 use crate::*;
-use flint_sys::fmpz_poly;
+use flint_sys::{
+    fmpz_poly, 
+    fmpz_mod_poly, 
+    fq_default as fq
+};
 
 
 impl_from_unsafe! {
@@ -37,85 +41,66 @@ impl_from_unsafe! {
     fmpz_poly::fmpz_poly_set_fmpz
 }
 
-impl_from! {
+impl_from_unsafe! {
+    None
     IntPoly, IntMod
-    {
-        fn from(x: &IntMod) -> IntPoly {
-            let mut res = IntPoly::default();
-            unsafe {
-                fmpz_poly::fmpz_poly_set_fmpz(res.as_mut_ptr(), x.as_ptr());
-            }
-            res
-        }
-    }
+    fmpz_poly::fmpz_poly_set_fmpz
 }
 
-impl_from! {
+impl_from_unsafe! {
+    ctx_in
     IntPoly, IntModPoly
-    {
-        fn from(x: &IntModPoly) -> IntPoly {
-            let zp = IntPolyRing::init(&x.var());
-            let mut res = zp.default();
-            unsafe {
-                flint_sys::fmpz_mod_poly::fmpz_mod_poly_get_fmpz_poly(
-                    res.as_mut_ptr(),
-                    x.as_ptr(),
-                    x.ctx_as_ptr(),
-                );
-            }
-            res
-        }
-    }
+    fmpz_mod_poly::fmpz_mod_poly_get_fmpz_poly
 }
 
-impl_from! {
-    IntPoly, FinFldElem
-    {
-        fn from(x: &FinFldElem) -> IntPoly {
-            let zp = IntPolyRing::init(&x.var());
-            let mut res = zp.default();
-            unsafe {
-                flint_sys::fq_default::fq_default_get_fmpz_poly(
-                    res.as_mut_ptr(),
-                    x.as_ptr(),
-                    x.ctx_as_ptr()
-                );
-            }
-            res
-        }
-    }
-}
 /*
-impl_from! {
-    IntPoly, PadicElem
-    {
-        fn from(x: &PadicElem) -> IntPoly {
-            let mut res = IntPoly::default();
-            let tmp = Integer::from(x);
-            res.set_coeff(0, &tmp);
-            res
-        }
-    }
+impl_from_unsafe! {
+    ctx_in
+    IntPoly, FinFldElem
+    fq::fq_default_get_fmpz_poly
 }*/
 
-impl From<&[Integer]> for IntPoly {
-    fn from(src: &[Integer]) -> IntPoly {
-        let mut res = IntPoly::default();
-        for (i, x) in src.iter().enumerate() {
-            res.set_coeff(i as i64, x);
+impl<T, const CAP: usize> From<[T; CAP]> for IntPoly
+where
+    T: Into<Integer>
+{
+    fn from(coeffs: [T; CAP]) -> IntPoly {
+        let mut res = IntPoly::with_capacity(coeffs.len());
+        for (i, x) in coeffs.into_iter().enumerate() {
+            res.set_coeff(i, x.into());
         }
         res
     }
 }
 
-impl<'a, T: 'a> From<&'a [T]> for IntPoly
+impl<const CAP: usize> From<[&Integer; CAP]> for IntPoly {
+    fn from(coeffs: [&Integer; CAP]) -> IntPoly {
+        let mut res = IntPoly::with_capacity(coeffs.len());
+        for (i, x) in coeffs.into_iter().enumerate() {
+            res.set_coeff(i, x);
+        }
+        res
+    }
+}
+
+impl<'a, T> From<&'a [T]> for IntPoly 
 where
-    &'a T: Into<Integer>,
+    &'a T: Into<Integer>
 {
-    fn from(src: &'a [T]) -> IntPoly {
-        let mut res = IntPoly::default();
-        for (i, x) in src.iter().enumerate() {
-            res.set_coeff(i as i64, x.into());
+    fn from(coeffs: &'a [T]) -> IntPoly {
+        let mut res = IntPoly::with_capacity(coeffs.len());
+        for (i, x) in coeffs.iter().enumerate() {
+            res.set_coeff(i, x.into());
+        }
+        res
+    }
+}
+
+impl From<&[Integer]> for IntPoly {
+    fn from(coeffs: &[Integer]) -> IntPoly {
+        let mut res = IntPoly::with_capacity(coeffs.len());
+        for (i, x) in coeffs.iter().enumerate() {
+            res.set_coeff(i, x);
         }
         res
     }

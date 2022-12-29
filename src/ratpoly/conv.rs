@@ -39,6 +39,12 @@ impl_from_unsafe! {
 
 impl_from_unsafe! {
     None
+    RatPoly, IntMod
+    fmpq_poly::fmpq_poly_set_fmpz
+}
+
+impl_from_unsafe! {
+    None
     RatPoly, Rational
     fmpq_poly::fmpq_poly_set_fmpq
 }
@@ -50,19 +56,6 @@ impl_from_unsafe! {
 }
 
 impl_from! {
-    RatPoly, IntMod
-    {
-        fn from(x: &IntMod) -> RatPoly {
-            let mut res = RatPoly::default();
-            unsafe {
-                fmpq_poly::fmpq_poly_set_fmpz(res.as_mut_ptr(), x.as_ptr());
-            }
-            res
-        }
-    }
-}
-
-impl_from! {
     RatPoly, IntModPoly
     {
         fn from(x: &IntModPoly) -> RatPoly {
@@ -71,6 +64,7 @@ impl_from! {
     }
 }
 
+/*
 impl_from! {
     RatPoly, FinFldElem
     {
@@ -78,39 +72,49 @@ impl_from! {
             RatPoly::from(IntPoly::from(x))
         }
     }
-}
-
-/*
-impl_from! {
-    RatPoly, PadicElem
-    {
-        fn from(x: &PadicElem) -> RatPoly {
-            let mut res = RatPoly::default();
-            let tmp = Integer::from(x);
-            res.set_coeff(0, &tmp);
-            res
-        }
-    }
 }*/
 
-impl From<&[Rational]> for RatPoly {
-    fn from(src: &[Rational]) -> RatPoly {
-        let mut res = RatPoly::default();
-        for (i, x) in src.iter().enumerate() {
-            res.set_coeff(i as i64, x);
+impl<T, const CAP: usize> From<[T; CAP]> for RatPoly
+where
+    T: Into<Rational>
+{
+    fn from(coeffs: [T; CAP]) -> RatPoly {
+        let mut res = RatPoly::with_capacity(coeffs.len());
+        for (i, x) in coeffs.into_iter().enumerate() {
+            res.set_coeff(i, x.into());
         }
         res
     }
 }
 
-impl<'a, T: 'a> From<&'a [T]> for RatPoly
+impl<const CAP: usize> From<[&Rational; CAP]> for RatPoly {
+    fn from(coeffs: [&Rational; CAP]) -> RatPoly {
+        let mut res = RatPoly::with_capacity(coeffs.len());
+        for (i, x) in coeffs.into_iter().enumerate() {
+            res.set_coeff(i, x);
+        }
+        res
+    }
+}
+
+impl<'a, T> From<&'a [T]> for RatPoly 
 where
-    &'a T: Into<Rational>,
+    &'a T: Into<Rational>
 {
-    fn from(src: &'a [T]) -> RatPoly {
-        let mut res = RatPoly::default();
-        for (i, x) in src.iter().enumerate() {
-            res.set_coeff(i as i64, x.into());
+    fn from(coeffs: &'a [T]) -> RatPoly {
+        let mut res = RatPoly::with_capacity(coeffs.len());
+        for (i, x) in coeffs.iter().enumerate() {
+            res.set_coeff(i, x.into());
+        }
+        res
+    }
+}
+
+impl From<&[Rational]> for RatPoly {
+    fn from(coeffs: &[Rational]) -> RatPoly {
+        let mut res = RatPoly::with_capacity(coeffs.len());
+        for (i, x) in coeffs.iter().enumerate() {
+            res.set_coeff(i, x);
         }
         res
     }

@@ -16,11 +16,31 @@
  */
 
 use crate::*;
+use crate::ops::*;
 use flint_sys::{fmpq, fmpz};
 use libc::{c_long, c_ulong};
 use std::cmp::Ordering::{self, Equal, Greater, Less};
 use std::mem::MaybeUninit;
 use std::ops::*;
+
+
+impl_assign_unsafe! {
+    None
+    Integer, Integer
+    fmpz::fmpz_set
+}
+
+impl_assign_unsafe! {
+    None
+    Integer, u64 {u64 u32 u16 u8}
+    fmpz::fmpz_set_ui
+}
+
+impl_assign_unsafe! {
+    None
+    Integer, i64 {i64 i32 i16 i8}
+    fmpz::fmpz_set_si
+}
 
 impl_cmp_unsafe! {
     eq
@@ -543,67 +563,3 @@ unsafe fn fmpz_si_div(res: *mut fmpq::fmpq, f: c_long, g: *const fmpz::fmpz) {
     fmpz::fmpz_clear(z.as_mut_ptr());
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::Integer;
-
-    #[test]
-    fn ops() {
-        let tu8 = 1u8;
-        let tu16 = 1u16;
-        let tu32 = 1u32;
-        let tu64 = 1u64;
-        let ti8 = -1i8;
-        let ti16 = -1i16;
-        let ti32 = -1i32;
-        let ti64 = -1i64;
-        let t = Integer::from(1);
-
-        // add
-        assert_eq!(&t + &t, 2);
-        assert_eq!(&t + tu8, 2);
-        assert_eq!(&t + tu16, 2);
-        assert_eq!(&t + tu32, 2);
-        assert_eq!(&t + tu64, 2);
-        assert_eq!(&t + ti8, 0);
-        assert_eq!(&t + ti16, 0);
-        assert_eq!(&t + ti32, 0);
-        assert_eq!(&t + ti64, 0);
-
-        // sub
-        assert_eq!(&t - &t, 0);
-        assert_eq!(&t - tu8, 0);
-        assert_eq!(&t - tu16, 0);
-        assert_eq!(&t - tu32, 0);
-        assert_eq!(&t - tu64, 0);
-        assert_eq!(&t - ti8, 2);
-        assert_eq!(&t - ti16, 2);
-        assert_eq!(&t - ti32, 2);
-        assert_eq!(&t - ti64, 2);
-
-        // mul
-        assert_eq!(&t * &t, 1);
-        assert_eq!(&t * tu8, 1);
-        assert_eq!(&t * tu16, 1);
-        assert_eq!(&t * tu32, 1);
-        assert_eq!(&t * tu64, 1);
-        assert_eq!(&t * ti8, -1);
-        assert_eq!(&t * ti16, -1);
-        assert_eq!(&t * ti32, -1);
-        assert_eq!(&t * ti64, -1);
-
-        // div
-        assert_eq!(&t / &t, 1);
-        assert_eq!(&t / tu8, 1);
-        assert_eq!(&t / tu16, 1);
-        assert_eq!(&t / tu32, 1);
-        assert_eq!(&t / tu64, 1);
-        assert_eq!(&t / ti8, -1);
-        assert_eq!(&t / ti16, -1);
-        assert_eq!(&t / ti32, -1);
-        assert_eq!(&t / ti64, -1);
-
-        // pow
-        // rem
-    }
-}

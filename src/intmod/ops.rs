@@ -15,11 +15,55 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::ops::*;
 use crate::{IntMod, Integer, Rational};
+use crate::ops::*;
 use flint_sys::{fmpq, fmpz, fmpz_mod};
 use libc::{c_int, c_long, c_ulong};
 use std::ops::*;
+
+impl_assign_unsafe! {
+    ctx
+    IntMod, IntMod
+    fmpz_mod::fmpz_mod_set_fmpz
+}
+
+impl_assign_unsafe! {
+    ctx
+    IntMod, Integer
+    fmpz_mod::fmpz_mod_set_fmpz
+}
+
+impl_assign_unsafe! {
+    ctx
+    IntMod, u64 {u64 u32 u16 u8}
+    fmpz_mod::fmpz_mod_set_ui
+}
+
+impl_assign_unsafe! {
+    ctx
+    IntMod, i64 {i64 i32 i16 i8}
+    fmpz_mod::fmpz_mod_set_si
+}
+
+impl_assign! {
+    IntMod, Rational
+    {
+        fn assign(&mut self, src: &Rational) {
+            if let Some(den_inv) = src.denominator().invmod(self.modulus()) {
+                let temp = src.numerator() * den_inv;
+                unsafe {
+                    fmpz_mod::fmpz_mod_set_fmpz(
+                        self.as_mut_ptr(), 
+                        temp.as_ptr(),
+                        self.ctx_as_ptr()
+                    );
+                }
+            } else {
+                panic!("Denominator not invertible!");
+            }
+        }
+    }
+}
 
 impl_cmp_unsafe! {
     eq

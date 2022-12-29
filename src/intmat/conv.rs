@@ -16,7 +16,7 @@
  */
 
 use crate::*;
-use flint_sys::fmpz_mat;
+use flint_sys::{fmpz_mat, fmpq_mat};
 use std::mem::MaybeUninit;
 
 
@@ -33,25 +33,20 @@ impl_from! {
     }
 }
 
-impl<'a, T: 'a> From<&[&'a [T]]> for IntMat
-where
-    &'a T: Into<Integer>,
-{
-    fn from(mat: &[&'a [T]]) -> IntMat {
-        let m = mat.len() as i64;
-        let n = mat.first().unwrap_or(&vec![].as_slice()).len() as i64;
-
-        let mut res = IntMat::default(m, n);
-        if m == 0 || n == 0 {
-            res
-        } else {
-            for (i, &row) in mat.iter().enumerate() {
-                assert_eq!(n, row.len() as i64);
-                for (j, x) in row.iter().enumerate() {
-                    res.set_entry(i as i64, j as i64, x.into());
+impl_tryfrom! {
+    IntMat, RatMat
+    {
+        fn try_from(x: &RatMat) -> Result<Self,Self::Error> {
+            let zm = IntMatSpace::init(x.nrows(), x.ncols());
+            let mut res = zm.default();
+            unsafe {
+                let b = fmpq_mat::fmpq_mat_get_fmpz_mat(res.as_mut_ptr(), x.as_ptr());
+                if b != 0 {
+                    Ok(res)
+                } else {
+                    Err("RatMat could not be coerced to an IntMat.")
                 }
             }
-            res
         }
     }
 }

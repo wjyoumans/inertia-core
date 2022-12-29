@@ -15,26 +15,29 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-mod arith;
+mod ops;
 mod conv;
 
+#[cfg(feature = "serde")]
+mod serde;
+
+use crate::Integer;
+
+use flint_sys::{fmpz, fmpq};
+
+use std::any::TypeId;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
+use std::mem::{ManuallyDrop, MaybeUninit};
 
-use crate::*;
-use flint_sys::fmpq;
-use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
-use serde::ser::{Serialize, SerializeTuple, Serializer};
-
-#[derive(Clone, Copy, Debug, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
 pub struct RationalField {}
-pub type Rationals = RationalField;
 
 impl Eq for RationalField {}
 
 impl PartialEq for RationalField {
-    fn eq(&self, _rhs: &RationalField) -> bool {
+    #[inline]
+    fn eq(&self, _: &RationalField) -> bool {
         true
     }
 }
@@ -46,20 +49,22 @@ impl fmt::Display for RationalField {
     }
 }
 
+impl Hash for RationalField {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        TypeId::of::<Self>().hash(state)
+    }
+}
+
 impl RationalField {
     #[inline]
     pub fn init() -> Self {
         RationalField {}
     }
-
+    
     #[inline]
-    pub fn default(&self) -> Rational {
-        Rational::default()
-    }
-
-    #[inline]
-    pub fn new<T: Into<Rational>>(&self, x: T) -> Rational {
-        x.into()
+    pub fn new<T: Into<Rational>>(&self, value: T) -> Rational {
+        Rational::new(value)
     }
 }
 
@@ -69,19 +74,9 @@ pub struct Rational {
 }
 
 impl AsRef<Rational> for Rational {
+    #[inline]
     fn as_ref(&self) -> &Rational {
         self
-    }
-}
-
-impl<'a, T> Assign<T> for Rational
-where
-    T: AsRef<Rational>,
-{
-    fn assign(&mut self, other: T) {
-        unsafe {
-            fmpq::fmpq_set(self.as_mut_ptr(), other.as_ref().as_ptr());
-        }
     }
 }
 
@@ -102,9 +97,7 @@ impl Default for Rational {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpq::fmpq_init(z.as_mut_ptr());
-            Rational {
-                inner: z.assume_init(),
-            }
+            Rational::from_raw(z.assume_init())
         }
     }
 }
@@ -138,6 +131,73 @@ impl Hash for Rational {
 }
 
 impl Rational {
+    #[inline]
+    pub fn new<T: Into<Rational>>(value: T) -> Self {
+        value.into()
+    }
+
+    /// Return zero.
+    ///
+    /// ```
+    /// use inertia_core::Rational;
+    ///
+    /// assert_eq!(Rational::zero(), 0);
+    /// ```
+    #[inline]
+    pub fn zero() -> Rational {
+        Rational::default()
+    }
+
+    /// Return one.
+    ///
+    /// ```
+    /// use inertia_core::Rational;
+    ///
+    /// assert_eq!(Rational::one(), 1);
+    /// ```
+    #[inline]
+    pub fn one() -> Rational {
+        let mut res = Rational::default();
+        unsafe { fmpq::fmpq_one(res.as_mut_ptr()); }
+        res
+    }
+    
+    #[inline]
+    pub fn zero_assign(&mut self) {
+        unsafe { fmpq::fmpq_zero(self.as_mut_ptr()) }
+    }
+    
+    #[inline]
+    pub fn one_assign(&mut self) {
+        unsafe { fmpq::fmpq_one(self.as_mut_ptr()) }
+    }
+    
+    /// Return true if the `Rational` is zero.
+    ///
+    /// ```
+    /// use inertia_core::Rational;
+    ///
+    /// let x = Rational::from(0u32);
+    /// assert!(x.is_zero());
+    /// ```
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        unsafe { fmpq::fmpq_is_zero(self.as_ptr()) == 1 }
+    }
+
+    /// Return true if the `Rational` is one.
+    ///
+    /// ```
+    /// use inertia_core::Rational;
+    ///
+    /// let x = Rational::from(1i16);
+    /// assert!(x.is_one());
+    /// ```
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        unsafe { fmpq::fmpq_is_one(self.as_ptr()) == 1 }
+    }
+
     /// Returns a pointer to the inner [FLINT rational][fmpq::fmpq].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpq::fmpq {
@@ -152,13 +212,15 @@ impl Rational {
 
     /// Instantiate a rational from a [FLINT rational][fmpq::fmpq].
     #[inline]
-    pub fn from_raw(raw: fmpq::fmpq) -> Rational {
+    pub const unsafe fn from_raw(raw: fmpq::fmpq) -> Rational {
         Rational { inner: raw }
     }
 
     #[inline]
-    pub fn new<T: Into<Rational>>(x: T) -> Rational {
-        x.into()
+    pub const fn into_raw(self) -> fmpq::fmpq {
+        let ret = self.inner;
+        let _ = ManuallyDrop::new(self);
+        ret
     }
 
     /// Returns the numerator of a rational number as an [Integer].
@@ -171,7 +233,11 @@ impl Rational {
     /// ```
     #[inline]
     pub fn numerator(&self) -> Integer {
-        Integer::from_raw(self.inner.num)
+        let mut res = Integer::zero();
+        unsafe {
+            fmpz::fmpz_set(res.as_mut_ptr(), &self.inner.num)
+        }
+        res
     }
 
     /// Returns the denominator of a rational number as an [Integer].
@@ -184,70 +250,64 @@ impl Rational {
     /// ```
     #[inline]
     pub fn denominator(&self) -> Integer {
-        Integer::from_raw(self.inner.den)
+        let mut res = Integer::zero();
+        unsafe {
+            fmpz::fmpz_set(res.as_mut_ptr(), &self.inner.den)
+        }
+        res
+    }
+
+    #[inline]
+    pub fn floor(&self) -> Integer {
+        let mut res = self.numerator();
+        res.fdiv_assign(self.denominator());
+        res
+    }
+
+    #[inline]
+    pub fn ceil(&self) -> Integer {
+        let mut res = self.numerator();
+        res.cdiv_assign(self.denominator());
+        res
+    }
+    
+    #[inline]
+    pub fn round(&self) -> Integer {
+        let mut res = self.numerator();
+        res.tdiv_assign(self.denominator());
+        res
+    }
+    
+    #[inline]
+    pub fn sign(&self) -> i32 {
+        unsafe {
+            fmpq::fmpq_sgn(self.as_ptr())
+        }
+    }
+
+    #[inline]
+    pub fn abs(&self) -> Rational {
+        unsafe {
+            let mut res = Rational::default();
+            fmpq::fmpq_abs(res.as_mut_ptr(), self.as_ptr());
+            res
+        }
+    }
+    
+    #[inline]
+    pub fn abs_assign(&mut self) {
+        unsafe {
+            fmpq::fmpq_abs(self.as_mut_ptr(), self.as_ptr());
+        }
+    }
+
+    #[inline]
+    pub fn height(&self) -> Integer {
+        unsafe {
+            let mut res = Integer::default();
+            fmpq::fmpq_height(res.as_mut_ptr(), self.as_ptr());
+            res
+        }
     }
 }
 
-impl Serialize for Rational {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_tuple(2)?;
-        state.serialize_element(&self.numerator())?;
-        state.serialize_element(&self.denominator())?;
-        state.end()
-    }
-}
-
-struct RationalVisitor {}
-
-impl RationalVisitor {
-    fn new() -> Self {
-        RationalVisitor {}
-    }
-}
-
-impl<'de> Visitor<'de> for RationalVisitor {
-    type Value = Rational;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a Rational")
-    }
-
-    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let num: Integer = access
-            .next_element()?
-            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-        let den: Integer = access
-            .next_element()?
-            .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-
-        Ok(Rational::from([num, den]))
-    }
-}
-
-impl<'de> Deserialize<'de> for Rational {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_tuple(2, RationalVisitor::new())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::Rational;
-
-    #[test]
-    fn serde() {
-        let x = Rational::from([1, 2]);
-        let ser = bincode::serialize(&x).unwrap();
-        let y: Rational = bincode::deserialize(&ser).unwrap();
-        assert_eq!(x, y);
-    }
-}

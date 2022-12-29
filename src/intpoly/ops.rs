@@ -15,29 +15,47 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::*;
 use crate::ops::*;
-use crate::{IntPoly, Integer, Rational};
-use flint_sys::{fmpq, fmpz, fmpz_poly};
+use flint_sys::{fmpz, fmpz_poly, fmpq, fmpq_poly};
 use libc::{c_int, c_long, c_ulong};
 use std::mem::MaybeUninit;
 use std::ops::*;
+
+impl_assign_unsafe! {
+    None
+    IntPoly, IntPoly
+    fmpz_poly::fmpz_poly_set
+}
+
+impl_assign_unsafe! {
+    None
+    IntPoly, IntMod
+    fmpz_poly::fmpz_poly_set_fmpz
+}
+
+impl_assign_unsafe! {
+    None
+    IntPoly, Integer
+    fmpz_poly::fmpz_poly_set_fmpz
+}
+
+impl_assign_unsafe! {
+    None
+    IntPoly, u64 {u64 u32 u16 u8}
+    fmpz_poly::fmpz_poly_set_ui
+}
+
+impl_assign_unsafe! {
+    None
+    IntPoly, i64 {i64 i32 i16 i8}
+    fmpz_poly::fmpz_poly_set_si
+}
 
 impl_cmp_unsafe! {
     eq
     IntPoly
     fmpz_poly::fmpz_poly_equal
-}
-
-impl_cmp_unsafe! {
-    eq
-    IntPoly, Integer
-    fmpz_poly::fmpz_poly_equal_fmpz
-}
-
-impl_cmp_unsafe! {
-    eq
-    IntPoly, Rational
-    fmpz_poly_equal_fmpq
 }
 
 impl_cmp_unsafe! {
@@ -50,6 +68,18 @@ impl_cmp_unsafe! {
     eq
     IntPoly, i64 {i64 i32 i16 i8}
     fmpz_poly_equal_si
+}
+
+impl_cmp_unsafe! {
+    eq
+    IntPoly, Integer
+    fmpz_poly::fmpz_poly_equal_fmpz
+}
+
+impl_cmp_unsafe! {
+    eq
+    IntPoly, Rational
+    fmpz_poly_equal_fmpq
 }
 
 #[inline]
@@ -119,6 +149,44 @@ impl_binop_unsafe! {
     RemFrom {rem_from}
     AssignRem {assign_rem}
     fmpz_poly::fmpz_poly_rem;
+}
+
+impl_binop_unsafe! {
+    None
+    IntPoly, Rational, RatPoly
+
+    Add {add}
+    AssignAdd {assign_add}
+    fmpz_poly_add_fmpq;
+
+    Sub {sub}
+    AssignSub {assign_sub}
+    fmpz_poly_sub_fmpq;
+
+    Mul {mul}
+    AssignMul {assign_mul}
+    fmpz_poly_scalar_mul_fmpq;
+
+    Div {div}
+    AssignDiv {assign_div}
+    fmpz_poly_scalar_div_fmpq;
+}
+
+impl_binop_unsafe! {
+    None
+    Rational, IntPoly, RatPoly
+
+    Add {add}
+    AssignAdd {assign_add}
+    fmpz_poly_fmpq_add;
+
+    Sub {sub}
+    AssignSub {assign_sub}
+    fmpz_poly_fmpq_sub;
+
+    Mul {mul}
+    AssignMul {assign_mul}
+    fmpz_poly_fmpq_scalar_mul;
 }
 
 impl_binop_unsafe! {
@@ -283,6 +351,46 @@ impl_binop_unsafe! {
 }
 
 #[inline]
+unsafe fn fmpz_poly_add_fmpq(
+    res: *mut fmpq_poly::fmpq_poly_struct,
+    f: *const fmpz_poly::fmpz_poly_struct,
+    x: *const fmpq::fmpq,
+) {
+    fmpq_poly::fmpq_poly_set_fmpz_poly(res, f);
+    fmpq_poly::fmpq_poly_add_fmpq(res, res, x);
+}
+
+#[inline]
+unsafe fn fmpz_poly_sub_fmpq(
+    res: *mut fmpq_poly::fmpq_poly_struct,
+    f: *const fmpz_poly::fmpz_poly_struct,
+    x: *const fmpq::fmpq,
+) {
+    fmpq_poly::fmpq_poly_set_fmpz_poly(res, f);
+    fmpq_poly::fmpq_poly_sub_fmpq(res, res, x);
+}
+
+#[inline]
+unsafe fn fmpz_poly_scalar_mul_fmpq(
+    res: *mut fmpq_poly::fmpq_poly_struct,
+    f: *const fmpz_poly::fmpz_poly_struct,
+    x: *const fmpq::fmpq,
+) {
+    fmpq_poly::fmpq_poly_set_fmpz_poly(res, f);
+    fmpq_poly::fmpq_poly_scalar_mul_fmpq(res, res, x);
+}
+
+#[inline]
+unsafe fn fmpz_poly_scalar_div_fmpq(
+    res: *mut fmpq_poly::fmpq_poly_struct,
+    f: *const fmpz_poly::fmpz_poly_struct,
+    x: *const fmpq::fmpq,
+) {
+    fmpq_poly::fmpq_poly_set_fmpz_poly(res, f);
+    fmpq_poly::fmpq_poly_scalar_div_fmpq(res, res, x);
+}
+
+#[inline]
 unsafe fn fmpz_poly_add_ui(
     res: *mut fmpz_poly::fmpz_poly_struct,
     f: *const fmpz_poly::fmpz_poly_struct,
@@ -320,6 +428,37 @@ unsafe fn fmpz_poly_scalar_mod_si(
 ) {
     fmpz_poly::fmpz_poly_set_si(res, x);
     fmpz_poly::fmpz_poly_rem(res, f, res);
+}
+
+#[inline]
+unsafe fn fmpz_poly_fmpq_add(
+    res: *mut fmpq_poly::fmpq_poly_struct,
+    f: *const fmpq::fmpq,
+    g: *const fmpz_poly::fmpz_poly_struct,
+) {
+    fmpq_poly::fmpq_poly_set_fmpz_poly(res, g);
+    fmpq_poly::fmpq_poly_add_fmpq(res, res, f);
+}
+
+#[inline]
+unsafe fn fmpz_poly_fmpq_sub(
+    res: *mut fmpq_poly::fmpq_poly_struct,
+    f: *const fmpq::fmpq,
+    g: *const fmpz_poly::fmpz_poly_struct,
+) {
+    fmpq_poly::fmpq_poly_set_fmpz_poly(res, g);
+    fmpq_poly::fmpq_poly_sub_fmpq(res, res, f);
+    fmpq_poly::fmpq_poly_neg(res, res);
+}
+
+#[inline]
+unsafe fn fmpz_poly_fmpq_scalar_mul(
+    res: *mut fmpq_poly::fmpq_poly_struct,
+    f: *const fmpq::fmpq,
+    g: *const fmpz_poly::fmpz_poly_struct,
+) {
+    fmpq_poly::fmpq_poly_set_fmpz_poly(res, g);
+    fmpq_poly::fmpq_poly_scalar_mul_fmpq(res, res, f);
 }
 
 #[inline]

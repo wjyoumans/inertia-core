@@ -15,39 +15,28 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use flint_sys::fmpq_mat;
 use crate::*;
 
+impl_from! {
+    RatMat, IntMat
+    {
+        fn from(x: &IntMat) -> RatMat {
+            let rm = RatMatSpace::init(x.nrows(), x.ncols());
+            let mut res = rm.default();
+            unsafe {
+                fmpq_mat::fmpq_mat_set_fmpz_mat(res.as_mut_ptr(), x.as_ptr());
+            }
+            res
+        }
+    }
+}
 
-/*
 impl_from! {
     RatMat, IntModMat
     {
         fn from(x: &IntModMat) -> RatMat {
-            RatMat { data: x.data.mat[0].clone() }
-        }
-    }
-}
-*/
-
-impl<'a, T: 'a> From<&[&'a [T]]> for RatMat
-where
-    &'a T: Into<Rational>
-{
-    fn from(mat: &[&'a [T]]) -> RatMat {
-        let m = mat.len() as i64;
-        let n = mat.first().unwrap_or(&vec![].as_slice()).len() as i64;
-
-        let mut res = RatMat::default(m, n);
-        if m == 0 || n == 0 {
-            res
-        } else {
-            for (i, &row) in mat.iter().enumerate() {
-                assert_eq!(n, row.len() as i64);
-                for (j, x) in row.iter().enumerate() {
-                    res.set_entry(i as i64, j as i64, &x.into());
-                }
-            }
-            res
+            RatMat::from(IntMat::from(x))
         }
     }
 }

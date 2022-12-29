@@ -15,26 +15,27 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-mod arith;
+mod ops;
 mod conv;
 
+#[cfg(feature = "serde")]
+mod serde;
+
+use flint_sys::fmpz;
+
+use std::any::TypeId;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
+use std::mem::{ManuallyDrop, MaybeUninit};
 
-use crate::*;
-use flint_sys::fmpz;
-use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
-
-#[derive(Clone, Copy, Debug, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
 pub struct IntegerRing {}
-pub type Integers = IntegerRing;
 
 impl Eq for IntegerRing {}
 
 impl PartialEq for IntegerRing {
-    fn eq(&self, _rhs: &IntegerRing) -> bool {
+    #[inline]
+    fn eq(&self, _: &IntegerRing) -> bool {
         true
     }
 }
@@ -46,53 +47,22 @@ impl fmt::Display for IntegerRing {
     }
 }
 
+impl Hash for IntegerRing {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        TypeId::of::<Self>().hash(state)
+    }
+}
+
 impl IntegerRing {
-    /// Initialize an `IntegerRing`.
-    ///
-    /// ```
-    /// use inertia_core::IntegerRing;
-    ///
-    /// let zz = IntegerRing::init();
-    /// let z = zz.new(1);
-    ///
-    /// assert_eq!(z, 1);
-    /// ```
     #[inline]
     pub fn init() -> Self {
         IntegerRing {}
     }
 
-    /// Return the default value of the `IntegerRing`, zero.
-    ///
-    /// ```
-    /// use inertia_core::IntegerRing;
-    ///
-    /// let zz = IntegerRing::init();
-    /// let z = zz.default();
-    ///
-    /// assert_eq!(z, 0);
-    /// ```
     #[inline]
-    pub fn default(&self) -> Integer {
-        Integer::default()
-    }
-
-    /// Initialize an Integer from an integer ring.
-    ///
-    /// ```
-    /// use inertia_core::IntegerRing;
-    ///
-    /// let zz = IntegerRing::init();
-    ///
-    /// let z = zz.new(2);
-    /// assert_eq!(z, 2);
-    /// ```
-    #[inline]
-    pub fn new<T>(&self, x: T) -> Integer
-    where
-        T: Into<Integer>,
-    {
-        x.into()
+    pub fn new<T: Into<Integer>>(&self, value: T) -> Integer {
+        Integer::new(value)
     }
 }
 
@@ -102,19 +72,9 @@ pub struct Integer {
 }
 
 impl AsRef<Integer> for Integer {
+    #[inline]
     fn as_ref(&self) -> &Integer {
         self
-    }
-}
-
-impl<'a, T> Assign<T> for Integer
-where
-    T: AsRef<Integer>,
-{
-    fn assign(&mut self, other: T) {
-        unsafe {
-            fmpz::fmpz_set(self.as_mut_ptr(), other.as_ref().as_ptr());
-        }
     }
 }
 
@@ -124,9 +84,7 @@ impl Clone for Integer {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz::fmpz_init_set(z.as_mut_ptr(), self.as_ptr());
-            Integer {
-                inner: z.assume_init(),
-            }
+            Integer::from_raw(z.assume_init())
         }
     }
 }
@@ -137,17 +95,8 @@ impl Default for Integer {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz::fmpz_init(z.as_mut_ptr());
-            Integer {
-                inner: z.assume_init(),
-            }
+            Integer::from_raw(z.assume_init())
         }
-    }
-}
-
-impl Drop for Integer {
-    #[inline]
-    fn drop(&mut self) {
-        unsafe { fmpz::fmpz_clear(self.as_mut_ptr()) }
     }
 }
 
@@ -158,39 +107,30 @@ impl fmt::Display for Integer {
     }
 }
 
+impl Drop for Integer {
+    #[inline]
+    fn drop(&mut self) {
+        unsafe { fmpz::fmpz_clear(self.as_mut_ptr()) }
+    }
+}
+
 impl Hash for Integer {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
+        self.parent().hash(state);
         self.get_ui_vector().hash(state);
     }
 }
 
 impl Integer {
-    /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
     #[inline]
-    pub const fn as_ptr(&self) -> *const fmpz::fmpz {
-        &self.inner
+    pub fn parent(&self) -> IntegerRing {
+        IntegerRing {}
     }
 
-    /// Returns a mutable pointer to the inner [FLINT integer][fmpz::fmpz].
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut fmpz::fmpz {
-        &mut self.inner
-    }
-
-    /// Instantiate an Integer from a [FLINT integer][fmpz::fmpz].
-    #[inline]
-    pub fn from_raw(raw: fmpz::fmpz) -> Integer {
-        Integer { inner: raw }
-    }
-
-    /// Initialize a new Integer.
-    #[inline]
-    pub fn new<T>(x: T) -> Integer
-    where
-        T: Into<Integer>,
-    {
-        x.into()
+    pub fn new<T: Into<Integer>>(value: T) -> Self {
+        value.into()
     }
 
     /// Initialize a new `Integer` with the given number of limbs.
@@ -206,10 +146,107 @@ impl Integer {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz::fmpz_init2(z.as_mut_ptr(), limbs);
-            Integer {
-                inner: z.assume_init(),
-            }
+            Integer::from_raw(z.assume_init())
         }
+    }
+
+    /// Return zero.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::zero(), 0);
+    /// ```
+    #[inline]
+    pub fn zero() -> Integer {
+        Integer::default()
+    }
+
+    /// Return one.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::one(), 1);
+    /// ```
+    #[inline]
+    pub fn one() -> Integer {
+        let mut res = Integer::default();
+        unsafe { fmpz::fmpz_one(res.as_mut_ptr()); }
+        res
+    }
+    
+    #[inline]
+    pub fn zero_assign(&mut self) {
+        unsafe { fmpz::fmpz_zero(self.as_mut_ptr()) }
+    }
+    
+    #[inline]
+    pub fn one_assign(&mut self) {
+        unsafe { fmpz::fmpz_one(self.as_mut_ptr()) }
+    }
+    
+    /// Return true if the `Integer` is zero.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let x = Integer::from(0u32);
+    /// assert!(x.is_zero());
+    /// ```
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        unsafe { fmpz::fmpz_is_zero(self.as_ptr()) == 1 }
+    }
+
+    /// Return true if the `Integer` is one.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let x = Integer::from(1i16);
+    /// assert!(x.is_one());
+    /// ```
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        unsafe { fmpz::fmpz_is_one(self.as_ptr()) == 1 }
+    }
+
+    /// Returns a pointer to the inner [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub const fn as_ptr(&self) -> *const fmpz::fmpz {
+        &self.inner
+    }
+
+    /// Returns a mutable pointer to the inner [FLINT integer][fmpz::fmpz].
+    #[inline]
+    pub fn as_mut_ptr(&mut self) -> *mut fmpz::fmpz {
+        &mut self.inner
+    }
+
+    /// Create an Integer from an initialized [FLINT integer][fmpz::fmpz].
+    ///
+    /// # Safety
+    ///
+    ///   * The function must *not* be used to create a constant [`Integer`],
+    ///     though it can be used to create a static [`Integer`]. This is
+    ///     because constant values are *copied* on use, leading to undefined
+    ///     behavior when they are dropped.
+    ///   * The value must be initialized.
+    ///   * The [`fmpz::fmpz`] type can be considered as a kind of pointer, so there
+    ///     can be multiple copies of it. Since this function takes over
+    ///     ownership, no other copies of the passed value should exist.
+    #[inline]
+    pub const unsafe fn from_raw(raw: fmpz::fmpz) -> Integer {
+        Integer { inner: raw }
+    }
+
+    /// The returned object should be freed to avoid memory leaks.
+    #[inline]
+    pub const fn into_raw(self) -> fmpz::fmpz {
+        let ret = self.inner;
+        let _ = ManuallyDrop::new(self);
+        ret
     }
 
     /// Convert the `Integer` to a string in base `base`.
@@ -227,11 +264,10 @@ impl Integer {
 
             // Allocate and write into a raw *c_char of the correct length
             let mut vector: Vec<u8> = Vec::with_capacity(len);
-            vector.set_len(len);
-
             fmpz::fmpz_get_str(vector.as_mut_ptr() as *mut _, 
                                base as i32, self.as_ptr());
-
+            
+            vector.set_len(len);
             let mut first_nul = None;
             let mut index: usize = 0;
             for elem in &vector {
@@ -363,10 +399,7 @@ impl Integer {
     /// be written as `a[0] + a[1]*x + ... + a[n-1]*x^(n-1)` where `x = 2^FLINT_BITS`.
     ///
     /// ```
-    /// use inertia_core::{
-    ///     ops::Pow,
-    ///     Integer
-    /// };
+    /// use inertia_core::*;
     ///
     /// let z = Integer::from(2).pow(65u8);
     /// let v = z.get_ui_vector();
@@ -401,10 +434,7 @@ impl Integer {
     /// `vec[0] + vec[1]*x + ... + vec[n-1]*x^(n-1)` where `x = 2^FLINT_BITS`.
     ///
     /// ```
-    /// use inertia_core::{
-    ///     ops::Pow,
-    ///     Integer
-    /// };
+    /// use inertia_core::*;
     ///
     /// let mut z = Integer::default();
     /// z.set_ui_vector(vec![0,2]);
@@ -420,66 +450,6 @@ impl Integer {
                     self.as_mut_ptr(), vec.as_ptr(), vec.len() as i64);
             }
         }
-    }
-
-    /// Return zero.
-    ///
-    /// ```
-    /// use inertia_core::Integer;
-    ///
-    /// assert_eq!(Integer::zero(), 0);
-    /// ```
-    #[inline]
-    pub fn zero() -> Integer {
-        Integer::default()
-    }
-
-    /// Return one.
-    ///
-    /// ```
-    /// use inertia_core::Integer;
-    ///
-    /// assert_eq!(Integer::one(), 1);
-    /// ```
-    #[inline]
-    pub fn one() -> Integer {
-        Integer::from(1)
-    }
-
-    /// Return true if the `Integer` is zero.
-    ///
-    /// ```
-    /// use inertia_core::Integer;
-    ///
-    /// let x = Integer::from(0u32);
-    /// assert!(x.is_zero());
-    /// ```
-    #[inline]
-    pub fn is_zero(&self) -> bool {
-        unsafe { fmpz::fmpz_is_zero(self.as_ptr()) == 1 }
-    }
-
-    /// Return true if the `Integer` is one.
-    ///
-    /// ```
-    /// use inertia_core::Integer;
-    ///
-    /// let x = Integer::from(1i16);
-    /// assert!(x.is_one());
-    /// ```
-    #[inline]
-    pub fn is_one(&self) -> bool {
-        unsafe { fmpz::fmpz_is_one(self.as_ptr()) == 1 }
-    }
-    
-    #[inline]
-    pub fn zero_assign(&mut self) {
-        unsafe { fmpz::fmpz_zero(self.as_mut_ptr()) }
-    }
-    
-    #[inline]
-    pub fn one_assign(&mut self) {
-        unsafe { fmpz::fmpz_one(self.as_mut_ptr()) }
     }
 
     /// Check if the `Integer` is even.
@@ -567,10 +537,10 @@ impl Integer {
     /// use inertia_core::Integer;
     ///
     /// let z = Integer::from(4);
-    /// assert_eq!(z.invmod(7).unwrap(), 2);
+    /// assert_eq!(z.invmod(Integer::from(7)).unwrap(), 2);
     /// ```
     #[inline]
-    pub fn invmod<'a, T>(&self, modulus: T) -> Option<Integer>
+    pub fn invmod<T>(&self, modulus: T) -> Option<Integer>
     where
         T: AsRef<Integer>,
     {
@@ -643,7 +613,7 @@ impl Integer {
     /// use inertia_core::Integer;
     ///
     /// let f = Integer::from(-1);
-    /// assert_eq!(f.mul2_uiui(10, 3), -30i32);
+    /// assert_eq!(f.mul2_uiui(10u32, 3u32), -30i32);
     /// ```
     #[inline]
     pub fn mul2_uiui<S>(&self, x: S, y: S) -> Integer
@@ -664,7 +634,7 @@ impl Integer {
     /// use inertia_core::Integer;
     ///
     /// let mut f = Integer::from(-1);
-    /// f.mul2_uiui_assign(10, 3);
+    /// f.mul2_uiui_assign(10u8, 3u8);
     /// assert_eq!(f, -30);
     /// ```
     #[inline]
@@ -684,7 +654,7 @@ impl Integer {
     /// use inertia_core::Integer;
     ///
     /// let g = Integer::from(2);
-    /// assert_eq!(g.mul_2exp(3), 16);
+    /// assert_eq!(g.mul_2exp(3u64), 16);
     /// ```
     #[inline]
     pub fn mul_2exp<S>(&self, exp: S) -> Integer
@@ -704,7 +674,7 @@ impl Integer {
     /// use inertia_core::Integer;
     ///
     /// let mut g = Integer::from(2);
-    /// g.mul_2exp_assign(3);
+    /// g.mul_2exp_assign(3u32);
     /// assert_eq!(g, 16);
     /// ```
     #[inline]
@@ -726,14 +696,17 @@ impl Integer {
     /// assert_eq!(z.addmul(Integer::from(3), Integer::from(4)), 14);
     /// ```
     #[inline]
-    pub fn addmul<'a, T>(&self, x: T, y: T) -> Integer
+    pub fn addmul<T>(&self, x: T, y: T) -> Integer
     where
         T: AsRef<Integer>,
     {
         let mut res = self.clone();
         unsafe {
-            fmpz::fmpz_addmul(res.as_mut_ptr(), 
-                              x.as_ref().as_ptr(), y.as_ref().as_ptr());
+            fmpz::fmpz_addmul(
+                res.as_mut_ptr(), 
+                x.as_ref().as_ptr(), 
+                y.as_ref().as_ptr()
+            );
         }
         res
     }
@@ -748,33 +721,40 @@ impl Integer {
     /// assert_eq!(z, 14);
     /// ```
     #[inline]
-    pub fn addmul_assign<'a, T>(&mut self, x: T, y: T)
+    pub fn addmul_assign<T>(&mut self, x: T, y: T)
     where
         T: AsRef<Integer>,
     {
         unsafe {
-            fmpz::fmpz_addmul(self.as_mut_ptr(), x.as_ref().as_ptr(), 
-                              y.as_ref().as_ptr());
+            fmpz::fmpz_addmul(
+                self.as_mut_ptr(), 
+                x.as_ref().as_ptr(), 
+                y.as_ref().as_ptr()
+            );
         }
     }
 
     /// Return `self + (x * y)` where `y` can be converted to an unsigned long.
     ///
     /// ```
-    /// use inertia_core::Integer;
+    /// use inertia_core::*;
     ///
     /// let z = Integer::from(2);
-    /// assert_eq!(z.addmul_ui(Integer::from(3), 4), 14);
+    /// assert_eq!(z.addmul_ui(Integer::from(3), 4u32), 14);
     /// ```
     #[inline]
-    pub fn addmul_ui<'a, S, T>(&self, x: T, y: S) -> Integer
+    pub fn addmul_ui<S, T>(&self, x: T, y: S) -> Integer
     where
         S: Into<u64>,
         T: AsRef<Integer>,
     {
         let mut res = self.clone();
         unsafe {
-            fmpz::fmpz_addmul_ui(res.as_mut_ptr(), x.as_ref().as_ptr(), y.into());
+            fmpz::fmpz_addmul_ui(
+                res.as_mut_ptr(), 
+                x.as_ref().as_ptr(), 
+                y.into()
+            );
         }
         res
     }
@@ -783,86 +763,162 @@ impl Integer {
     /// unsigned long.
     ///
     /// ```
-    /// use inertia_core::Integer;
+    /// use inertia_core::*;
     ///
     /// let mut z = Integer::from(2);
-    /// z.addmul_ui_assign(Integer::from(3), 4);
+    /// z.addmul_ui_assign(Integer::from(3), 4u8);
     /// assert_eq!(z, 14);
     /// ```
     #[inline]
-    pub fn addmul_ui_assign<'a, S, T>(&mut self, x: T, y: S)
+    pub fn addmul_ui_assign<S, T>(&mut self, x: T, y: S)
     where
         S: Into<u64>,
         T: AsRef<Integer>,
     {
         unsafe {
-            fmpz::fmpz_addmul_ui(self.as_mut_ptr(), x.as_ref().as_ptr(), y.into());
+            fmpz::fmpz_addmul_ui(
+                self.as_mut_ptr(), 
+                x.as_ref().as_ptr(), 
+                y.into()
+            );
         }
     }
-}
-
-impl Serialize for Integer {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+    
+    /// Return the quotient self/other rounded up towards infinity.
+    ///
+    /// ```
+    /// use inertia_core::*;
+    ///
+    /// let x = Integer::from(11);
+    /// let y = Integer::from(2);
+    /// assert_eq!(x.cdiv(y), 6);
+    /// ```
+    #[inline]
+    pub fn cdiv<T>(&self, other: T) -> Integer 
+    where 
+        T: AsRef<Integer> 
     {
-        let ui_vec = self.get_ui_vector();
-        let mut seq = serializer.serialize_seq(Some(ui_vec.len()))?;
-        for e in ui_vec.iter() {
-            seq.serialize_element(e)?;
+        let other = other.as_ref();
+        assert!(!other.is_zero());
+        unsafe {
+            let mut res = Integer::default();
+            fmpz::fmpz_cdiv_q(res.as_mut_ptr(), self.as_ptr(), other.as_ptr());
+            res
         }
-        seq.end()
     }
-}
-
-struct IntegerVisitor {}
-
-impl IntegerVisitor {
-    fn new() -> Self {
-        IntegerVisitor {}
-    }
-}
-
-impl<'de> Visitor<'de> for IntegerVisitor {
-    type Value = Integer;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an Integer")
-    }
-
-    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
+    
+    /// Compute the quotient self/other rounded up towards infinity and assign
+    /// it to the input.
+    ///
+    /// ```
+    /// use inertia_core::*;
+    ///
+    /// let mut x = Integer::from(11);
+    /// let y = Integer::from(2);
+    /// x.cdiv_assign(y);
+    /// assert_eq!(x, 6);
+    /// ```
+    #[inline]
+    pub fn cdiv_assign<T>(&mut self, other: T) 
+    where 
+        T: AsRef<Integer> 
     {
-        let mut vec_ui = Vec::with_capacity(access.size_hint().unwrap_or(0));
-        while let Some(x) = access.next_element()? {
-            vec_ui.push(x);
+        let other = other.as_ref();
+        assert!(!other.is_zero());
+        unsafe {
+            fmpz::fmpz_cdiv_q(self.as_mut_ptr(), self.as_ptr(), other.as_ptr());
         }
-
-        let mut out = Integer::default();
-        out.set_ui_vector(vec_ui);
-        Ok(out)
     }
-}
-
-impl<'de> Deserialize<'de> for Integer {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+    
+    /// Return the quotient self/other rounded down towards negative infinity.
+    ///
+    /// ```
+    /// use inertia_core::*;
+    ///
+    /// let x = Integer::from(11);
+    /// let y = Integer::from(2);
+    /// assert_eq!(x.fdiv(y), 5);
+    /// ```
+    #[inline]
+    pub fn fdiv<T>(&self, other: T) -> Integer 
+    where 
+        T: AsRef<Integer> 
     {
-        deserializer.deserialize_seq(IntegerVisitor::new())
+        let other = other.as_ref();
+        assert!(!other.is_zero());
+        unsafe {
+            let mut res = Integer::default();
+            fmpz::fmpz_fdiv_q(res.as_mut_ptr(), self.as_ptr(), other.as_ptr());
+            res
+        }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::Integer;
-
-    #[test]
-    fn serde() {
-        let x: Integer = "18446744073709551616".parse().unwrap();
-        let ser = bincode::serialize(&x).unwrap();
-        let y: Integer = bincode::deserialize(&ser).unwrap();
-        assert_eq!(x, y);
+    
+    /// Compute the quotient self/other rounded down towards negative infinity
+    /// and assign it to the input.
+    ///
+    /// ```
+    /// use inertia_core::*;
+    ///
+    /// let mut x = Integer::from(11);
+    /// let y = Integer::from(2);
+    /// x.fdiv_assign(y);
+    /// assert_eq!(x, 5);
+    /// ```
+    #[inline]
+    pub fn fdiv_assign<T>(&mut self, other: T)
+    where 
+        T: AsRef<Integer> 
+    {
+        let other = other.as_ref();
+        assert!(!other.is_zero());
+        unsafe {
+            fmpz::fmpz_fdiv_q(self.as_mut_ptr(), self.as_ptr(), other.as_ptr());
+        }
+    }
+    
+    /// Return the quotient self/other rounded to the nearest integer.
+    ///
+    /// ```
+    /// use inertia_core::*;
+    ///
+    /// let x = Integer::from(-19);
+    /// let y = Integer::from(10);
+    /// assert_eq!(x.tdiv(y), -1);
+    /// ```
+    #[inline]
+    pub fn tdiv<T>(&self, other: T) -> Integer 
+    where 
+        T: AsRef<Integer> 
+    {
+        let other = other.as_ref();
+        assert!(!other.is_zero());
+        unsafe {
+            let mut res = Integer::default();
+            fmpz::fmpz_tdiv_q(res.as_mut_ptr(), self.as_ptr(), other.as_ptr());
+            res
+        }
+    }
+    
+    /// Compute the quotient self/other rounded to the nearest integer and assign
+    /// it to the input.
+    ///
+    /// ```
+    /// use inertia_core::*;
+    ///
+    /// let mut x = Integer::from(-19);
+    /// let y = Integer::from(10);
+    /// x.tdiv_assign(y);
+    /// assert_eq!(x, -1);
+    /// ```
+    #[inline]
+    pub fn tdiv_assign<T>(&mut self, other: T) 
+    where 
+        T: AsRef<Integer> 
+    {
+        let other = other.as_ref();
+        assert!(!other.is_zero());
+        unsafe {
+            fmpz::fmpz_tdiv_q(self.as_mut_ptr(), self.as_ptr(), other.as_ptr());
+        }
     }
 }

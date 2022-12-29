@@ -16,6 +16,7 @@
  */
 
 use crate::*;
+use crate::ops::*;
 use flint_sys::fmpz;
 use flint_sys::fq_default as fq;
 use libc::{c_long, c_ulong};
@@ -27,7 +28,7 @@ impl_cmp! {
     {
         fn eq(&self, rhs: &FinFldElem) -> bool {
             unsafe {
-                self.parent() == rhs.parent() && fq::fq_default_equal(
+                self.context() == rhs.context() && fq::fq_default_equal(
                     self.as_ptr(),
                     rhs.as_ptr(),
                     self.ctx_as_ptr()

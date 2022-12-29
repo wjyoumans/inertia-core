@@ -16,24 +16,30 @@
  */
 
 use crate::*;
+use flint_sys::{
+    fmpz_mod_poly,
+    fq_default as fq
+};
 
-impl_from! {
-    String, IntModPoly
-    {
-        fn from(x: &IntModPoly) -> String {
-            IntPoly::from(x).to_string()
-        }
-    }
+use std::rc::Rc;
+
+/* TODO: maybe fix macros so this work
+impl_from_unsafe! {
+    ctx
+    IntModPoly, IntMod
+    fmpz_mod_poly::fmpz_mod_poly_set_fmpz
 }
+*/
 
 impl_from! {
-    IntModPoly, FinFldElem
+    IntModPoly, IntMod
     {
-        fn from(x: &FinFldElem) -> IntModPoly {
-            let zp = IntModPolyRing::init(x.parent().prime(), "x");
-            let mut res = zp.default();
+        fn from(x: &IntMod) -> IntModPoly {
+            let temp = &x.parent.inner;
+            let parent = IntModPolyRing { inner: Rc::clone(temp) };
+            let mut res = parent.zero();
             unsafe {
-                flint_sys::fq_default::fq_default_get_fmpz_mod_poly(
+                fmpz_mod_poly::fmpz_mod_poly_set_fmpz(
                     res.as_mut_ptr(),
                     x.as_ptr(),
                     x.ctx_as_ptr(),
@@ -43,3 +49,23 @@ impl_from! {
         }
     }
 }
+
+/*
+impl_from! {
+    IntModPoly, FinFldElem
+    {
+        fn from(x: &FinFldElem) -> IntModPoly {
+            let parent = IntModPolyRing::init(x.prime());
+            let mut res = parent.zero();
+            unsafe {
+                fq::fq_default_get_fmpz_mod_poly(
+                    res.as_mut_ptr(),
+                    x.as_ptr(),
+                    x.ctx_as_ptr(),
+                );
+            }
+            res
+        }
+    }
+}
+*/

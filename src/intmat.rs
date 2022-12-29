@@ -15,123 +15,64 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-mod arith;
-mod conv;
+mod ops;
+//mod conv;
+
+//#[cfg(feature = "serde")]
+//mod serde;
 
 use crate::*;
+
 use flint_sys::{fmpz, fmpz_mat, fmpq_mat};
-use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
+
+use std::any::TypeId;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
 pub struct IntMatSpace {
     nrows: i64,
-    ncols: i64,
+    ncols: i64
 }
 
 impl Eq for IntMatSpace {}
 
 impl PartialEq for IntMatSpace {
-    fn eq(&self, other: &IntMatSpace) -> bool {
-        self.nrows() == other.nrows() && self.ncols() == other.ncols()
+    #[inline]
+    fn eq(&self, _: &IntMatSpace) -> bool {
+        true
     }
 }
 
 impl fmt::Display for IntMatSpace {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Space of {} by {} matrices over Integer Ring",
-            self.nrows, self.ncols
-        )
+        write!(f, "Ring of integer polynomials")
     }
 }
 
 impl Hash for IntMatSpace {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.base_ring().hash(state);
-        self.nrows().hash(state);
-        self.ncols().hash(state);
+        TypeId::of::<Self>().hash(state);
+        self.nrows.hash(state);
+        self.ncols.hash(state);
     }
 }
 
 impl IntMatSpace {
-    /// Initialize the space of matrices with the given number of rows and columns.
     #[inline]
-    pub fn init(nrows: i64, ncols: i64) -> Self where 
-    {
+    pub fn init(nrows: i64, ncols: i64) -> Self {
         IntMatSpace { nrows, ncols }
     }
 
     #[inline]
-    pub fn default(&self) -> IntMat {
-        IntMat::default(self.nrows, self.ncols)
-    }
-
-    #[inline]
-    pub fn nrows(&self) -> i64 {
-        self.nrows
-    }
-
-    #[inline]
-    pub fn ncols(&self) -> i64 {
-        self.ncols
-    }
-
-    #[inline]
-    pub fn base_ring(&self) -> IntegerRing {
-        IntegerRing {}
-    }
-}
-
-impl New<&[Integer]> for IntMatSpace {
-    type Output = IntMat;
-    fn new(&self, entries: &[Integer]) -> IntMat {
-        let nrows = self.nrows() as usize;
-        let ncols = self.ncols() as usize;
-        assert_eq!(entries.len(), nrows * ncols);
-
-        let mut row = 0;
-        let mut col;
-        let mut res = self.default();
-        for (i, x) in entries.iter().enumerate() {
-            col = (i % ncols) as i64;
-            if col == 0 && i != 0 {
-                row += 1;
-            }
-            res.set_entry(row, col, x);
-        }
-        res
-    }
-}
-
-impl<'a, T> New<&'a [T]> for IntMatSpace
-where
-    &'a T: Into<Integer>
-{
-    type Output = IntMat;
-    fn new(&self, entries: &'a [T]) -> IntMat {
-        let nrows = self.nrows() as usize;
-        let ncols = self.ncols() as usize;
-        assert_eq!(entries.len(), nrows * ncols);
-
-        let mut row = 0;
-        let mut col;
-        let mut res = self.default();
-        for (i, x) in entries.iter().enumerate() {
-            col = (i % ncols) as i64;
-            if col == 0 && i != 0 {
-                row += 1;
-            }
-
-            res.set_entry(row, col, x.into());
-        }
-        res
+    pub fn new<T>(&self, value: T) -> IntMat
+    where
+        IntMat: NewMatrix<T>
+    {
+        IntMat::new(self.nrows, self.ncols, value)
     }
 }
 
@@ -146,29 +87,13 @@ impl AsRef<IntMat> for IntMat {
     }
 }
 
-impl<'a, T> Assign<T> for IntMat
-where
-    T: AsRef<IntMat>,
-{
-    fn assign(&mut self, other: T) {
-        let x = other.as_ref();
-        assert_eq!(self.nrows(), x.nrows());
-        assert_eq!(self.ncols(), x.ncols());
-        unsafe {
-            fmpz_mat::fmpz_mat_set(self.as_mut_ptr(), x.as_ptr());
-        }
-    }
-}
-
 impl Clone for IntMat {
     #[inline]
     fn clone(&self) -> Self {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz_mat::fmpz_mat_init_set(z.as_mut_ptr(), self.as_ptr());
-            IntMat {
-                inner: z.assume_init(),
-            }
+            IntMat::from_raw(z.assume_init())
         }
     }
 }
@@ -176,12 +101,14 @@ impl Clone for IntMat {
 impl fmt::Display for IntMat {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let r = self.nrows();
-        let c = self.ncols();
-        let mut out = Vec::with_capacity(usize::try_from(r).ok().unwrap());
+        let r = self.nrows().try_into().expect(
+            "Cannot convert signed long to usize.");
+        let c = self.ncols().try_into().expect(
+            "Cannot convert signed long to usize.");
+        let mut out = Vec::with_capacity(r);
 
         for i in 0..r {
-            let mut row = Vec::with_capacity(usize::try_from(c).ok().unwrap() + 2);
+            let mut row = Vec::with_capacity(c + 2);
             row.push("[".to_string());
             for j in 0..c {
                 row.push(format!(" {} ", self.get_entry(i, j)));
@@ -204,14 +131,139 @@ impl Drop for IntMat {
     }
 }
 
+// TODO: make entries method that borrows so we dont need to copy entries
 impl Hash for IntMat {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.entries().hash(state);
+        self.get_entries().hash(state);
+    }
+}
+
+impl<const CAP: usize> NewMatrix<[&Integer; CAP]> for IntMat {
+    fn new_matrix(nrows: i64, ncols: i64, src: [&Integer; CAP]) -> Self {
+        let nrows_ui: usize = nrows.try_into().expect(
+            "Cannot convert signed long to usize.");
+        let ncols_ui: usize = ncols.try_into().expect(
+            "Cannot convert signed long to usize.");
+        
+        assert_eq!(src.len(), nrows_ui * ncols_ui);
+        let mut res = IntMat::zero(nrows, ncols);
+
+        let mut col;
+        let mut row = 0usize;
+        for (i, x) in src.into_iter().enumerate() {
+            col = i % ncols_ui;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+            res.set_entry(row, col, x);
+        }
+        res
+    }
+}
+
+impl<T, const CAP: usize> NewMatrix<[T; CAP]> for IntMat 
+where
+    T: Into<Integer>
+{
+    fn new_matrix(nrows: i64, ncols: i64, src: [T; CAP]) -> Self {
+        let nrows_ui: usize = nrows.try_into().expect(
+            "Cannot convert signed long to usize.");
+        let ncols_ui: usize = ncols.try_into().expect(
+            "Cannot convert signed long to usize.");
+        
+        assert_eq!(src.len(), nrows_ui * ncols_ui);
+        let mut res = IntMat::zero(nrows, ncols);
+
+        let mut col;
+        let mut row = 0usize;
+        for (i, x) in src.into_iter().enumerate() {
+            col = i % ncols_ui;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+            res.set_entry(row, col, x.into());
+        }
+        res
+    }
+}
+
+impl NewMatrix<&[Integer]> for IntMat {
+    fn new_matrix(nrows: i64, ncols: i64, src: &[Integer]) -> Self {
+        let nrows_ui: usize = nrows.try_into().expect(
+            "Cannot convert signed long to usize.");
+        let ncols_ui: usize = ncols.try_into().expect(
+            "Cannot convert signed long to usize.");
+        
+        assert_eq!(src.len(), nrows_ui * ncols_ui);
+        let mut res = IntMat::zero(nrows, ncols);
+
+        let mut col;
+        let mut row = 0usize;
+        for (i, x) in src.iter().enumerate() {
+            col = i % ncols_ui;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+            res.set_entry(row, col, x);
+        }
+        res
+    }
+}
+
+impl<'a, T> NewMatrix<&'a [T]> for IntMat
+where
+    &'a T: Into<Integer>
+{
+    fn new_matrix(nrows: i64, ncols: i64, src: &'a [T]) -> Self {
+        let nrows_ui: usize = nrows.try_into().expect(
+            "Cannot convert signed long to usize.");
+        let ncols_ui: usize = ncols.try_into().expect(
+            "Cannot convert signed long to usize.");
+        
+        assert_eq!(src.len(), nrows_ui * ncols_ui);
+        let mut res = IntMat::zero(nrows, ncols);
+
+        let mut col;
+        let mut row = 0usize;
+        for (i, x) in src.iter().enumerate() {
+            col = i % ncols_ui;
+            if col == 0 && i != 0 {
+                row += 1;
+            }
+            res.set_entry(row, col, x.into());
+        }
+        res
     }
 }
 
 impl IntMat {
+    // private helper methods to convert usize indices to i64, emit consistent
+    // messages on panic, and bounds check
+    fn check_indices(&self, i: usize, j: usize) -> (i64, i64) {
+        (self.check_row_index(i), self.check_col_index(j))
+    }
+
+    fn check_row_index(&self, i: usize) -> i64 {
+        let i = i.try_into().expect("Cannot convert index to a signed long.");
+        assert!(i < self.nrows_si());
+        i
+    }
+    
+    fn check_col_index(&self, j: usize) -> i64 {
+        let j = j.try_into().expect("Cannot convert index to a signed long.");
+        assert!(j < self.ncols_si());
+        j
+    }
+
+    #[inline]
+    pub fn new<S>(nrows: i64, ncols: i64, src: S) -> IntMat 
+    where
+        Self: NewMatrix<S>
+    {
+        IntMat::new_matrix(nrows, ncols, src)
+    }
+
     /// Returns a pointer to the inner [FLINT integer matrix][fmpz_mat::fmpz_mat].
     #[inline]
     pub const fn as_ptr(&self) -> *const fmpz_mat::fmpz_mat_struct {
@@ -233,39 +285,62 @@ impl IntMat {
     }
 
     #[inline]
-    pub fn default(nrows: i64, ncols: i64) -> IntMat {
+    pub fn zero(nrows: i64, ncols: i64) -> IntMat {
         let mut z = MaybeUninit::uninit();
         unsafe {
             fmpz_mat::fmpz_mat_init(z.as_mut_ptr(), nrows, ncols);
-            IntMat {
-                inner: z.assume_init(),
-            }
+            IntMat::from_raw(z.assume_init())
+        }
+    }
+    
+    #[inline]
+    pub fn one(dim: i64) -> IntMat {
+        let mut res = IntMat::zero(dim, dim);
+        unsafe {
+            fmpz_mat::fmpz_mat_one(res.as_mut_ptr());
+        }
+        res
+    }
+
+    /// Set `self` to the zero matrix.
+    #[inline]
+    pub fn zero_assign(&mut self) {
+        unsafe {
+            fmpz_mat::fmpz_mat_zero(self.as_mut_ptr());
+        }
+    }
+    
+    /// Set `self` to the identity matrix. Panics if the matrix is not square.
+    #[inline]
+    pub fn one_assign(&mut self) {
+        assert!(self.is_square());
+        unsafe {
+            fmpz_mat::fmpz_mat_one(self.as_mut_ptr());
         }
     }
 
+    /// Return the number of rows.
     #[inline]
-    pub fn parent(&self) -> IntMatSpace {
-        IntMatSpace {
-            nrows: self.nrows(),
-            ncols: self.ncols(),
-        }
+    pub fn nrows(&self) -> usize {
+        self.nrows_si().try_into().expect("Cannot convert signed long to usize.")
+    }
+    
+    /// Return the number of rows.
+    #[inline]
+    pub fn nrows_si(&self) -> i64 {
+        unsafe { fmpz_mat::fmpz_mat_nrows(self.as_ptr())}
     }
 
+    /// Return the number of columns.
     #[inline]
-    pub fn base_ring(&self) -> IntegerRing {
-        IntegerRing {}
+    pub fn ncols(&self) -> usize {
+        self.ncols_si().try_into().expect("Cannot convert signed long to usize.")
     }
-
-    /// Return the number of rows of the integer matrix.
+    
+    /// Return the number of columns.
     #[inline]
-    pub fn nrows(&self) -> i64 {
-        unsafe { fmpz_mat::fmpz_mat_nrows(self.as_ptr()) }
-    }
-
-    /// Return the number of columns of the integer matrix.
-    #[inline]
-    pub fn ncols(&self) -> i64 {
-        unsafe { fmpz_mat::fmpz_mat_ncols(self.as_ptr()) }
+    pub fn ncols_si(&self) -> i64 {
+        unsafe { fmpz_mat::fmpz_mat_ncols(self.as_ptr())}
     }
 
     #[inline]
@@ -290,36 +365,28 @@ impl IntMat {
 
     /// Get the `(i, j)`-th entry of the matrix.
     #[inline]
-    pub fn get_entry<S>(&self, i: S, j: S) -> Integer where 
-        S: Into<i64>,
-    {
-        unsafe { 
-            Integer::from_raw(*fmpz_mat::fmpz_mat_entry(self.as_ptr(), i.into(), j.into())) 
-        }
+    pub fn get_entry(&self, i: usize, j: usize) -> Integer {
+        let mut res = Integer::zero();
+        self.assign_entry(i, j, &mut res);
+        res
     }
     
+    // TODO: need consistent naming convention
     /// Get the `(i, j)`-th entry of an integer matrix and assign it to `out`. 
     /// Avoids unnecessary allocation.
     #[inline]
-    pub fn get_entry_assign<S>(&self, i: S, j: S, out: &mut Integer) where
-        S: Into<i64>,
-    {
+    pub fn assign_entry(&self, i: usize, j: usize, out: &mut Integer) {
+        let (i, j) = self.check_indices(i, j);
         unsafe {
-            let x = fmpz_mat::fmpz_mat_entry(
-                self.as_ptr(), 
-                i.into(),
-                j.into(),
-            );
+            let x = fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j);
             fmpz::fmpz_set(out.as_mut_ptr(), x);
         }
     }
 
     /// Set the `(i, j)`-th entry of the matrix.
     #[inline]
-    pub fn set_entry<'a, T>(&mut self, i: i64, j: i64, e: T)
-    where
-        T: AsRef<Integer>,
-    {
+    pub fn set_entry<T: AsRef<Integer>>(&mut self, i: usize, j: usize, e: T) {
+        let (i, j) = self.check_indices(i, j);
         unsafe {
             let x = fmpz_mat::fmpz_mat_entry(self.as_ptr(), i, j);
             fmpz::fmpz_set(x, e.as_ref().as_ptr());
@@ -327,10 +394,10 @@ impl IntMat {
     }
 
     /// Get a vector with all of the entries of the matrix.
-    pub fn entries(&self) -> Vec<Integer> {
+    pub fn get_entries(&self) -> Vec<Integer> {
         let r = self.nrows();
         let c = self.ncols();
-        let mut out = Vec::with_capacity(usize::try_from(r * c).ok().unwrap());
+        let mut out = Vec::with_capacity(r * c);
 
         for i in 0..r {
             for j in 0..c {
@@ -348,40 +415,30 @@ impl IntMat {
         }
     }
 
-    /// Swap the rows `r` and `s` of an integer matrix. 
-    pub fn swap_rows<S>(&mut self, r: S, s: S) where 
-        S: Into<i64>,
-    {
-        let r = r.into();
-        let s = s.into();
-        assert!(r < self.nrows());
-        assert!(s < self.nrows());
-
+    /// Swap the rows `r1` and `r2` of an integer matrix. 
+    pub fn swap_rows(&mut self, r1: usize, r2: usize) {
+        let r1 = self.check_row_index(r1);
+        let r2 = self.check_row_index(r2);
         unsafe { 
             fmpz_mat::fmpz_mat_swap_rows(
                 self.as_mut_ptr(), 
                 std::ptr::null(),
-                r,
-                s
+                r1,
+                r2
             ); 
         }
     }
     
     /// Swap the columns `r` and `s` of an integer matrix. 
-    pub fn swap_cols<S>(&mut self, r: S, s: S) where 
-        S: Into<i64>,
-    {
-        let r = r.into();
-        let s = s.into();
-        assert!(r < self.ncols());
-        assert!(s < self.ncols());
-
+    pub fn swap_cols(&mut self, c1: usize, c2: usize) {
+        let c1 = self.check_col_index(c1);
+        let c2 = self.check_col_index(c2);
         unsafe { 
             fmpz_mat::fmpz_mat_swap_rows(
                 self.as_mut_ptr(), 
                 std::ptr::null(),
-                r,
-                s
+                c1,
+                c2
             ); 
         }
     }
@@ -424,14 +481,6 @@ impl IntMat {
     }
     */
 
-    /// Set `self` to the zero matrix.
-    #[inline]
-    pub fn zero(&mut self) {
-        unsafe {
-            fmpz_mat::fmpz_mat_zero(self.as_mut_ptr());
-        }
-    }
-
     /*
     /// Return true if the matrix is invertible.
     #[inline]
@@ -440,112 +489,93 @@ impl IntMat {
     }*/
 
     /// Return true if row `i` is all zeros.
-    pub fn is_zero_row<S>(&self, i: S) -> bool where 
-        S: Into<i64>,
-    {
+    pub fn is_zero_row(&self, i: usize) -> bool { 
+        let i = self.check_row_index(i);
         unsafe {
-            fmpz_mat::fmpz_mat_is_zero_row(
-                self.as_ptr(), 
-                i.into()
-            ) != 0
+            fmpz_mat::fmpz_mat_is_zero_row(self.as_ptr(), i) != 0
         }
     }
 
-    /*
     /// Return true if column `i` is all zeros.
     // TODO: Does an additional allocation compared to `is_zero_row`.
     #[inline]
     pub fn is_zero_col(&self, i: usize) -> bool {
-        self.col(i).is_zero()
-    }*/
-
-
-    /// Return the transpose of an integer matrix.
-    #[inline]
-    pub fn transpose(&self) -> IntMat {
-        let mut res = self.parent().default();
-        unsafe {
-            fmpz_mat::fmpz_mat_transpose(res.as_mut_ptr(), self.as_ptr());
-            res
-        }
+        self.column(i).is_zero()
     }
 
-    /// Compute the transpose of a square integer matrix in place.
+    /// Return the transpose.
+    #[inline]
+    pub fn transpose(&self) -> IntMat {
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
+        unsafe {
+            fmpz_mat::fmpz_mat_transpose(res.as_mut_ptr(), self.as_ptr());
+        }
+        res
+    }
+
+    /// Transpose the matrix in place. Panics if the matrix is not square.
     #[inline]
     pub fn transpose_assign(&mut self) {
         assert!(self.is_square());
         unsafe { fmpz_mat::fmpz_mat_transpose(self.as_mut_ptr(), self.as_ptr()); }
     }
     
-    /// Return the matrix obtained by horizontally concatenating `self` with 
-    /// `other` in that order. The number of rows of both matrices must agree.
-    pub fn hcat<'a, T>(&self, other: T) -> IntMat where
+    /// Horizontally concatenate two matrices. Panics if the number of rows of 
+    /// both matrices do not agree.
+    pub fn hcat<T>(&self, other: T) -> IntMat where
         T: AsRef<IntMat>
     {
         let other = other.as_ref();
-        assert_eq!(self.nrows(), other.nrows());
+        let nrows = self.nrows_si();
+        assert_eq!(nrows, other.nrows_si());
 
-        let mut res = MaybeUninit::uninit();
+        let mut res = IntMat::zero(nrows, self.ncols_si() + other.ncols_si());
         unsafe {
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(), 
-                self.nrows(), 
-                self.ncols() + other.ncols()
-            );
             fmpz_mat::fmpz_mat_concat_horizontal(
                 res.as_mut_ptr(), 
                 self.as_ptr(), 
                 other.as_ptr()
             );
-            IntMat { inner: res.assume_init() }
         }
+        res
     }
     
-    /// Return the matrix obtained by vertically concatenating `self` with 
-    /// `other` in that order. The number of columns of both matrices must agree.
-    pub fn vcat<'a, T>(&self, other: T) -> IntMat where
+    /// Vertically concatenate two matrices. Panics if the number of columns of 
+    /// both matrices do not agree.
+    pub fn vcat<T>(&self, other: T) -> IntMat where
         T: AsRef<IntMat>
     {
         let other = other.as_ref();
-        assert_eq!(self.ncols(), other.ncols());
+        let ncols = self.ncols_si();
+        assert_eq!(ncols, other.ncols_si());
 
-        let mut res = MaybeUninit::uninit();
+        let mut res = IntMat::zero(self.nrows_si() + other.nrows_si(), ncols);
         unsafe {
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(), 
-                self.nrows() + other.nrows(), 
-                self.ncols()
-            );
-            fmpz_mat::fmpz_mat_concat_vertical(
+            fmpz_mat::fmpz_mat_concat_horizontal(
                 res.as_mut_ptr(), 
                 self.as_ptr(), 
                 other.as_ptr()
             );
-            IntMat { inner: res.assume_init() }
         }
+        res
     }
    
+    // TODO: 'window' version to avoid allocation
     /// Return a new matrix containing the `r2 - r1` by `c2 - c1` submatrix of 
     /// an integer matrix whose `(0, 0)` entry is the `(r1, c1)` entry of the input.
-    pub fn submatrix<S>(&self, r1: S, c1: S, r2: S, c2: S) -> IntMat where 
-        S: Into<i64>,
-    {
-        let r1 = r1.into();
-        let r2 = r2.into();
-        let c1 = c1.into();
-        let c2 = c2.into();
+    pub fn submatrix(&self, r1: usize, c1: usize, r2: usize, c2: usize) -> IntMat {
+        if r1 == r2 || c1 == c2 {
+            return IntMat::zero(0, 0)
+        }
+        
+        assert!(r1 <= r2);
+        assert!(c1 <= c2);
+        let (r1, c1) = self.check_indices(r1, c1);
+        let (r2, c2) = self.check_indices(r2, c2);
 
-        assert!((r2+r1) <= self.nrows());
-        assert!((c2+c1) <= self.ncols());
-
-        let mut res = MaybeUninit::uninit();
+        let mut res = IntMat::zero(r2 - r1, c2 - c1);
         let mut win = MaybeUninit::uninit();
         unsafe {
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(), 
-                r2 - r1, 
-                c2 - c1
-            );
             fmpz_mat::fmpz_mat_window_init(
                 win.as_mut_ptr(), 
                 self.as_ptr(),
@@ -556,40 +586,35 @@ impl IntMat {
             );
             fmpz_mat::fmpz_mat_set(res.as_mut_ptr(), win.as_ptr());
             fmpz_mat::fmpz_mat_window_clear(win.as_mut_ptr());
-            IntMat { inner: res.assume_init() }
         }
+        res
+
     }
     
     /// Return row `i` as an integer matrix.
     #[inline]
-    pub fn row<S>(&self, i: S) -> IntMat where 
-        S: Into<i64>,
-    {
-        let i = i.into();
+    pub fn row(&self, i: usize) -> IntMat {
         self.submatrix(i, 0, i + 1, self.ncols())
     }
    
     /// Return column `j` as an integer matrix.
     #[inline]
-    pub fn col<S>(&self, j: S) -> IntMat where
-        S: Into<i64>,
-    {
-        let j = j.into();
+    pub fn column(&self, j: usize) -> IntMat {
         self.submatrix(0, j, self.nrows(), j + 1)
     }
 
-    /// Return the square of an integer matrix. The matrix must be square.
+    /// Square an integer matrix. The matrix must be square.
     #[inline]
     pub fn square(&self) -> Self {
         assert!(self.is_square());
-        let mut res = self.parent().default();
-        unsafe { 
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
+        unsafe {
             fmpz_mat::fmpz_mat_sqr(res.as_mut_ptr(), self.as_ptr()) 
         }
         res
     }
     
-    /// Return the square of an integer matrix. The matrix must be square.
+    /// Square an integer matrix in place. The matrix must be square.
     #[inline]
     pub fn square_assign(&mut self) {
         assert!(self.is_square());
@@ -599,31 +624,29 @@ impl IntMat {
     }
     
     /// Return the kronecker product of two integer matrices.
-    pub fn kronecker_product<'a, T>(&self, other: T) -> IntMat where 
+    pub fn kronecker_product<T>(&self, other: T) -> IntMat where 
         T: AsRef<IntMat>
     {
         let other = other.as_ref();
-        let mut res = MaybeUninit::uninit();
+        let mut res = IntMat::zero(
+            self.nrows_si() * other.nrows_si(),
+            self.ncols_si() * other.ncols_si()
+        );
         unsafe { 
-            fmpz_mat::fmpz_mat_init(
-                res.as_mut_ptr(), 
-                self.nrows()*other.nrows(), 
-                self.ncols()*other.ncols()
-            );
             fmpz_mat::fmpz_mat_kronecker_product(
                 res.as_mut_ptr(), 
                 self.as_ptr(), 
                 other.as_ptr()
             ); 
-            IntMat { inner: res.assume_init() }
         }
+        res
     }
     
     /// Compute the trace of a square integer matrix.
     #[inline]
     pub fn trace(&self) -> Integer {
         assert!(self.is_square());
-        let mut res = Integer::default();
+        let mut res = Integer::zero();
         unsafe { 
             fmpz_mat::fmpz_mat_trace(res.as_mut_ptr(), self.as_ptr());
         }
@@ -634,7 +657,7 @@ impl IntMat {
     /// entries. Returns zero if the matrix is empty.
     #[inline]
     pub fn content(&self) -> Integer {
-        let mut res = Integer::default();
+        let mut res = Integer::zero();
         unsafe { 
             fmpz_mat::fmpz_mat_content(res.as_mut_ptr(), self.as_ptr()); 
         }
@@ -645,7 +668,7 @@ impl IntMat {
     #[inline]
     pub fn det(&self) -> Integer {
         assert!(self.is_square());
-        let mut res = Integer::default();
+        let mut res = Integer::zero();
         unsafe { 
             fmpz_mat::fmpz_mat_det(res.as_mut_ptr(), self.as_ptr()); 
         }
@@ -657,7 +680,7 @@ impl IntMat {
     #[inline]
     pub fn det_bound(&self) -> Integer {
         assert!(self.is_square());
-        let mut res = Integer::default();
+        let mut res = Integer::zero();
         unsafe { 
             fmpz_mat::fmpz_mat_det_bound(res.as_mut_ptr(), self.as_ptr()); 
         }
@@ -669,7 +692,7 @@ impl IntMat {
     #[inline]
     pub fn det_divisor(&self) -> Integer {
         assert!(self.is_square());
-        let mut res = Integer::default();
+        let mut res = Integer::zero();
         unsafe { 
             fmpz_mat::fmpz_mat_det_divisor(res.as_mut_ptr(), self.as_ptr()); 
         }
@@ -679,27 +702,20 @@ impl IntMat {
     /// Applies a similarity transform to an `n` by `n` integer matrix. If `P` 
     /// is the identity matrix whose zero entries in row `r` have been replaced 
     /// by `d`, this transform is equivalent to `P^-1 * M * P`. 
-    pub fn similarity<'a, S, T>(&self, r: S, d: T) -> IntMat where 
-        S: Into<i64>,
+    #[inline]
+    pub fn similarity<T>(&self, r: usize, d: T) -> IntMat where 
         T: AsRef<Integer>
     {
-        assert!(self.is_square());
         let mut res = self.clone();
-        unsafe { 
-            fmpz_mat::fmpz_mat_similarity(
-                res.as_mut_ptr(), 
-                r.into(),
-                d.as_ref().as_ptr()
-            ); 
-        }
+        res.similarity_assign(r, d);
         res
     }
     
     /// Applies a similarity transform to an `n` by `n` integer matrix in place.
-    pub fn similarity_assign<'a, S, T>(&mut self, r: S, d: T) where 
-        S: Into<i64>,
+    pub fn similarity_assign<T>(&mut self, r: usize, d: T) where 
         T: AsRef<Integer>
     {
+        let r = self.check_row_index(r);
         assert!(self.is_square());
         unsafe { 
             fmpz_mat::fmpz_mat_similarity(
@@ -714,7 +730,7 @@ impl IntMat {
     #[inline]
     pub fn charpoly(&self) -> IntPoly {
         assert!(self.is_square());
-        let mut res = IntPoly::default();
+        let mut res = IntPoly::zero();
         unsafe { 
             fmpz_mat::fmpz_mat_charpoly(res.as_mut_ptr(), self.as_ptr()); 
         }
@@ -725,7 +741,7 @@ impl IntMat {
     #[inline]
     pub fn minpoly(&self) -> IntPoly {
         assert!(self.is_square());
-        let mut res = IntPoly::default();
+        let mut res = IntPoly::zero();
         unsafe { 
             fmpz_mat::fmpz_mat_minpoly(res.as_mut_ptr(), self.as_ptr()); 
         }
@@ -740,8 +756,9 @@ impl IntMat {
         unsafe { fmpz_mat::fmpz_mat_rank(self.as_ptr()) }
     }
 
+    /*
     /// Solve `AX = B` for nonsingular `A`.
-    pub fn solve<'a, T>(&self, rhs: T) -> Option<RatMat> where 
+    pub fn solve<T>(&self, rhs: T) -> Option<RatMat> where 
         T: AsRef<IntMat>
     {
         let b = rhs.as_ref();
@@ -765,7 +782,7 @@ impl IntMat {
                 Some(RatMat::from_raw(res.assume_init()))
             }
         }
-    }
+    }*/
 
     /*
     pub fn solve_fraction_free<'a, T>(&self, B: &'a T) -> Option<RatMat> where &'a T: Into<IntMat<'a>> {
@@ -927,8 +944,8 @@ impl IntMat {
 
     /// Return the rank and (A, den) a fraction-free LU decomposition of the input.
     pub fn fflu(&self) -> (i64, IntMat, Integer) {
-        let mut res = self.parent().default();
-        let mut den = Integer::default();
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
+        let mut den = Integer::zero();
 
         unsafe {
             let rank = fmpz_mat::fmpz_mat_fflu(
@@ -943,8 +960,8 @@ impl IntMat {
     }
    
     pub fn rref(&self) -> (i64, IntMat, Integer) {
-        let mut res = self.parent().default();
-        let mut den = Integer::default();
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
+        let mut den = Integer::zero();
 
         unsafe {
             let rank = fmpz_mat::fmpz_mat_rref(
@@ -956,10 +973,10 @@ impl IntMat {
         }
     }
     
-    pub fn rref_mod<'a, T>(&self, modulus: T) -> (i64, IntMat) where 
+    pub fn rref_mod<T>(&self, modulus: T) -> (i64, IntMat) where 
         T: AsRef<Integer> 
     {
-        let mut res = self.parent().default();
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
         unsafe {
             let rank = fmpz_mat::fmpz_mat_rref_mod(
                 std::ptr::null_mut(),
@@ -975,10 +992,10 @@ impl IntMat {
         RatMat::from(self).gram_schmidt()
     }*/
 
-    pub fn strong_echelon_form_mod<'a, T>(&self, modulus: T) -> IntMat where 
+    pub fn strong_echelon_form_mod<T>(&self, modulus: T) -> IntMat where 
         T: AsRef<Integer>
     {
-        let mut res = self.parent().default();
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
         unsafe {
             fmpz_mat::fmpz_mat_strong_echelon_form_mod(
                 res.as_mut_ptr(),
@@ -988,11 +1005,11 @@ impl IntMat {
         res
     }
     
-    pub fn howell_form_mod<'a, T>(&self, modulus: T) -> (i64, IntMat) where 
+    pub fn howell_form_mod<T>(&self, modulus: T) -> (i64, IntMat) where 
         T: AsRef<Integer>
     {
         assert!(self.ncols() <= self.nrows());
-        let mut res = self.parent().default();
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
         unsafe {
             let rank = fmpz_mat::fmpz_mat_howell_form_mod(
                 res.as_mut_ptr(),
@@ -1001,10 +1018,10 @@ impl IntMat {
             (rank, res)
         }
     }
-  
+ 
     /*
     // TODO: get rows/cols of nullspace first
-    // WHY SUBMATRIX
+    // left or right?
     pub fn nullspace(&self) -> IntMat {
         let mut res = MaybeUninit::uninit();
 
@@ -1021,9 +1038,10 @@ impl IntMat {
             res.submatrix(0, 0, res.nrows(), rank)
         }
     }*/
-    
+
+    // FIXME: aliasing allowed? then do hnf_assign
     pub fn hnf(&self) -> IntMat {
-        let mut res = self.parent().default();
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
         unsafe { 
             fmpz_mat::fmpz_mat_hnf(res.as_mut_ptr(), self.as_ptr()); 
         }
@@ -1031,8 +1049,8 @@ impl IntMat {
     }
     
     pub fn hnf_transform(&self) -> (IntMat, IntMat) {
-        let mut h = self.parent().default();
-        let mut u = self.parent().default();
+        let mut h = IntMat::zero(self.nrows_si(), self.ncols_si());
+        let mut u = IntMat::zero(self.nrows_si(), self.ncols_si());
         unsafe { 
             fmpz_mat::fmpz_mat_hnf_transform(
                 h.as_mut_ptr(), 
@@ -1048,7 +1066,7 @@ impl IntMat {
     }
     
     pub fn snf(&self) -> IntMat {
-        let mut res = self.parent().default();
+        let mut res = IntMat::zero(self.nrows_si(), self.ncols_si());
         unsafe { fmpz_mat::fmpz_mat_snf(res.as_mut_ptr(), self.as_ptr()); }
         res
     }
@@ -1056,7 +1074,7 @@ impl IntMat {
     pub fn is_snf(&self) -> bool {
         unsafe { fmpz_mat::fmpz_mat_is_in_snf(self.as_ptr()) == 1 }
     }
-    
+
     /*
     pub fn gram(&self) -> IntMat<'a> {
         let mut B = IntMat<'a>::zero(self.nrows(), self.ncols());
@@ -1119,76 +1137,4 @@ impl IntMat {
         res
     }
     */
-}
-
-impl Serialize for IntMat {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let entries = self.entries();
-        let mut seq = serializer.serialize_seq(Some(entries.len() + 2))?;
-
-        seq.serialize_element(&self.nrows())?;
-        seq.serialize_element(&self.ncols())?;
-        for e in entries.iter() {
-            seq.serialize_element(e)?;
-        }
-        seq.end()
-    }
-}
-
-struct IntMatVisitor {}
-
-impl IntMatVisitor {
-    fn new() -> Self {
-        IntMatVisitor {}
-    }
-}
-
-impl<'de> Visitor<'de> for IntMatVisitor {
-    type Value = IntMat;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an IntMat")
-    }
-
-    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut entries: Vec<Integer> = Vec::with_capacity(
-            access.size_hint().unwrap_or(0));
-        let nrows: i64 = access.next_element()?.unwrap();
-        let ncols: i64 = access.next_element()?.unwrap();
-
-        while let Some(x) = access.next_element()? {
-            entries.push(x);
-        }
-
-        let zm = IntMatSpace::init(nrows, ncols);
-        Ok(zm.new(&entries[..]))
-    }
-}
-
-impl<'de> Deserialize<'de> for IntMat {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_seq(IntMatVisitor::new())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::IntMat;
-
-    #[test]
-    fn serde() {
-        let x = IntMat::from(vec![vec![1, 0], vec![0, 2]]);
-        let ser = bincode::serialize(&x).unwrap();
-        let y: IntMat = bincode::deserialize(&ser).unwrap();
-        assert_eq!(x, y);
-    }
 }

@@ -16,35 +16,29 @@
  */
 
 #![allow(unused_macros)]
-//! Inertia is a (WIP) computational mathematics library for Rust.
-//!
-//! Inertia-core contains the core functionality of the
-//! [Inertia](https://github.com/wjyoumans/inertia) crate, providing high-level wrappers for the
-//! [FLINT](https://flintlib.org/doc/), [Arb](https://arblib.org/), and
-//! [Antic](https://github.com/wbhart/antic) C libraries.
 
 #[macro_use]
 mod macros;
+pub mod ops;
 
-mod finfld;
-mod finfldmat;
-mod finfldpoly;
 mod integer;
-mod intmat;
-mod intmod;
-mod intmodmat;
-mod intmodpoly;
-mod intmpoly;
 mod intpoly;
+mod intmat;
+
 mod rational;
-mod ratmat;
 mod ratpoly;
+mod ratmat;
 
+mod intmod;
+mod intmodpoly;
+//mod intmodmat;
 
-pub trait New<A> {
-    type Output;
-    fn new(&self, a: A) -> Self::Output;
-}
+//mod finfld;
+//mod finfldpoly;
+//mod finfldmat;
+
+//mod intmpoly;
+//
 
 mod util {
     #[must_use]
@@ -57,159 +51,24 @@ mod util {
     }
 }
 
-/// Expand on the operations provided in `std::ops`.
-mod ops {
-    pub trait Assign<T = Self> {
-        fn assign(&mut self, other: T);
-    }
-
-    /// Inverse as a unary operation.
-    pub trait Inv {
-        type Output;
-        fn inv(self) -> Self::Output;
-    }
-
-    /// Inverse with assignment.
-    pub trait InvAssign {
-        fn inv_assign(&mut self);
-    }
-
-    /// Negation with assignment.
-    pub trait NegAssign {
-        fn neg_assign(&mut self);
-    }
-
-    /// Complement with assignment.
-    pub trait NotAssign {
-        fn not_assign(&mut self);
-    }
-
-    /// Bitwise `and` with assignment to the rhs operand.
-    pub trait BitAndFrom<Lhs = Self> {
-        fn bitand_from(&mut self, lhs: Lhs);
-    }
-
-    /// Bitwise `and` with assignment into a third argument.
-    pub trait AssignBitAnd<Lhs = Self, Rhs = Self> {
-        fn assign_bitand(&mut self, lhs: Lhs, rhs: Rhs);
-    }
-
-    /// Bitwise `or` with assignment to the rhs operand.
-    pub trait BitOrFrom<Lhs = Self> {
-        fn bitor_from(&mut self, lhs: Lhs);
-    }
-
-    /// Bitwise `or` with assignment into a third argument.
-    pub trait AssignBitOr<T, U> {
-        fn assign_bitor(&mut self, lhs: T, rhs: U);
-    }
-
-    /// Bitwise `xor` with assignment to the rhs operand.
-    pub trait BitXorFrom<Lhs = Self> {
-        fn bitxor_from(&mut self, lhs: Lhs);
-    }
-
-    /// Bitwise `xor` with assignment into a third argument.
-    pub trait AssignBitXor<T, U> {
-        fn assign_bitxor(&mut self, lhs: T, rhs: U);
-    }
-
-    /// Addition with assignment to the rhs operand.
-    pub trait AddFrom<Lhs = Self> {
-        fn add_from(&mut self, lhs: Lhs);
-    }
-
-    /// Addition with assignment into a third argument.
-    pub trait AssignAdd<T, U> {
-        fn assign_add(&mut self, lhs: T, rhs: U);
-    }
-
-    /// Subtraction with assignment to the rhs operand.
-    pub trait SubFrom<Lhs = Self> {
-        fn sub_from(&mut self, lhs: Lhs);
-    }
-
-    /// Subtraction with assignment into a third argument.
-    pub trait AssignSub<T, U> {
-        fn assign_sub(&mut self, lhs: T, rhs: U);
-    }
-
-    /// Multiplication with assignment to the rhs operand.
-    pub trait MulFrom<Lhs = Self> {
-        fn mul_from(&mut self, lhs: Lhs);
-    }
-
-    /// Multiplication with assignment into a third argument.
-    pub trait AssignMul<T, U> {
-        fn assign_mul(&mut self, lhs: T, rhs: U);
-    }
-
-    /// Division with assignment to the rhs operand.
-    pub trait DivFrom<Lhs = Self> {
-        fn div_from(&mut self, lhs: Lhs);
-    }
-
-    /// Division with assignment into a third argument.
-    pub trait AssignDiv<T, U> {
-        fn assign_div(&mut self, lhs: T, rhs: U);
-    }
-
-    /// Exponentiation.
-    pub trait Pow<Rhs = Self> {
-        type Output;
-        fn pow(self, rhs: Rhs) -> Self::Output;
-    }
-
-    /// Exponentiation with assignment.
-    pub trait PowAssign<Rhs = Self> {
-        fn pow_assign(&mut self, rhs: Rhs);
-    }
-
-    /// Exponentiation with assignment to the rhs operand.
-    pub trait PowFrom<Lhs = Self> {
-        fn pow_from(&mut self, lhs: Lhs);
-    }
-
-    /// Exponentiation with assignment into a third argument.
-    pub trait AssignPow<T, U> {
-        fn assign_pow(&mut self, lhs: T, rhs: U);
-    }
-
-    /// Remainder with assignment to the rhs operand.
-    pub trait RemFrom<Lhs = Self> {
-        fn rem_from(&mut self, lhs: Lhs);
-    }
-
-    /// Remainder with assignment into a third argument.
-    pub trait AssignRem<T, U> {
-        fn assign_rem(&mut self, lhs: T, rhs: U);
-    }
-
-    /// Evaluation of an expression at `x`.
-    pub trait Evaluate<T> {
-        type Output;
-        fn evaluate(&self, x: T) -> Self::Output;
-    }
-
-    /// Modular evaluation of an expression at `x`.
-    pub trait EvaluateMod<T, U> {
-        type Output;
-        fn evaluate_mod(&self, x: T, modulus: U) -> Self::Output;
-    }
+pub trait NewMatrix<T> {
+    fn new_matrix(nrows: i64, ncols: i64, src: T) -> Self;
 }
 
-pub use macros::*;
-pub use ops::*;
-pub use finfld::*;
-pub use finfldmat::*;
-pub use finfldpoly::*;
 pub use integer::*;
-pub use intmat::*;
-pub use intmod::*;
-pub use intmodmat::*;
-pub use intmodpoly::*;
-pub use intmpoly::*;
 pub use intpoly::*;
+pub use intmat::*;
+
 pub use rational::*;
-pub use ratmat::*;
 pub use ratpoly::*;
+pub use ratmat::*;
+
+pub use intmod::*;
+pub use intmodpoly::*;
+//pub use intmodmat::*;
+
+//pub use finfld::*;
+//pub use finfldpoly::*;
+//pub use finfldmat::*;
+
+//pub use intmpoly::*;

@@ -15,79 +15,99 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// TODO: op guards need work, especially *From and Assign* (DivFrom, AssignDiv etc)
 //! Macros for implementing comparisons, operations, and conversions.
 
 macro_rules! default {
-    // From/conversion
-    (From, matrix, $out_ty:ident, $in:ident) => {
-        $out_ty::zero($in.nrows(), $in.ncols())
-    };
-
-    // Unary ops
+    // Unary ops and From
     ($op:ident, ctx, $out_ty:ident, $in:ident) => {
-        $in.parent().default()
+        $in.parent().zero()
+        //$out_ty::zero($in.context())
+    };
+    ($op:ident, ctx_in, $out_ty:ident, $in:ident) => {
+        $out_ty::zero()
     };
     ($op:ident, matrix, $out_ty:ident, $in:ident) => {
-        $in.parent().default()
-    };
-    ($op:ident, intmodmat, $out_ty:ident, $in:ident) => {
-        $in.parent().default()
+        $out_ty::zero($in.nrows_si(), $in.ncols_si())
     };
     ($op:ident, $kw:ident, $out_ty:ident, $in:ident) => {
         $out_ty::default()
     };
 
     // Binary ops
-    (Add, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $lhs.ncols())
-    };
-    (Sub, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $lhs.ncols())
-    };
-    (Mul, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $rhs.ncols())
-    };
-    (Add, intmodmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $lhs.ncols(), $lhs.modulus())
-    };
-    (Sub, intmodmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $lhs.ncols(), $lhs.modulus())
-    };
-    (Mul, intmodmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $rhs.ncols(), $lhs.modulus())
-    };
-    (Add, finfldmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $lhs.ncols(), $lhs.modulus())
-    };
-    (Sub, finfldmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $lhs.ncols(), $lhs.modulus())
-    };
-    (Mul, finfldmat, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $rhs.ncols(), $lhs.modulus())
-    };
-    ($op:ident, lhs_scalar, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($rhs.nrows(), $rhs.ncols())
-    };
-    ($op:ident, rhs_scalar, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $out_ty::default($lhs.nrows(), $lhs.ncols())
-    };
     ($op:ident, ctx, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $lhs.parent().default()
+        $lhs.parent().zero()
+        //$out_ty::zero($lhs.context())
     };
     ($op:ident, ctx_lhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $lhs.parent().default()
+        $lhs.parent().zero()
+        //$out_ty::zero($lhs.context())
     };
     ($op:ident, ctx_rhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
-        $rhs.parent().default()
+        $rhs.parent().zero()
+        //$out_ty::zero($rhs.context())
+    };
+    ($op:ident, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::zero($lhs.nrows_si(), $rhs.ncols_si())
+    };
+    ($op:ident, scalar_lhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::zero($rhs.nrows_si(), $rhs.ncols_si())
+    };
+    ($op:ident, scalar_rhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::zero($lhs.nrows_si(), $lhs.ncols_si())
     };
     ($op:ident, $kw:ident, $out_ty:ident, $lhs:ident, $rhs:ident) => {
         $out_ty::default()
     };
 }
 
+macro_rules! op_guard {
+    // Unary ops and From
+    (Inv, $kw:ident, $out_ty:ident, $in:ident) => {
+        // TODO: check den != 0
+        //$in.is_invertible()
+    };
+    (Pow, $kw:ident, $out_ty:ident, $in:ident) => {
+        // TODO: check if exp negative or fractional for certain types
+    };
+    ($op:ident, $kw:ident, $out_ty:ident, $in:ident) => {
+    };
+
+    // Binary ops
+    ($op:ident, ctx, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        // check contexts agree
+        assert_eq!($lhs.parent(), $rhs.parent())
+    };
+    (Mul, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        assert_eq!($lhs.ncols_si(), $rhs.nrows_si())
+    };
+    (MulAssign, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        assert_eq!($lhs.ncols_si(), $rhs.nrows_si())
+    };
+    // covers all matrix ops except Mul
+    ($op:ident, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        assert_eq!($lhs.nrows_si(), $rhs.nrows_si());
+        assert_eq!($lhs.ncols_si(), $rhs.ncols_si())
+    };
+    ($op:ident, scalar_lhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+    };
+    (Div, scalar_rhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        // TODO:
+        // $rhs.is_invertible()
+    };
+    ($op:ident, $kw:ident, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+    };
+}
+
 macro_rules! call_unsafe {
-    // Unary ops
+    // Unary ops and From
     (ctx, $func:path, $out:ident, $in:ident) => {
+        unsafe {
+            $func($out.as_mut_ptr(), $in.as_ptr(), $out.ctx_as_ptr());
+            //$func($out.as_mut_ptr(), $in.as_ptr(), $out.ctx_as_ptr());
+        }
+    };
+    (ctx_in, $func:path, $out:ident, $in:ident) => {
         unsafe {
             $func($out.as_mut_ptr(), $in.as_ptr(), $in.ctx_as_ptr());
         }
@@ -97,12 +117,19 @@ macro_rules! call_unsafe {
             $func($out.as_mut_ptr(), $in.as_ptr());
         }
     };
+    (cast ctx, $func:path, $cast:ty, $out:ident, $in:ident) => {
+        unsafe {
+            $func($out.as_mut_ptr(), *$in as $cast, $out.ctx_as_ptr());
+        }
+    };
+    (cast $kw:ident, $func:path, $cast:ty, $out:ident, $in:ident) => {
+        unsafe {
+            $func($out.as_mut_ptr(), *$in as $cast);
+        }
+    };
 
     // Binary ops
     (ctx, $func:path, $out:ident, $lhs:ident, $rhs:ident) => {
-        // leave to op guard
-        //assert!(Arc::ptr_eq(&*$lhs.parent(), &*$rhs.parent()) || $lhs.parent() == $rhs.parent());
-        //assert!(Arc::ptr_eq(&*$lhs.parent(), &*$rhs.parent()));
         unsafe {
             $func(
                 $out.as_mut_ptr(),
@@ -589,7 +616,7 @@ macro_rules! impl_binop {
             #[inline]
             $($code)*
         }
-
+       
         impl $op<$t2> for &$t1 {
             type Output = $out;
             #[inline]
@@ -923,8 +950,8 @@ macro_rules! impl_binop_unsafe {
             $op {$meth}
             {
                 fn $meth(self, rhs: &$t2) -> $out {
+                    op_guard!($op, $kw, $out, self, rhs);
                     let mut res = default!($op, $kw, $out, self, rhs);
-                    //unsafe { $func(res.as_mut_ptr(), self.as_ptr(), rhs.as_ptr()); }
                     call_unsafe!($kw, $func, res, self, rhs);
                     res
                 }
@@ -932,21 +959,21 @@ macro_rules! impl_binop_unsafe {
             $op_assign {$meth_assign}
             {
                 fn $meth_assign(&mut self, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), self.as_ptr(), rhs.as_ptr()); }
+                    op_guard!($op, $kw, $out, self, rhs);
                     call_unsafe!($kw, $func, self, self, rhs);
                 }
             }
             $op_from {$meth_from}
             {
                 fn $meth_from(&mut self, lhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), lhs.as_ptr(), self.as_ptr()); }
+                    op_guard!($op, $kw, $out, lhs, self);
                     call_unsafe!($kw, $func, self, lhs, self);
                 }
             }
             $assign_op {$assign_meth}
             {
                 fn $assign_meth(&mut self, lhs: &$t1, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), lhs.as_ptr(), rhs.as_ptr()); }
+                    op_guard!($op, $kw, $out, lhs, rhs);
                     call_unsafe!($kw, $func, self, lhs, rhs);
                 }
             }
@@ -971,7 +998,6 @@ macro_rules! impl_binop_unsafe {
             {
                 fn $meth(self, rhs: &$t2) -> $out {
                     let mut res = default!($op, $kw, $out, self, rhs);
-                    //unsafe { $func(res.as_mut_ptr(), self.as_ptr(), rhs.as_ptr()); }
                     call_unsafe!($kw, $func, res, self, rhs);
                     res
                 }
@@ -979,14 +1005,12 @@ macro_rules! impl_binop_unsafe {
             $op_assign {$meth_assign}
             {
                 fn $meth_assign(&mut self, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), self.as_ptr(), rhs.as_ptr()); }
                     call_unsafe!($kw, $func, self, self, rhs);
                 }
             }
             $assign_op {$assign_meth}
             {
                 fn $assign_meth(&mut self, lhs: &$t1, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), lhs.as_ptr(), rhs.as_ptr()); }
                     call_unsafe!($kw, $func, self, lhs, rhs);
                 }
             }
@@ -1041,7 +1065,6 @@ macro_rules! impl_binop_unsafe {
             {
                 fn $meth(self, rhs: &$t2) -> $out {
                     let mut res = default!($op, $kw, $out, self, rhs);
-                    //unsafe { $func(res.as_mut_ptr(), self.as_ptr(), *rhs as $cast); }
                     call_unsafe!(cast_rhs $kw, $func, $cast, res, self, rhs);
                     res
                 }
@@ -1049,14 +1072,12 @@ macro_rules! impl_binop_unsafe {
             $op_assign {$meth_assign}
             {
                 fn $meth_assign(&mut self, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), self.as_ptr(), *rhs as $cast); }
                     call_unsafe!(cast_rhs $kw, $func, $cast, self, self, rhs);
                 }
             }
             $assign_op {$assign_meth}
             {
                 fn $assign_meth(&mut self, lhs: &$t1, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), lhs.as_ptr(), *rhs as $cast); }
                     call_unsafe!(cast_rhs $kw, $func, $cast, self, lhs, rhs);
                 }
             }
@@ -1086,7 +1107,6 @@ macro_rules! impl_binop_unsafe {
             {
                 fn $meth(self, rhs: &$t2) -> $out {
                     let mut res = default!($op, $kw, $out, self, rhs);
-                    //unsafe { $func(res.as_mut_ptr(), self.as_ptr(), rhs.as_ptr()); }
                     call_unsafe!($kw, $func, res, self, rhs);
                     res
                 }
@@ -1094,14 +1114,12 @@ macro_rules! impl_binop_unsafe {
             $op_from {$meth_from}
             {
                 fn $meth_from(&mut self, lhs: &$t1) {
-                    //unsafe { $func(self.as_mut_ptr(), lhs.as_ptr(), self.as_ptr()); }
                     call_unsafe!($kw, $func, self, lhs, self);
                 }
             }
             $assign_op {$assign_meth}
             {
                 fn $assign_meth(&mut self, lhs: &$t1, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), lhs.as_ptr(), rhs.as_ptr()); }
                     call_unsafe!($kw, $func, self, lhs, rhs);
                 }
             }
@@ -1156,7 +1174,6 @@ macro_rules! impl_binop_unsafe {
             {
                 fn $meth(self, rhs: &$t2) -> $out {
                     let mut res = default!($op, $kw, $out, self, rhs);
-                    //unsafe { $func(res.as_mut_ptr(), *self as $cast, rhs.as_ptr()); }
                     call_unsafe!(cast_lhs $kw, $func, $cast, res, self, rhs);
                     res
                 }
@@ -1164,14 +1181,12 @@ macro_rules! impl_binop_unsafe {
             $op_from {$meth_from}
             {
                 fn $meth_from(&mut self, lhs: &$t1) {
-                    //unsafe { $func(self.as_mut_ptr(), *lhs as $cast, self.as_ptr()); }
                     call_unsafe!(cast_lhs $kw, $func, $cast, self, lhs, self);
                 }
             }
             $assign_op {$assign_meth}
             {
                 fn $assign_meth(&mut self, lhs: &$t1, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), *lhs as $cast, rhs.as_ptr()); }
                     call_unsafe!(cast_lhs $kw, $func, $cast, self, lhs, rhs);
                 }
             }
@@ -1198,7 +1213,6 @@ macro_rules! impl_binop_unsafe {
             {
                 fn $meth(self, rhs: &$t2) -> $out {
                     let mut res = default!($op, $kw, $out, self, rhs);
-                    //unsafe { $func(res.as_mut_ptr(), self.as_ptr(), rhs.as_ptr()); }
                     call_unsafe!($kw, $func, res, self, rhs);
                     res
                 }
@@ -1206,7 +1220,6 @@ macro_rules! impl_binop_unsafe {
             $assign_op {$assign_meth}
             {
                 fn $assign_meth(&mut self, lhs: &$t1, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), lhs.as_ptr(), rhs.as_ptr()); }
                     call_unsafe!($kw, $func, self, lhs, rhs);
                 }
             }
@@ -1253,7 +1266,6 @@ macro_rules! impl_binop_unsafe {
             {
                 fn $meth(self, rhs: &$t2) -> $out {
                     let mut res = default!($op, $kw, $out, self, rhs);
-                    //unsafe { $func(res.as_mut_ptr(), *self as $cast, rhs.as_ptr()); }
                     call_unsafe!(cast_lhs $kw, $func, $cast, res, self, rhs);
                     res
                 }
@@ -1261,7 +1273,6 @@ macro_rules! impl_binop_unsafe {
             $assign_op {$assign_meth}
             {
                 fn $assign_meth(&mut self, lhs: &$t1, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), *lhs as $cast, rhs.as_ptr()); }
                     call_unsafe!(cast_lhs $kw, $func, $cast, self, lhs, rhs);
                 }
             }
@@ -1312,7 +1323,6 @@ macro_rules! impl_binop_unsafe {
             {
                 fn $meth(self, rhs: &$t2) -> $out {
                     let mut res = default!($op, $kw, $out, self, rhs);
-                    //unsafe { $func(res.as_mut_ptr(), self.as_ptr(), *rhs as $cast); }
                     call_unsafe!(cast_rhs $kw, $func, $cast, res, self, rhs);
                     res
                 }
@@ -1320,7 +1330,6 @@ macro_rules! impl_binop_unsafe {
             $assign_op {$assign_meth}
             {
                 fn $assign_meth(&mut self, lhs: &$t1, rhs: &$t2) {
-                    //unsafe { $func(self.as_mut_ptr(), lhs.as_ptr(), *rhs as $cast); }
                     call_unsafe!(cast_rhs $kw, $func, $cast, self, lhs, rhs);
                 }
             }
@@ -1353,77 +1362,62 @@ macro_rules! impl_from {
             $($code)*
         }
     };
+}
+
+/// Macros for implementing `From` for conversions with unsafe functions.
+macro_rules! impl_from_unsafe {
     (
-        pol
-        $t1:ident, $cast:ident {$($t2:ident)*}
-    ) => ($(
-        impl From<&[$t2]> for $t1 {
-            #[inline]
-            fn from(src: &[$t2]) -> $t1 {
-                let mut res = <$t1>::default();
-                for (i, x) in src.iter().enumerate() {
-                    res.set_coeff(i as i64, &<$cast>::from(x));
+        $kw:ident
+        $t1:ident, $t2:ident
+        $func:path
+    ) => (
+        impl_from! {
+            $t1, $t2
+            {
+                fn from(src: &$t2) -> $t1 {
+                    let mut res = default!(From, $kw, $t1, src);
+                    call_unsafe!($kw, $func, res, src);
+                    res
                 }
-                res
             }
         }
-
-        impl From<Vec<$t2>> for $t1 {
-            #[inline]
-            fn from(src: Vec<$t2>) -> $t1 {
-                <$t1>::from(src.as_slice())
+    );
+    (
+        // a -> b, a primitive
+        $kw:ident
+        $t1:ident, $cast:ident {$($t2:ident)*}
+        $func:path
+    ) => ($(
+        impl_from! {
+            $t1, $t2
+            {
+                fn from(src: &$t2) -> $t1 {
+                    let mut res = default!(From, $kw, $t1, src);
+                    call_unsafe!(cast $kw, $func, $cast, res, src);
+                    res
+                }
             }
         }
     )*);
+    /*
     (
-        matrix
-        $t1:ident, $cast:ident {$($t2:ident)*}
-    ) => ($(
-
-        impl From<&[&[$t2]]> for $t1 {
-            fn from(mat: &[&[$t2]]) -> $t1 {
-                let m = mat.len() as c_long;
-                let n = mat.iter().map(|x| x.len()).max().unwrap() as c_long;
-                let mut res = <$t1>::zero(m, n);
-
-                for (i, row) in mat.iter().enumerate() {
-                    for (j, x) in row.iter().enumerate() {
-                        res.set_entry(i, j, &<$cast>::from(x));
-                    }
+        // a -> b, with third argument (precision, etc)
+        $kw:ident
+        $t1:ident, $t2:ident, $arg:expr;
+        $func:path
+    ) => (
+        impl_from! {
+            $t1, $t2
+            {
+                fn from(src: &$t2) -> $t1 {
+                    let mut res = default!(From, $kw, $t1, src);
+                    unsafe { $func(res.as_mut_ptr(), src.as_ptr(), $arg); }
+                    res
                 }
-                res
             }
         }
-
-        impl From<&[Vec<$t2>]> for $t1 {
-            fn from(mat: &[Vec<$t2>]) -> $t1 {
-                let m = mat.len() as c_long;
-                let n = mat.iter().map(|x| x.len()).max().unwrap() as c_long;
-                let mut res = <$t1>::zero(m, n);
-
-                for (i, row) in mat.iter().enumerate() {
-                    for (j, x) in row.iter().enumerate() {
-                        res.set_entry(i, j, &<$cast>::from(x));
-                    }
-                }
-                res
-            }
-        }
-
-        impl From<Vec<&[$t2]>> for $t1 {
-            #[inline]
-            fn from(mat: Vec<&[$t2]>) -> $t1 {
-                <$t1>::from(mat.as_slice())
-            }
-        }
-
-        impl From<Vec<Vec<$t2>>> for $t1 {
-            #[inline]
-            fn from(mat: Vec<Vec<$t2>>) -> $t1 {
-                <$t1>::from(mat.as_slice())
-            }
-        }
-    )*);
+    );
+    */
 }
 
 /// Macros for implementing `TryFrom` for conversions.
@@ -1449,129 +1443,21 @@ macro_rules! impl_tryfrom {
             $($code)*
         }
     };
-    /*
-    (
-        pol
-        $t1:ident, $cast:ident {$($t2:ident)*}
-    ) => ($(
-        impl From<&[$t2]> for $t1 {
-            #[inline]
-            fn from(src: &[$t2]) -> $t1 {
-                let mut res = <$t1>::default();
-                for (i, x) in src.iter().enumerate() {
-                    res.set_coeff(i, &<$cast>::from(x));
-                }
-                res
-            }
-        }
-
-        impl From<Vec<$t2>> for $t1 {
-            #[inline]
-            fn from(src: Vec<$t2>) -> $t1 {
-                <$t1>::from(src.as_slice())
-            }
-        }
-    )*);
-    (
-        matrix
-        $t1:ident, $cast:ident {$($t2:ident)*}
-    ) => ($(
-
-        impl From<&[&[$t2]]> for $t1 {
-            fn from(mat: &[&[$t2]]) -> $t1 {
-                let m = mat.len() as c_long;
-                let n = mat.iter().map(|x| x.len()).max().unwrap() as c_long;
-                let mut res = <$t1>::zero(m, n);
-
-                for (i, row) in mat.iter().enumerate() {
-                    for (j, x) in row.iter().enumerate() {
-                        res.set_entry(i, j, &<$cast>::from(x));
-                    }
-                }
-                res
-            }
-        }
-
-        impl From<&[Vec<$t2>]> for $t1 {
-            fn from(mat: &[Vec<$t2>]) -> $t1 {
-                let m = mat.len() as c_long;
-                let n = mat.iter().map(|x| x.len()).max().unwrap() as c_long;
-                let mut res = <$t1>::zero(m, n);
-
-                for (i, row) in mat.iter().enumerate() {
-                    for (j, x) in row.iter().enumerate() {
-                        res.set_entry(i, j, &<$cast>::from(x));
-                    }
-                }
-                res
-            }
-        }
-
-        impl From<Vec<&[$t2]>> for $t1 {
-            #[inline]
-            fn from(mat: Vec<&[$t2]>) -> $t1 {
-                <$t1>::from(mat.as_slice())
-            }
-        }
-
-        impl From<Vec<Vec<$t2>>> for $t1 {
-            #[inline]
-            fn from(mat: Vec<Vec<$t2>>) -> $t1 {
-                <$t1>::from(mat.as_slice())
-            }
-        }
-    )*);
-    */
 }
 
 /// Macros for implementing `From` for conversions with unsafe functions.
-macro_rules! impl_from_unsafe {
+macro_rules! impl_tryfrom_unsafe {
     (
-        // a -> b with context
-        ctx
-        $t1:ident, $t2:ident
-        $func:path
-    ) => (
-        impl_from! {
-            $t1, $t2
-            {
-                fn from(src: &$t2) -> $t1 {
-                    let mut res = default!(From, ctx, $t1, src);
-                    unsafe { $func(res.as_mut_ptr(), src.as_ptr(), src.ctx_as_ptr()); }
-                    res
-                }
-            }
-        }
-    );
-    (
-        // a -> b
         $kw:ident
         $t1:ident, $t2:ident
         $func:path
     ) => (
-        impl_from! {
+        impl_tryfrom! {
             $t1, $t2
             {
                 fn from(src: &$t2) -> $t1 {
                     let mut res = default!(From, $kw, $t1, src);
-                    unsafe { $func(res.as_mut_ptr(), src.as_ptr()); }
-                    res
-                }
-            }
-        }
-    );
-    (
-        // a -> b, with third argument (precision, etc)
-        $kw:ident
-        $t1:ident, $t2:ident, $arg:expr;
-        $func:path
-    ) => (
-        impl_from! {
-            $t1, $t2
-            {
-                fn from(src: &$t2) -> $t1 {
-                    let mut res = default!(From, $kw, $t1, src);
-                    unsafe { $func(res.as_mut_ptr(), src.as_ptr(), $arg); }
+                    call_unsafe!($kw, $func, res, src);
                     res
                 }
             }
@@ -1583,16 +1469,71 @@ macro_rules! impl_from_unsafe {
         $t1:ident, $cast:ident {$($t2:ident)*}
         $func:path
     ) => ($(
-        impl_from! {
+        impl_tryfrom! {
             $t1, $t2
             {
                 fn from(src: &$t2) -> $t1 {
                     let mut res = default!(From, $kw, $t1, src);
-                    unsafe { $func(res.as_mut_ptr(), *src as $cast); }
+                    call_unsafe!(cast $kw, $func, $cast, res, src);
                     res
                 }
             }
         }
-
-    )*)
+    )*);
 }
+
+/// Macros for implementing `Assign` for in-place assignment.
+#[macro_export]
+macro_rules! impl_assign {
+    (
+        $t1:ident, $t2:ident
+        {
+            $($code:tt)*
+        }
+    ) => {
+        impl Assign<$t2> for $t1 {
+            #[inline]
+            fn assign(&mut self, src: $t2) {
+                self.assign(&src);
+            }
+        }
+
+        impl Assign<&$t2> for $t1 {
+            #[inline]
+            $($code)*
+        }
+    };
+}
+
+macro_rules! impl_assign_unsafe {
+    (
+        $kw:ident
+        $t1:ident, $t2:ident
+        $func:path
+    ) => (
+        impl_assign! {
+            $t1, $t2
+            {
+                fn assign(&mut self, src: &$t2) {
+                    call_unsafe!($kw, $func, self, src);
+                }
+            }
+        }
+    );
+    (
+        // a -> b, a primitive
+        $kw:ident
+        $t1:ident, $cast:ident {$($t2:ident)*}
+        $func:path
+    ) => ($(
+        impl_assign! {
+            $t1, $t2
+            {
+                fn assign(&mut self, src: &$t2) {
+                    call_unsafe!(cast $kw, $func, $cast, self, src);
+                }
+            }
+        }
+    )*);
+}
+

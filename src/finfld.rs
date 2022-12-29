@@ -15,19 +15,19 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-mod arith;
+mod ops;
 mod conv;
 
 use crate::*;
 use flint_sys::fq_default as fq;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
+use std::mem::{ManuallyDrop, MaybeUninit};
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct FqCtx(pub fq::fq_default_ctx_struct);
+pub(crate) struct FqCtx(fq::fq_default_ctx_struct);
 
 impl Drop for FqCtx {
     fn drop(&mut self) {
@@ -37,77 +37,110 @@ impl Drop for FqCtx {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct FiniteField {
-    pub ctx: Rc<FqCtx>,
-}
+impl FqCtx {
+    #[inline]
+    pub fn new<P, K>(p: P, k: K) -> Self 
+    where
+        P: AsRef<Integer>,
+        K: TryInto<i64>,
+        <K as TryInto<i64>>::Error: fmt::Debug
+    {
+        let p = p.as_ref();
+        assert!(p.is_prime());
+        unsafe { Self::new_unchecked(p, k) }
+    }
 
-impl Eq for FiniteField {}
+    /// Use `new_unchecked` to avoid primality testing. This will cause
+    /// undefined behavior if `p` is not prime.
+    pub unsafe fn new_unchecked<P, K>(p: P, k: K) -> Self
+    where
+        P: AsRef<Integer>,
+        K: TryInto<i64>,
+        <K as TryInto<i64>>::Error: fmt::Debug
+    {
+        let k = k.try_into().expect("Exponent too large!");
+        assert!(k > 0);
 
-impl PartialEq for FiniteField {
-    fn eq(&self, rhs: &FiniteField) -> bool {
-        Rc::ptr_eq(&self.ctx, &rhs.ctx) || self.order() == rhs.order()
+        let var = CString::new("o").unwrap();
+        let mut ctx = MaybeUninit::uninit();
+        fq::fq_default_ctx_init(
+            ctx.as_mut_ptr(), 
+            p.as_ref().as_ptr(), 
+            k,
+            var.as_ptr()
+        );
+        FqCtx(ctx.assume_init())
     }
 }
 
-impl fmt::Display for FiniteField {
-    #[inline]
+
+#[derive(Clone, Debug)]
+pub struct FinFldCtx {
+    inner: Rc<FqCtx>,
+}
+
+impl Eq for FinFldCtx {}
+
+impl PartialEq for FinFldCtx {
+    fn eq(&self, rhs: &FinFldCtx) -> bool {
+        Rc::ptr_eq(&self.inner, &rhs.inner) || self.modulus() == rhs.modulus()
+    }
+}
+
+impl fmt::Display for FinFldCtx {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Finite field of order {}^{}",
+            "Context for finite field of order {}^{}",
             self.prime(),
             self.degree()
         )
     }
 }
 
-impl Hash for FiniteField {
+impl Hash for FinFldCtx {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.modulus().hash(state)
     }
 }
 
-impl FiniteField {
-    /// Returns a pointer to the [FLINT context][fq::fq_default_ctx_struct].
+impl FinFldCtx {
     #[inline]
-    pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
-        &self.ctx.0
+    pub fn new<P, K>(p: P, k: K) -> Self 
+    where
+        P: Into<Integer>,
+        K: TryInto<i64>,
+        <K as TryInto<i64>>::Error: fmt::Debug
+    {
+        FinFldCtx {
+            inner: Rc::new(FqCtx::new(p.into(), k))
+        }
     }
-
+    
     #[inline]
-    pub fn init<'a, P, K>(p: P, k: K) -> FiniteField
+    pub unsafe fn new_unchecked<P, K>(p: P, k: K) -> Self 
     where
-        P: AsRef<Integer>,
-        K: Into<i64>,
+        P: Into<Integer>,
+        K: TryInto<i64>,
+        <K as TryInto<i64>>::Error: fmt::Debug
     {
-        let p = p.as_ref();
-        let k = k.into();
-        assert!(p.is_prime());
-        assert!(k > 0);
-        Self::init_unchecked(p, k)
-    }
-
-    pub fn init_unchecked<'a, P, K>(p: P, k: K) -> FiniteField
-    where
-        P: AsRef<Integer>,
-        K: Into<i64>,
-    {
-        let var = CString::new("o").unwrap();
-        let mut ctx = MaybeUninit::uninit();
-        unsafe {
-            fq::fq_default_ctx_init(
-                ctx.as_mut_ptr(), 
-                p.as_ref().as_ptr(), 
-                k.into(), 
-                var.as_ptr()
-            );
-            FiniteField {
-                ctx: Rc::new(FqCtx(ctx.assume_init())),
-            }
+        FinFldCtx {
+            inner: Rc::new(FqCtx::new_unchecked(p.into(), k))
         }
     }
 
+    #[inline]
+    pub fn as_ptr(&self) -> &fq::fq_default_ctx_struct {
+        &self.inner.0
+    }
+    
+    /* Cant (easily) get pointer since the modulus could be an nmod_poly
+    #[inline]
+    pub fn modulus_as_ptr(&self) -> &fmpz_mod_poly::fmpz_mod_poly_struct {
+    }
+    */
+
+    /*
     #[inline]
     pub fn default(&self) -> FinFldElem {
         let mut z = MaybeUninit::uninit();
@@ -118,57 +151,37 @@ impl FiniteField {
                 ctx: Rc::clone(&self.ctx),
             }
         }
-    }
-
-    #[inline]
-    pub fn new<'a, T>(&self, x: T) -> FinFldElem
-    where
-        T: Into<IntPoly>,
-    {
-        let mut res = self.default();
-        unsafe {
-            fq::fq_default_set_fmpz_poly(
-                res.as_mut_ptr(), x.into().as_ptr(), self.ctx_as_ptr());
-        }
-        res
-    }
+    }*/
 
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
-        let zp = IntModPolyRing::init(self.prime(), "x");
-        let mut res = zp.default();
+        let ctx = IntModCtx::new(self.prime());
+        let mut res = IntModPoly::zero(&ctx);
         unsafe {
-            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr());
+            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.as_ptr());
         }
         res
-    }
-
-    /// Return the variable of the finite field elements as a polynomial.
-    #[inline]
-    pub fn var(&self) -> String {
-        //self.var.borrow().to_string()
-        String::from("o")
     }
 
     #[inline]
     pub fn prime(&self) -> Integer {
         let mut res = Integer::default();
         unsafe {
-            fq::fq_default_ctx_prime(res.as_mut_ptr(), self.ctx_as_ptr());
+            fq::fq_default_ctx_prime(res.as_mut_ptr(), self.as_ptr());
         }
         res
     }
 
     #[inline]
     pub fn degree(&self) -> i64 {
-        unsafe { fq::fq_default_ctx_degree(self.ctx_as_ptr()) }
+        unsafe { fq::fq_default_ctx_degree(self.as_ptr()) }
     }
 
     #[inline]
     pub fn order(&self) -> Integer {
         let mut res = Integer::default();
         unsafe {
-            fq::fq_default_ctx_order(res.as_mut_ptr(), self.ctx_as_ptr());
+            fq::fq_default_ctx_order(res.as_mut_ptr(), self.as_ptr());
         }
         res
     }
@@ -177,7 +190,7 @@ impl FiniteField {
 #[derive(Debug)]
 pub struct FinFldElem {
     inner: fq::fq_default_struct,
-    ctx: Rc<FqCtx>,
+    ctx: FinFldCtx,
 }
 
 impl AsRef<FinFldElem> for FinFldElem {
@@ -186,6 +199,7 @@ impl AsRef<FinFldElem> for FinFldElem {
     }
 }
 
+/*
 impl<'a, T> Assign<T> for FinFldElem
 where
     T: AsRef<FinFldElem>,
@@ -198,14 +212,35 @@ where
         }
     }
 }
+*/
 
 impl Clone for FinFldElem {
     fn clone(&self) -> Self {
-        let mut res = self.parent().default();
+        let mut res = FinFldElem::zero(self.context());
         unsafe {
             fq::fq_default_set(res.as_mut_ptr(), self.as_ptr(), self.ctx_as_ptr());
         }
         res
+    }
+}
+
+// FIXME: use 'o' for variable like flint default
+impl fmt::Display for FinFldElem {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // IntModPoly makes coeffs positive
+        IntModPoly::from(self).fmt(f)
+
+        // Flint does weird formatting: outputs o^0 for 1? Doesnt reduce mod modulus?
+        /*
+        unsafe {
+            let s = fq::fq_default_get_str_pretty(self.as_ptr(), self.ctx_as_ptr());
+            match CStr::from_ptr(s).to_str() {
+                Ok(s) => write!(f, "{}", s),
+                Err(_) => panic!("Flint returned invalid UTF-8!"),
+            }
+        }
+        */
     }
 }
 
@@ -215,26 +250,54 @@ impl Drop for FinFldElem {
     }
 }
 
-impl fmt::Display for FinFldElem {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unsafe {
-            let s = fq::fq_default_get_str_pretty(self.as_ptr(), self.ctx_as_ptr());
-            match CStr::from_ptr(s).to_str() {
-                Ok(s) => write!(f, "{}", s),
-                Err(_) => panic!("Flint returned invalid UTF-8!"),
-            }
-        }
-    }
-}
-
 impl Hash for FinFldElem {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.parent().hash(state);
-        IntModPoly::from(self).hash(state);
+        self.context().hash(state);
+        IntPoly::from(self).hash(state);
     }
 }
 
 impl FinFldElem {
+    pub fn new<T: Into<IntPoly>>(value: T, ctx: &FinFldCtx) -> FinFldElem {
+        let mut res = FinFldElem::zero(ctx);
+        unsafe {
+            fq::fq_default_set_fmpz_poly(
+                res.as_mut_ptr(), 
+                value.into().as_ptr(), 
+                ctx.as_ptr()
+            );
+        }
+        res
+    }
+
+    #[inline]
+    pub fn zero(ctx: &FinFldCtx) -> FinFldElem {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fq::fq_default_init(z.as_mut_ptr(), ctx.as_ptr());
+            FinFldElem::from_raw(z.assume_init(), ctx.clone())
+        }
+    }
+    
+    #[inline]
+    pub fn one(ctx: &FinFldCtx) -> FinFldElem {
+        let mut res = FinFldElem::zero(ctx);
+        unsafe {
+            fq::fq_default_one(res.as_mut_ptr(), ctx.as_ptr());
+        }
+        res
+    }
+    
+    #[inline]
+    pub fn zero_assign(&mut self) {
+        unsafe { fq::fq_default_zero(self.as_mut_ptr(), self.ctx_as_ptr()) }
+    }
+    
+    #[inline]
+    pub fn one_assign(&mut self) {
+        unsafe { fq::fq_default_one(self.as_mut_ptr(), self.ctx_as_ptr()) }
+    }
+
     /// Returns a pointer to the inner [fq::fq_default_struct].
     #[inline]
     pub const fn as_ptr(&self) -> *const fq::fq_default_struct {
@@ -250,31 +313,46 @@ impl FinFldElem {
     /// Returns a pointer to the [FLINT context][fq::fq_default_ctx_struct].
     #[inline]
     pub fn ctx_as_ptr(&self) -> &fq::fq_default_ctx_struct {
-        &self.ctx.0
+        self.context().as_ptr()
+    }
+    
+    #[inline]
+    pub const unsafe fn from_raw(
+        inner: fq::fq_default_struct, 
+        ctx: FinFldCtx
+    ) -> FinFldElem {
+        FinFldElem { inner, ctx }
+    }
+  
+    #[inline]
+    pub const fn into_raw(self) -> fq::fq_default_struct {
+        let inner = self.inner;
+        let _ = ManuallyDrop::new(self);
+        inner
+    }
+    
+    #[inline]
+    pub const fn context(&self) -> &FinFldCtx {
+        &self.ctx
     }
 
     #[inline]
     pub fn modulus(&self) -> IntModPoly {
-        let zp = IntModPolyRing::init(self.parent().prime(), "x");
-        let mut res = zp.default();
-        unsafe {
-            fq::fq_default_ctx_modulus(res.as_mut_ptr(), self.ctx_as_ptr());
-        }
-        res
+        self.context().modulus()
     }
-
-    /// Return the variable of the finite field element as a polynomial.
+    
     #[inline]
-    pub fn var(&self) -> String {
-        //self.var.borrow().to_string()
-        String::from("o")
+    pub fn prime(&self) -> Integer {
+        self.context().prime()
     }
-
-    /// Return the parent [finite field][FiniteField].
+    
     #[inline]
-    pub fn parent(&self) -> FiniteField {
-        FiniteField {
-            ctx: Rc::clone(&self.ctx),
-        }
+    pub fn degree(&self) -> i64 {
+        self.context().degree()
+    }
+    
+    #[inline]
+    pub fn order(&self) -> Integer {
+        self.context().order()
     }
 }

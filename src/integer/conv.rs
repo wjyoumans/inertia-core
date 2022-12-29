@@ -21,6 +21,9 @@ use std::ffi::CString;
 use std::str::FromStr;
 
 
+// FIXME: panics from negative sign...
+// FIXME: Valgrind sometimes complains about possibly lost bytes.
+// Probably false negative, how can we be sure?
 impl FromStr for Integer {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -31,7 +34,11 @@ impl FromStr for Integer {
         if let Ok(c_str) = CString::new(s) {
             let mut z = Integer::default();
             unsafe {
-                let res = flint_sys::fmpz::fmpz_set_str(z.as_mut_ptr(), c_str.as_ptr(), 10);
+                let res = flint_sys::fmpz::fmpz_set_str(
+                    z.as_mut_ptr(), 
+                    c_str.as_ptr(), 
+                    10
+                );
                 if res == 0 {
                     Ok(z)
                 } else {
@@ -43,6 +50,10 @@ impl FromStr for Integer {
         }
     }
 }
+
+///////////////////////////////////////////////////////////////////
+// From
+///////////////////////////////////////////////////////////////////
 
 impl_from_unsafe! {
     None
@@ -56,76 +67,8 @@ impl_from_unsafe! {
     fmpz::fmpz_set_si
 }
 
-impl_from! {
+impl_from_unsafe! {
+    None
     Integer, IntMod
-    {
-        fn from(x: &IntMod) -> Integer {
-            unsafe { Integer::from_raw(*x.as_ptr()) }
-        }
-    }
-}
-
-/*
-impl_from! {
-    Integer, PadicElem
-    {
-        fn from(x: &PadicElem) -> Integer {
-            let mut res = Integer::default();
-            unsafe {
-                flint_sys::padic::padic_get_fmpz(res.as_mut_ptr(), x.as_ptr(), x.ctx_as_ptr());
-            }
-            res
-        }
-    }
-}
-*/
-
-impl_tryfrom! {
-    Integer, Rational
-    {
-        fn try_from(x: &Rational) -> Result<Self,Self::Error> {
-            if x.denominator().is_one() {
-                Ok(x.numerator())
-            } else {
-                Err("Rational cannot be coerced to an Integer.")
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::Integer;
-
-    #[test]
-    fn integer_from_ui() {
-        assert_eq!(Integer::from(1u8), 1);
-        assert_eq!(Integer::from(1u16), 1);
-        assert_eq!(Integer::from(1u32), 1);
-        assert_eq!(Integer::from(1u64), 1);
-        assert_eq!(Integer::from(1usize), 1);
-    }
-
-    #[test]
-    fn integer_from_si() {
-        assert_eq!(Integer::from(-1i8), -1);
-        assert_eq!(Integer::from(-1i16), -1);
-        assert_eq!(Integer::from(-1i32), -1);
-        assert_eq!(Integer::from(-1i64), -1);
-        assert_eq!(Integer::from(-1isize), -1);
-    }
-
-    /*
-    #[test]
-    fn integer_from_intmod() {
-        let zn = IntModRing::init(10);
-        let z = zn.new(11);
-        assert_eq!(Integer::from(z), 1);
-    }*/
-
-    #[test]
-    fn integer_from_str() {}
-
-    #[test]
-    fn string_from_integer() {}
+    fmpz::fmpz_set
 }

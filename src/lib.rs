@@ -55,6 +55,14 @@ pub trait NewMatrix<T> {
     fn new_matrix(nrows: i64, ncols: i64, src: T) -> Self;
 }
 
+/*
+// TODO: something like this for polynomial pretty printing where sign_fn takes
+// a coefficient and returns the sign (+ == true, - == false etc)
+pub trait PrettyPrint {
+    fn pretty_print(&self, var: &str, sign_fn: Fn(Self) -> bool) -> String;
+}
+*/
+
 pub use integer::*;
 pub use intpoly::*;
 pub use intmat::*;

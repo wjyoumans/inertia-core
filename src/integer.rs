@@ -64,6 +64,49 @@ impl IntegerRing {
     pub fn new<T: Into<Integer>>(&self, value: T) -> Integer {
         Integer::new(value)
     }
+    
+    /// Initialize a new `Integer` with the given number of limbs.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// let x = Integer::with_capacity(2);
+    /// assert_eq!(x, 0);
+    /// ```
+    #[inline]
+    pub fn with_capacity(&self, limbs: u64) -> Integer {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fmpz::fmpz_init2(z.as_mut_ptr(), limbs);
+            Integer::from_raw(z.assume_init())
+        }
+    }
+
+    /// Return zero.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::zero(), 0);
+    /// ```
+    #[inline]
+    pub fn zero(&self) -> Integer {
+        Integer::default()
+    }
+
+    /// Return one.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::one(), 1);
+    /// ```
+    #[inline]
+    pub fn one(&self) -> Integer {
+        let mut res = Integer::default();
+        unsafe { fmpz::fmpz_one(res.as_mut_ptr()); }
+        res
+    }
 }
 
 #[derive(Debug)]

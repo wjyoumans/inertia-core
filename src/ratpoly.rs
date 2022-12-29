@@ -71,6 +71,29 @@ impl RatPolyRing {
     pub fn new<T: Into<RatPoly>>(&self, value: T) -> RatPoly {
         RatPoly::new(value)
     }
+    
+    pub fn with_capacity(capacity: usize) -> RatPoly {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fmpq_poly::fmpq_poly_init2(
+                z.as_mut_ptr(), 
+                capacity.try_into().expect("Cannot convert input to a signed long.")
+            );
+            RatPoly::from_raw(z.assume_init())
+        }
+    }
+
+    #[inline]
+    pub fn zero(&self) -> RatPoly {
+        RatPoly::default()
+    }
+
+    #[inline]
+    pub fn one(&self) -> RatPoly {
+        let mut res = RatPoly::default();
+        unsafe { fmpq_poly::fmpq_poly_one(res.as_mut_ptr()); }
+        res
+    }
 }
 
 #[derive(Debug)]

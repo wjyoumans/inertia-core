@@ -66,6 +66,32 @@ impl RationalField {
     pub fn new<T: Into<Rational>>(&self, value: T) -> Rational {
         Rational::new(value)
     }
+    
+    /// Return zero.
+    ///
+    /// ```
+    /// use inertia_core::Rational;
+    ///
+    /// assert_eq!(Rational::zero(), 0);
+    /// ```
+    #[inline]
+    pub fn zero(&self) -> Rational {
+        Rational::default()
+    }
+
+    /// Return one.
+    ///
+    /// ```
+    /// use inertia_core::Rational;
+    ///
+    /// assert_eq!(Rational::one(), 1);
+    /// ```
+    #[inline]
+    pub fn one(&self) -> Rational {
+        let mut res = Rational::default();
+        unsafe { fmpq::fmpq_one(res.as_mut_ptr()); }
+        res
+    }
 }
 
 #[derive(Debug)]

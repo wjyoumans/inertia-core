@@ -67,6 +67,30 @@ impl IntPolyRing {
     pub fn new<T: Into<IntPoly>>(&self, value: T) -> IntPoly {
         IntPoly::new(value)
     }
+    
+    pub fn with_capacity(&self, capacity: usize) -> IntPoly {
+        let mut z = MaybeUninit::uninit();
+        unsafe {
+            fmpz_poly::fmpz_poly_init2(
+                z.as_mut_ptr(), 
+                capacity.try_into().expect("Cannot convert input to a signed long.")
+            );
+            IntPoly::from_raw(z.assume_init())
+        }
+    }
+
+    #[inline]
+    pub fn zero(&self) -> IntPoly {
+        IntPoly::default()
+    }
+
+    #[inline]
+    pub fn one(&self) -> IntPoly {
+        let mut res = IntPoly::default();
+        unsafe { fmpz_poly::fmpz_poly_one(res.as_mut_ptr()); }
+        res
+    }
+    
 }
 
 #[derive(Debug)]

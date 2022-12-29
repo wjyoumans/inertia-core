@@ -9,3 +9,8 @@ This is a work in progress!
 wrappers for the [FLINT](https://flintlib.org/doc/), 
 [Arb](https://arblib.org/), and [Antic](https://github.com/wbhart/antic) 
 C libraries.
+
+<!--
+TODO:
+ * polynomial/matrix pretty printing functions
+ -->

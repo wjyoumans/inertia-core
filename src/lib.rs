@@ -37,6 +37,7 @@ mod finfldpoly;
 mod finfldmat;
 
 //mod intmpoly;
+pub mod ratfunc;
 
 mod util {
     #[must_use]
@@ -96,5 +97,7 @@ pub use intmodmat::*;
 pub use finfld::*;
 pub use finfldpoly::*;
 pub use finfldmat::*;
+
+pub use ratfunc::*;
 
 //pub use intmpoly::*;

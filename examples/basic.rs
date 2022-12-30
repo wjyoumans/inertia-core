@@ -24,12 +24,12 @@ fn main() {
     // They can also be constructed from a slice.
     let coeffs = vec![1, 1, 1];
     let g = RatPoly::new(&coeffs[..]);
-    println!("g = {}", &f);
+    println!("g = {}", &g);
 
     // Operations are implemented wherever they make sense and for all 
     // combinations of owned or borrowed values.
-    let mut h = (&f + (g/2i32 * &x)).pow(2u32);
-    println!("h = {}", &h);
+    let h = (&f + (g/2i32 * &x)).pow(2u32);
+    println!("(f + (g/2 + x))^2 = {}", &h);
 
     // To work with objects like integers modulo n, finite field elements, etc.
     // we need to make a context object first.

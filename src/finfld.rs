@@ -26,8 +26,18 @@ use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::rc::Rc;
 
-#[derive(Debug)]
+//#[derive(Debug)]
 pub(crate) struct FqCtx(fq::fq_default_ctx_struct);
+
+// fq_default_ctx_struct is a union so can't derive Debug
+impl fmt::Debug for FqCtx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FqCtx")
+            .field("type_", &self.0.type_)
+            //.field("ctx", &self.0.ctx)
+            .finish()
+    }
+}
 
 impl Drop for FqCtx {
     fn drop(&mut self) {
@@ -187,7 +197,7 @@ impl FinFldCtx {
     }
 }
 
-#[derive(Debug)]
+//#[derive(Debug)]
 pub struct FinFldElem {
     inner: fq::fq_default_struct,
     ctx: FinFldCtx,
@@ -221,6 +231,16 @@ impl Clone for FinFldElem {
             fq::fq_default_set(res.as_mut_ptr(), self.as_ptr(), self.ctx_as_ptr());
         }
         res
+    }
+}
+
+// fq_default_struct is a union so can't derive Debug
+impl fmt::Debug for FinFldElem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FinFldElem")
+            //.field("inner", &self.inner)
+            .field("ctx", &self.ctx)
+            .finish()
     }
 }
 

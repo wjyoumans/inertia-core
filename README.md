@@ -10,10 +10,12 @@ C libraries.
 
 
 TODO:
+ * rand - see Rug/gmp-mpfr-sys
  * tons of boilerplate, docs, TODO/FIXME comments
- * rest of Flint
+ * rest of Flint types, factorization, FFT, quadratic sieve etc.
  * Arb + Antic
  * serde
+ * TryFrom conversions
  * borrows for FFI types
  * improve op guards to avoid seg faults
  * improved constructors - New/NewCtx may be suboptimal in some situations

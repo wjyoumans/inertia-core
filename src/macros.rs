@@ -29,6 +29,12 @@ macro_rules! default {
     ($op:ident, matrix, $out_ty:ident, $in:ident) => {
         $out_ty::zero($in.nrows_si(), $in.ncols_si())
     };
+    ($op:ident, matrix_ctx, $out_ty:ident, $in:ident) => {
+        $out_ty::zero($in.nrows_si(), $in.ncols_si(), $in.context())
+    };
+    ($op:ident, matrix_ctx_new_only, $out_ty:ident, $in:ident) => {
+        $out_ty::zero($in.nrows_si(), $in.ncols_si(), $in.context())
+    };
     ($op:ident, $kw:ident, $out_ty:ident, $in:ident) => {
         $out_ty::default()
     };
@@ -45,6 +51,20 @@ macro_rules! default {
     };
     ($op:ident, matrix, $out_ty:ident, $lhs:ident, $rhs:ident) => {
         $out_ty::zero($lhs.nrows_si(), $rhs.ncols_si())
+    };
+    ($op:ident, matrix_ctx, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::zero($lhs.nrows_si(), $rhs.ncols_si(), $lhs.context())
+    };
+    /*
+    ($op:ident, matrix_ctx_lhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::zero($lhs.nrows_si(), $rhs.ncols_si(), $lhs.context())
+    };
+    ($op:ident, matrix_ctx_rhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::zero($lhs.nrows_si(), $rhs.ncols_si(), $rhs.context())
+    };
+    */
+    ($op:ident, matrix_ctx_new_only, $out_ty:ident, $lhs:ident, $rhs:ident) => {
+        $out_ty::zero($lhs.nrows_si(), $rhs.ncols_si(), $lhs.context())
     };
     ($op:ident, scalar_lhs, $out_ty:ident, $lhs:ident, $rhs:ident) => {
         $out_ty::zero($rhs.nrows_si(), $rhs.ncols_si())
@@ -102,6 +122,11 @@ macro_rules! call_unsafe {
             $func($out.as_mut_ptr(), $in.as_ptr(), $out.ctx_as_ptr());
         }
     };
+    (matrix_ctx, $func:path, $out:ident, $in:ident) => {
+        unsafe {
+            $func($out.as_mut_ptr(), $in.as_ptr(), $out.ctx_as_ptr());
+        }
+    };
     (ctx_in, $func:path, $out:ident, $in:ident) => {
         unsafe {
             $func($out.as_mut_ptr(), $in.as_ptr(), $in.ctx_as_ptr());
@@ -151,6 +176,16 @@ macro_rules! call_unsafe {
                 $lhs.as_ptr(),
                 $rhs.as_ptr(),
                 $rhs.ctx_as_ptr(),
+            );
+        }
+    };
+    (matrix_ctx, $func:path, $out:ident, $lhs:ident, $rhs:ident) => {
+        unsafe {
+            $func(
+                $out.as_mut_ptr(),
+                $lhs.as_ptr(),
+                $rhs.as_ptr(),
+                $lhs.ctx_as_ptr(),
             );
         }
     };

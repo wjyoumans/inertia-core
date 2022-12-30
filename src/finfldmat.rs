@@ -22,75 +22,78 @@ mod conv;
 //mod serde;
 
 use crate::*;
-use flint_sys::{fmpz, fmpz_mat};
+use flint_sys::{
+    fq_default::fq_default_ctx_struct,
+    fq_default_mat::*,
+};
 use std::fmt;
-use std::hash::{Hash, Hasher};
+//use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 
 
-#[derive(Debug)]
-pub struct IntMat {
-    inner: fmpz_mat::fmpz_mat_struct,
+pub struct FinFldMat {
+    inner: fq_default_mat_struct,
+    ctx: FinFldCtx
 }
 
-impl AsRef<IntMat> for IntMat {
-    fn as_ref(&self) -> &IntMat {
+impl AsRef<FinFldMat> for FinFldMat {
+    fn as_ref(&self) -> &FinFldMat {
         self
     }
 }
 
-impl Clone for IntMat {
-    #[inline]
+impl Clone for FinFldMat {
     fn clone(&self) -> Self {
         let mut z = MaybeUninit::uninit();
         unsafe {
-            fmpz_mat::fmpz_mat_init_set(z.as_mut_ptr(), self.as_ptr());
-            IntMat::from_raw(z.assume_init())
+            fq_default_mat_init_set(
+                z.as_mut_ptr(), 
+                self.as_ptr(), 
+                self.ctx_as_ptr()
+            );
+            FinFldMat::from_raw(z.assume_init(), self.context().clone())
         }
     }
 }
 
-impl fmt::Display for IntMat {
+// fq_default_mat_struct is a union so can't derive Debug
+impl fmt::Debug for FinFldMat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FinFldMat")
+            //.field("inner", &self.inner)
+            .field("ctx", &self.ctx)
+            .finish()
+    }
+}
+
+/*
+impl fmt::Display for FinFldMat {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let r = self.nrows().try_into().expect(
-            "Cannot convert signed long to usize.");
-        let c = self.ncols().try_into().expect(
-            "Cannot convert signed long to usize.");
-        let mut out = Vec::with_capacity(r);
-
-        for i in 0..r {
-            let mut row = Vec::with_capacity(c + 2);
-            row.push("[".to_string());
-            for j in 0..c {
-                row.push(format!(" {} ", self.get_entry(i, j)));
-            }
-            if i == r - 1 {
-                row.push("]".to_string());
-            } else {
-                row.push("]\n".to_string());
-            }
-            out.push(row.join(""));
-        }
-        write!(f, "{}", out.join(""))
+        write!(f, "{}", IntPolyMat::from(self))
+        //write!(f, "{}", IntMat::from(self) % x.modulus())
     }
-}
+}*/
 
-impl Drop for IntMat {
+impl Drop for FinFldMat {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz_mat::fmpz_mat_clear(self.as_mut_ptr()) }
+        unsafe { fq_default_mat_clear(self.as_mut_ptr(), self.ctx_as_ptr()) }
     }
 }
 
-// TODO: make entries method that borrows so we dont need to copy entries
-impl Hash for IntMat {
+/*
+// TODO: avoid IntPolyMat allocation
+impl Hash for FinFldMat {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.get_entries().hash(state);
+        self.context().hash(state);
+        IntPolyMat::from(self).hash(state);
     }
 }
+*/
 
+/*
 impl<const CAP: usize> NewMatrix<[&Integer; CAP]> for IntMat {
     fn new(src: [&Integer; CAP], nrows: i64, ncols: i64) -> Self {
         let nrows_ui: usize = nrows.try_into().expect(
@@ -188,12 +191,12 @@ where
         res
     }
 }
+*/
 
-impl IntMat {
-
+impl FinFldMat {
+    /*
     // private helper methods to convert usize indices to i64, emit consistent
     // messages on panic, and bounds check
-    #[inline]
     fn check_indices(&self, i: usize, j: usize) -> (i64, i64) {
         (self.check_row_index(i), self.check_col_index(j))
     }
@@ -209,24 +212,28 @@ impl IntMat {
         assert!(j < self.ncols_si());
         j
     }
+    */
     
+    /*
     #[inline]
-    pub fn new<S>(src: S, nrows: i64, ncols: i64) -> IntMat 
+    pub fn new<S>(src: S, nrows: i64, ncols: i64, ctx: &IntModCtx) -> FinFldMat 
     where
         Self: NewMatrix<S>
     {
         <IntMat as NewMatrix<S>>::new(src, nrows, ncols)
     }
-
+    */
+    
     #[inline]
-    pub fn zero(nrows: i64, ncols: i64) -> IntMat {
+    pub fn zero(nrows: i64, ncols: i64, ctx: &FinFldCtx) -> FinFldMat {
         let mut z = MaybeUninit::uninit();
         unsafe {
-            fmpz_mat::fmpz_mat_init(z.as_mut_ptr(), nrows, ncols);
-            IntMat::from_raw(z.assume_init())
+            fq_default_mat_init(z.as_mut_ptr(), nrows, ncols, ctx.as_ptr());
+            FinFldMat::from_raw(z.assume_init(), ctx.clone())
         }
     }
-    
+   
+    /*
     #[inline]
     pub fn one(dim: i64) -> IntMat {
         let mut res = IntMat::zero(dim, dim);
@@ -234,27 +241,62 @@ impl IntMat {
             fmpz_mat::fmpz_mat_one(res.as_mut_ptr());
         }
         res
-    }
+    }*/
 
-    /// Returns a pointer to the inner [FLINT integer matrix][fmpz_mat::fmpz_mat].
     #[inline]
-    pub const fn as_ptr(&self) -> *const fmpz_mat::fmpz_mat_struct {
+    pub const fn as_ptr(&self) -> *const fq_default_mat_struct {
         &self.inner
     }
 
-    /// Returns a mutable pointer to the inner 
-    /// [FLINT integer matrix][fmpz_mat::fmpz_mat].
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut fmpz_mat::fmpz_mat_struct {
+    pub fn as_mut_ptr(&mut self) -> *mut fq_default_mat_struct {
         &mut self.inner
     }
-
-    /// Instantiate an integer matrix from a 
-    /// [FLINT integer matrix][fmpz_mat::fmpz_mat_struct].
+    
     #[inline]
-    pub fn from_raw(raw: fmpz_mat::fmpz_mat_struct) -> IntMat {
-        IntMat { inner: raw }
+    pub fn ctx_as_ptr(&self) -> *const fq_default_ctx_struct {
+        self.context().as_ptr()
     }
+    
+    #[inline]
+    pub fn from_raw(inner: fq_default_mat_struct, ctx: FinFldCtx) -> Self {
+        FinFldMat { inner, ctx }
+    }
+    
+    #[inline]
+    pub fn context(&self) -> &FinFldCtx {
+        &self.ctx
+    }
+    
+    #[inline]
+    pub fn modulus(&self) -> IntModPoly {
+        self.context().modulus()
+    }
+
+    /// Return the number of rows.
+    #[inline]
+    pub fn nrows(&self) -> usize {
+        self.nrows_si().try_into().expect("Cannot convert signed long to usize.")
+    }
+    
+    /// Return the number of rows.
+    #[inline]
+    pub fn nrows_si(&self) -> i64 {
+        unsafe { fq_default_mat_nrows(self.as_ptr(), self.ctx_as_ptr())}
+    }
+
+    /// Return the number of columns.
+    #[inline]
+    pub fn ncols(&self) -> usize {
+        self.ncols_si().try_into().expect("Cannot convert signed long to usize.")
+    }
+    
+    /// Return the number of columns.
+    #[inline]
+    pub fn ncols_si(&self) -> i64 {
+        unsafe { fq_default_mat_ncols(self.as_ptr(), self.ctx_as_ptr())}
+    }
+    /*
 
     /// Set `self` to the zero matrix.
     #[inline]
@@ -1090,5 +1132,6 @@ impl IntMat {
         }
         res
     }
+    */
     */
 }

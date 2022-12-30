@@ -30,11 +30,11 @@ mod ratmat;
 
 mod intmod;
 mod intmodpoly;
-//mod intmodmat;
+mod intmodmat;
 
 mod finfld;
-//mod finfldpoly;
-//mod finfldmat;
+mod finfldpoly;
+mod finfldmat;
 
 //mod intmpoly;
 
@@ -91,10 +91,10 @@ pub use ratmat::*;
 
 pub use intmod::*;
 pub use intmodpoly::*;
-//pub use intmodmat::*;
+pub use intmodmat::*;
 
 pub use finfld::*;
-//pub use finfldpoly::*;
-//pub use finfldmat::*;
+pub use finfldpoly::*;
+pub use finfldmat::*;
 
 //pub use intmpoly::*;

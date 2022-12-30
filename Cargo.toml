@@ -18,9 +18,21 @@ serde = ["dep:serde"]
 
 [dependencies]
 libc = "0.2" 
-flint-sys = {version = "0.7", features = ["disable-make-check"] }
-arb-sys = {version = "0.3", features = ["disable-make-check"] }
-antic-sys = {version = "0.3", features = ["disable-make-check"] }
+
+[dependencies.flint-sys]
+path = "../../flint-rs/flint-sys"
+version = "0.7"
+features = ["disable-make-check"]
+
+[dependencies.arb-sys]
+path = "../../arb-sys"
+version = "0.3"
+features = ["disable-make-check"]
+
+[dependencies.antic-sys]
+path = "../../antic-sys"
+version = "0.3"
+features = ["disable-make-check"]
 
 [dependencies.inertia-algebra]
 path = "../inertia-algebra"

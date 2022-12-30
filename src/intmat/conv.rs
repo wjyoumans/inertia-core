@@ -16,7 +16,7 @@
  */
 
 use crate::*;
-use flint_sys::{fmpz_mat, fmpq_mat};
+use flint_sys::fmpz_mat;
 use std::mem::MaybeUninit;
 
 
@@ -33,6 +33,7 @@ impl_from! {
     }
 }
 
+/*
 impl_tryfrom! {
     IntMat, RatMat
     {
@@ -50,3 +51,4 @@ impl_tryfrom! {
         }
     }
 }
+*/

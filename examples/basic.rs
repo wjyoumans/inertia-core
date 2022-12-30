@@ -68,4 +68,9 @@ fn main() {
 
     let t = (&m1 + 2*&m2) * m3;
     println!("(m1 + 2*m2) * m3 = \n{}", &t);
+
+    // Construct rational functions just like construct rationals
+    let g = IntPoly::new([1, 2, 3]);
+    let h = RatFunc::from([f, g]);
+    println!("h = {}", &h);
 }

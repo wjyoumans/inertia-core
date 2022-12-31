@@ -58,7 +58,7 @@ fn main() {
     let m2 = IntMat::one(4);
     println!("m2 = \n{}", &m2);
 
-    // Specify coefficients with a slice or array.
+    // Specify entries with a slice or array.
     let m3 = IntMat::new(
         [1, 2, 3, 4, 
          2, 3, 4, 1, 
@@ -73,4 +73,11 @@ fn main() {
     let g = IntPoly::new([1, 2, 3]);
     let h = RatFunc::from([f, g]);
     println!("h = {}", &h);
+
+    // Work with real numbers using interval arithmetic
+    let r = Real::new(12.345678);
+    println!("r = {}", &r);
+    let b = r.bits();
+    println!("bits(r) = {}", b);
+    println!("r > x = {}", &r > &x);
 }

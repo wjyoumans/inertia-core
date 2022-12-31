@@ -41,7 +41,7 @@ impl_cmp! {
 }
 
 impl_cmp! {
-    eq
+    partial_eq
     IntModPoly, IntMod
     {
         fn eq(&self, rhs: &IntMod) -> bool {

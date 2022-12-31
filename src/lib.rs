@@ -36,6 +36,8 @@ mod finfld;
 mod finfldpoly;
 mod finfldmat;
 
+mod real;
+
 //mod intmpoly;
 pub mod ratfunc;
 
@@ -99,5 +101,7 @@ pub use finfldpoly::*;
 pub use finfldmat::*;
 
 pub use ratfunc::*;
+
+pub use real::*;
 
 //pub use intmpoly::*;

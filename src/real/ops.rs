@@ -16,69 +16,138 @@
  */
 
 use crate::*;
-
-use flint_sys::{fmpq, fmpz};
+use arb_sys::arb::*;
 use inertia_algebra::ops::*;
 use libc::{c_long, c_ulong};
 
 use std::cmp::Ordering::{self, Equal, Greater, Less};
 use std::mem::MaybeUninit;
 
+// TODO:
+// cmp/eq with primitive types + Integer + Rational
+// ops
 
 impl_assign_unsafe! {
     None
-    Integer, Integer
-    fmpz::fmpz_set
-}
-
-impl_assign_unsafe! {
-    None
-    Integer, u64 {u64 u32 u16 u8}
-    fmpz::fmpz_set_ui
+    Real, Real
+    arb_set
 }
 
 impl_assign_unsafe! {
     None
-    Integer, i64 {i64 i32 i16 i8}
-    fmpz::fmpz_set_si
+    Real, u64 {u64 u32 u16 u8}
+    arb_set_ui
 }
 
-impl_cmp_unsafe! {
-    eq
-    Integer
-    fmpz::fmpz_equal
+impl_assign_unsafe! {
+    None
+    Real, i64 {i64 i32 i16 i8}
+    arb_set_si
 }
 
-impl_cmp_unsafe! {
-    ord
-    Integer
-    fmpz::fmpz_cmp
+impl_assign_unsafe! {
+    None
+    Real, Integer
+    arb_set_fmpz
 }
 
-impl_cmp_unsafe! {
+impl_cmp! {
     partial_eq
-    Integer, u64 {u64 u32 u16 u8}
-    fmpz::fmpz_equal_ui
+    Real
+    {
+        fn eq(&self, rhs: &Real) -> bool {
+            unsafe { arb_eq(self.as_ptr(), rhs.as_ptr()) != 0 }
+        }
+    }
 }
 
-impl_cmp_unsafe! {
+macro_rules! impl_partial_cmp {
+    ($($t:ident)*) => ($(
+        impl_cmp! {
+            partial_eq
+            Real, $t
+            {
+                fn eq(&self, rhs: &$t) -> bool {
+                    let temp = Real::from(rhs);
+                    self == temp
+                }
+            }
+        }
+        impl_cmp! {
+            partial_eq
+            $t, Real
+            {
+                fn eq(&self, rhs: &Real) -> bool {
+                    let temp = Real::from(self);
+                    temp == rhs
+                }
+            }
+        }
+    )*)
+}
+
+impl_partial_cmp! {Integer usize u64 u32 u16 u8 isize i64 i32 i16 i8}
+
+impl_cmp! {
     partial_ord
-    Integer, u64 {u64 u32 u16 u8}
-    fmpz::fmpz_cmp_ui
+    Real
+    {
+        fn partial_cmp(&self, other: &Real) -> Option<Ordering> {
+            match (self <= other, self >= other) {
+                (false, false) => None,
+                (false, true) => Some(Greater),
+                (true, false) => Some(Less),
+                (true, true) => Some(Equal),
+            }
+        }
+        #[inline]
+        fn lt(&self, other: &Real) -> bool { 
+            unsafe { arb_lt(self.as_ptr(), other.as_ptr()) == 1 }
+        }
+        #[inline]
+        fn le(&self, other: &Real) -> bool { 
+            unsafe { arb_le(self.as_ptr(), other.as_ptr()) == 1 }
+        }
+        #[inline]
+        fn ge(&self, other: &Real) -> bool { 
+            unsafe { arb_ge(self.as_ptr(), other.as_ptr()) == 1 }
+        }
+        #[inline]
+        fn gt(&self, other: &Real) -> bool { 
+            unsafe { arb_gt(self.as_ptr(), other.as_ptr()) == 1 }
+        }
+    }
 }
 
-impl_cmp_unsafe! {
-    partial_eq
-    Integer, i64 {i64 i32 i16 i8}
-    fmpz::fmpz_equal_si
+macro_rules! impl_partial_ord {
+    ($($t:ident)*) => ($(
+        impl_cmp! {
+            partial_ord
+            Real, $t
+            {
+                fn partial_cmp(&self, rhs: &$t) -> Option<Ordering> {
+                    let temp = Real::from(rhs);
+                    self.partial_cmp(&temp)
+                }
+            }
+        }
+        
+        impl_cmp! {
+            partial_ord
+            $t, Real
+            {
+                fn partial_cmp(&self, rhs: &Real) -> Option<Ordering> {
+                    let temp = Real::from(self);
+                    temp.partial_cmp(rhs)
+                }
+            }
+        }
+    )*)
 }
 
-impl_cmp_unsafe! {
-    partial_ord
-    Integer, i64 {i64 i32 i16 i8}
-    fmpz::fmpz_cmp_si
-}
+impl_partial_ord! {Integer usize u64 u32 u16 u8 isize i64 i32 i16 i8}
 
+/*
 impl_unop_unsafe! {
     None
     Integer
@@ -563,4 +632,4 @@ unsafe fn fmpz_si_div(res: *mut fmpq::fmpq, f: c_long, g: *const fmpz::fmpz) {
     fmpq::fmpq_set_fmpz_frac(res, z.as_ptr(), g);
     fmpz::fmpz_clear(z.as_mut_ptr());
 }
-
+*/

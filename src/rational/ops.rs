@@ -62,37 +62,37 @@ impl_cmp_unsafe! {
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     Rational, Integer
     fmpq_equal_fmpz
 }
 
 impl_cmp_unsafe! {
-    ord
+    partial_ord
     Rational, Integer
     fmpq::fmpq_cmp_fmpz
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     Rational, u64 {u64 u32 u16 u8}
     fmpq::fmpq_equal_ui
 }
 
 impl_cmp_unsafe! {
-    ord
+    partial_ord
     Rational, u64 {u64 u32 u16 u8}
     fmpq::fmpq_cmp_ui
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     Rational, i64 {i64 i32 i16 i8}
     fmpq::fmpq_equal_si
 }
 
 impl_cmp_unsafe! {
-    ord
+    partial_ord
     Rational, i64 {i64 i32 i16 i8}
     fmpq::fmpq_cmp_si
 }

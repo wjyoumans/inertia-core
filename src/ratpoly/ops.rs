@@ -68,25 +68,25 @@ impl_cmp_unsafe! {
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     RatPoly, Rational
     fmpq_poly_equal_fmpq
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     RatPoly, Integer
     fmpq_poly_equal_fmpz
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     RatPoly, u64 {u64 u32 u16 u8}
     fmpq_poly_equal_ui
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     RatPoly, i64 {i64 i32 i16 i8}
     fmpq_poly_equal_si
 }

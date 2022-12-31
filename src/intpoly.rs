@@ -71,7 +71,7 @@ impl fmt::Display for IntPoly {
             return write!(f, "{}", self.get_coeff(0).to_string());
         }
 
-        let deg = deg.try_into().unwrap();
+        let deg: usize = deg.try_into().unwrap();
         let mut out = String::new();
         let coeffs = self.get_coeffs();
 

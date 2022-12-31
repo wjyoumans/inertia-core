@@ -65,6 +65,8 @@ impl_assign! {
     }
 }
 
+// TODO: probably dont use these Eq impls? Needs some thought
+
 impl_cmp_unsafe! {
     eq
     IntMod
@@ -72,25 +74,25 @@ impl_cmp_unsafe! {
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     IntMod, Integer
     fmpz::fmpz_equal
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     IntMod, Rational
     fmpz_equal_fmpq
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     IntMod, u64 {u64 u32 u16 u8}
     fmpz::fmpz_equal_ui
 }
 
 impl_cmp_unsafe! {
-    eq
+    partial_eq
     IntMod, i64 {i64 i32 i16 i8}
     fmpz::fmpz_equal_si
 }

@@ -262,6 +262,21 @@ macro_rules! impl_cmp {
             }
         }
     };
+    (
+        partial_eq
+        $t:ident
+        {
+            $($code:tt)*
+        }
+    ) => {
+        impl_cmp! {
+            partial_eq
+            $t, $t
+            {
+                $($code)*
+            }
+        }
+    };
     // a > a
     (
         ord
@@ -282,9 +297,24 @@ macro_rules! impl_cmp {
             }
         }
     };
+    (
+        partial_ord
+        $t:ident
+        {
+            $($code:tt)*
+        }
+    ) => {
+        impl_cmp! {
+            partial_ord
+            $t, $t
+            {
+                $($code)*
+            }
+        }
+    };
     // a = b
     (
-        eq
+        partial_eq
         $t1:ident, $t2:ident
         {
             $($code:tt)*
@@ -311,7 +341,7 @@ macro_rules! impl_cmp {
     };
     // a > b
     (
-        ord
+        partial_ord
         $t1:ident, $t2:ident
         {
             $($code:tt)*
@@ -343,12 +373,12 @@ macro_rules! impl_cmp_unsafe {
         }
     };
     (
-        eq
+        partial_eq
         $t1:ident, $t2:ident
         $func:path
     ) => {
         impl_cmp! {
-            eq
+            partial_eq
             $t1, $t2
             {
                 fn eq(&self, rhs: &$t2) -> bool {
@@ -357,7 +387,7 @@ macro_rules! impl_cmp_unsafe {
             }
         }
         impl_cmp! {
-            eq
+            partial_eq
             $t2, $t1
             {
                 fn eq(&self, rhs: &$t1) -> bool {
@@ -367,12 +397,12 @@ macro_rules! impl_cmp_unsafe {
         }
     };
     (
-        eq
+        partial_eq
         $t1:ident, $cast:ident {$($t2:ident)+}
         $func:path
     ) => ($(
         impl_cmp! {
-            eq
+            partial_eq
             $t1, $t2
             {
                 fn eq(&self, rhs: &$t2) -> bool {
@@ -381,7 +411,7 @@ macro_rules! impl_cmp_unsafe {
             }
         }
         impl_cmp! {
-            eq
+            partial_eq
             $t2, $t1
             {
                 fn eq(&self, rhs: &$t1) -> bool {
@@ -413,12 +443,12 @@ macro_rules! impl_cmp_unsafe {
         }
     };
     (
-        ord
+        partial_ord
         $t1:ident, $t2:ident
         $func:path
     ) => {
         impl_cmp! {
-            ord
+            partial_ord
             $t1, $t2
             {
                 fn partial_cmp(&self, rhs: &$t2) -> Option<Ordering> {
@@ -434,7 +464,7 @@ macro_rules! impl_cmp_unsafe {
             }
         }
         impl_cmp! {
-            ord
+            partial_ord
             $t2, $t1
             {
                 fn partial_cmp(&self, rhs: &$t1) -> Option<Ordering> {
@@ -451,12 +481,12 @@ macro_rules! impl_cmp_unsafe {
         }
     };
     (
-        ord
+        partial_ord
         $t1:ident, $cast:ident {$($t2:ident)+}
         $func:path
     ) => ($(
         impl_cmp! {
-            ord
+            partial_ord
             $t1, $t2
             {
                 fn partial_cmp(&self, rhs: &$t2) -> Option<Ordering> {
@@ -472,7 +502,7 @@ macro_rules! impl_cmp_unsafe {
             }
         }
         impl_cmp! {
-            ord
+            partial_ord
             $t2, $t1
             {
                 fn partial_cmp(&self, rhs: &$t1) -> Option<Ordering> {

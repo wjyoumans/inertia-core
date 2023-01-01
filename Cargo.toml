@@ -1,6 +1,6 @@
 [package]
 name = "inertia-core"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["William Youmans <wyoumans@usf.edu>"]
 description = "Core functionality of the Inertia crate with high level wrappers for FLINT, Arb, and Antic."

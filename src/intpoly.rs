@@ -22,14 +22,15 @@ mod conv;
 mod serde;
 
 use crate::{New, Integer};
-use flint_sys::fmpz_poly;
+use flint_sys::fmpz_poly::*;
+
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
 
 #[derive(Debug)]
 pub struct IntPoly {
-    inner: fmpz_poly::fmpz_poly_struct,
+    inner: fmpz_poly_struct,
 }
 
 impl AsRef<IntPoly> for IntPoly {
@@ -43,7 +44,7 @@ impl Clone for IntPoly {
     fn clone(&self) -> Self {
         let mut res = IntPoly::default();
         unsafe {
-            fmpz_poly::fmpz_poly_set(res.as_mut_ptr(), self.as_ptr());
+            fmpz_poly_set(res.as_mut_ptr(), self.as_ptr());
         }
         res
     }
@@ -54,7 +55,7 @@ impl Default for IntPoly {
     fn default() -> Self {
         let mut z = MaybeUninit::uninit();
         unsafe {
-            fmpz_poly::fmpz_poly_init(z.as_mut_ptr());
+            fmpz_poly_init(z.as_mut_ptr());
             IntPoly::from_raw(z.assume_init())
         }
     }
@@ -131,7 +132,7 @@ impl fmt::Display for IntPoly {
 impl Drop for IntPoly {
     #[inline]
     fn drop(&mut self) {
-        unsafe { fmpz_poly::fmpz_poly_clear(self.as_mut_ptr()) }
+        unsafe { fmpz_poly_clear(self.as_mut_ptr()) }
     }
 }
 
@@ -160,7 +161,7 @@ impl IntPoly {
     pub fn with_capacity(capacity: usize) -> Self {
         let mut z = MaybeUninit::uninit();
         unsafe {
-            fmpz_poly::fmpz_poly_init2(
+            fmpz_poly_init2(
                 z.as_mut_ptr(), 
                 capacity.try_into().expect("Cannot convert input to a signed long.")
             );
@@ -176,27 +177,27 @@ impl IntPoly {
     #[inline]
     pub fn one() -> IntPoly {
         let mut res = IntPoly::default();
-        unsafe { fmpz_poly::fmpz_poly_one(res.as_mut_ptr()); }
+        unsafe { fmpz_poly_one(res.as_mut_ptr()); }
         res
     }
     
     #[inline]
     pub fn zero_assign(&mut self) {
-        unsafe { fmpz_poly::fmpz_poly_zero(self.as_mut_ptr()) }
+        unsafe { fmpz_poly_zero(self.as_mut_ptr()) }
     }
     
     #[inline]
     pub fn one_assign(&mut self) {
-        unsafe { fmpz_poly::fmpz_poly_one(self.as_mut_ptr()) }
+        unsafe { fmpz_poly_one(self.as_mut_ptr()) }
     }
     
     #[inline]
-    pub const fn as_ptr(&self) -> *const fmpz_poly::fmpz_poly_struct {
+    pub const fn as_ptr(&self) -> *const fmpz_poly_struct {
         &self.inner
     }
 
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut fmpz_poly::fmpz_poly_struct {
+    pub fn as_mut_ptr(&mut self) -> *mut fmpz_poly_struct {
         &mut self.inner
     }
 
@@ -214,12 +215,12 @@ impl IntPoly {
     }*/
     
     #[inline]
-    pub const unsafe fn from_raw(inner: fmpz_poly::fmpz_poly_struct) -> IntPoly {
+    pub const unsafe fn from_raw(inner: fmpz_poly_struct) -> IntPoly {
         IntPoly { inner }
     }
     
     #[inline]
-    pub const fn into_raw(self) -> fmpz_poly::fmpz_poly_struct {
+    pub const fn into_raw(self) -> fmpz_poly_struct {
         let inner = self.inner;
         let _ = ManuallyDrop::new(self);
         inner
@@ -232,36 +233,36 @@ impl IntPoly {
 
     #[inline]
     pub fn is_one(&self) -> bool {
-        unsafe { fmpz_poly::fmpz_poly_is_one(self.as_ptr()) == 1}
+        unsafe { fmpz_poly_is_one(self.as_ptr()) == 1}
     }
 
     #[inline]
     pub fn is_unit(&self) -> bool {
-        unsafe { fmpz_poly::fmpz_poly_is_unit(self.as_ptr()) == 1}
+        unsafe { fmpz_poly_is_unit(self.as_ptr()) == 1}
     }
     
     #[inline]
     pub fn is_gen(&self) -> bool {
-        unsafe { fmpz_poly::fmpz_poly_is_gen(self.as_ptr()) == 1}
+        unsafe { fmpz_poly_is_gen(self.as_ptr()) == 1}
     }
     
     #[inline]
     pub fn len(&self) -> usize {
         unsafe { 
-            let len = fmpz_poly::fmpz_poly_length(self.as_ptr()); 
+            let len = fmpz_poly_length(self.as_ptr()); 
             len.try_into().expect("Cannot convert length to a usize.")
         }
     }
 
     #[inline]
     pub fn degree(&self) -> i64 {
-        unsafe { fmpz_poly::fmpz_poly_degree(self.as_ptr()) }
+        unsafe { fmpz_poly_degree(self.as_ptr()) }
     }
 
     pub fn get_coeff(&self, i: usize) -> Integer {
         let mut res = Integer::default();
         unsafe { 
-            fmpz_poly::fmpz_poly_get_coeff_fmpz(
+            fmpz_poly_get_coeff_fmpz(
                 res.as_mut_ptr(), 
                 self.as_ptr(), 
                 i.try_into().expect("Cannot convert index to a signed long.")
@@ -273,7 +274,7 @@ impl IntPoly {
     // Check coeff fits ui
     #[inline]
     pub unsafe fn get_coeff_ui(&self, i: usize) -> u64 {
-        fmpz_poly::fmpz_poly_get_coeff_ui(
+        fmpz_poly_get_coeff_ui(
             self.as_ptr(), 
             i.try_into().expect("Cannot convert index to a signed long.")
         )
@@ -281,7 +282,7 @@ impl IntPoly {
     
     // Check coeff fits si
     pub unsafe fn get_coeff_si(&self, i: usize) -> i64 {
-        fmpz_poly::fmpz_poly_get_coeff_si(
+        fmpz_poly_get_coeff_si(
             self.as_ptr(), 
             i.try_into().expect("Cannot convert index to a signed long.")
         )
@@ -289,7 +290,7 @@ impl IntPoly {
     
     pub fn set_coeff<T: AsRef<Integer>>(&mut self, i: usize, coeff: T) {
         unsafe {
-            fmpz_poly::fmpz_poly_set_coeff_fmpz(
+            fmpz_poly_set_coeff_fmpz(
                 self.as_mut_ptr(),                                 
                 i.try_into().expect("Cannot convert index to a signed long."), 
                 coeff.as_ref().as_ptr()
@@ -303,7 +304,7 @@ impl IntPoly {
         <T as TryInto<u64>>::Error: fmt::Debug
     {
         unsafe {
-            fmpz_poly::fmpz_poly_set_coeff_ui(
+            fmpz_poly_set_coeff_ui(
                 self.as_mut_ptr(),                                 
                 i.try_into().expect("Cannot convert index to a signed long."), 
                 coeff.try_into().expect("Cannot convert coeff to an usigned long.")
@@ -317,7 +318,7 @@ impl IntPoly {
         <T as TryInto<i64>>::Error: fmt::Debug
     {
         unsafe {
-            fmpz_poly::fmpz_poly_set_coeff_si(
+            fmpz_poly_set_coeff_si(
                 self.as_mut_ptr(),                                 
                 i.try_into().expect("Cannot convert index to a signed long."), 
                 coeff.try_into().expect("Cannot convert coeff to a signed long.")
@@ -331,6 +332,14 @@ impl IntPoly {
         let mut res = Vec::with_capacity(self.len());
         for i in 0..self.len() {
             res.push(self.get_coeff(i))
+        }
+        res
+    }
+
+    pub fn cyclotomic(n: u64) -> Self {
+        let mut res = IntPoly::default();
+        unsafe {
+            fmpz_poly_cyclotomic(res.as_mut_ptr(), n);
         }
         res
     }

@@ -16,9 +16,9 @@
  */
 
 //mod ops;
-//mod conv;
+mod conv;
 
-use crate::RatPoly;
+use crate::{NewCtx, RatPoly};
 use flint_sys::fmpq_poly::{fmpq_poly_struct, fmpq_poly_set};
 use antic_sys::{
     nf::*,
@@ -167,7 +167,33 @@ impl Hash for NumFldElem {
 }
 */
 
-// TODO: NewCtx
+impl<T: Into<RatPoly>> NewCtx<T, NumFldCtx> for NumFldElem {
+    fn new(src: T, ctx: &NumFldCtx) -> Self {
+        let mut res = NumFldElem::zero(&ctx);
+        unsafe {
+            nf_elem_set_fmpq_poly(
+                res.as_mut_ptr(), 
+                src.into().as_ptr(), 
+                ctx.as_ptr()
+            );
+        }
+        res
+    }
+}
+
+impl NewCtx<&RatPoly, NumFldCtx> for NumFldElem {
+    fn new(src: &RatPoly, ctx: &NumFldCtx) -> Self {
+        let mut res = NumFldElem::zero(&ctx);
+        unsafe {
+            nf_elem_set_fmpq_poly(
+                res.as_mut_ptr(), 
+                src.as_ptr(), 
+                ctx.as_ptr()
+            );
+        }
+        res
+    }
+}
 
 impl NumFldElem {
     #[inline]

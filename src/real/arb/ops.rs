@@ -17,39 +17,16 @@
 
 use crate::*;
 use arb_sys::arb::*;
-use inertia_algebra::ops::*;
-use libc::{c_long, c_ulong};
+//use inertia_algebra::ops::*;
+//use libc::{c_long, c_ulong};
 
 use std::cmp::Ordering::{self, Equal, Greater, Less};
-use std::mem::MaybeUninit;
+//use std::mem::MaybeUninit;
 
 // TODO:
 // cmp/eq with primitive types + Integer + Rational
 // ops
 
-impl_assign_unsafe! {
-    None
-    Real, Real
-    arb_set
-}
-
-impl_assign_unsafe! {
-    None
-    Real, u64 {u64 u32 u16 u8}
-    arb_set_ui
-}
-
-impl_assign_unsafe! {
-    None
-    Real, i64 {i64 i32 i16 i8}
-    arb_set_si
-}
-
-impl_assign_unsafe! {
-    None
-    Real, Integer
-    arb_set_fmpz
-}
 
 impl_cmp! {
     partial_eq

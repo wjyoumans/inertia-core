@@ -15,29 +15,50 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::*;
-use arb_sys::arb::*;
+use crate::{*, mag::Mag};
+use arb_sys::mag::*;
 
-impl_from_unsafe! {
+impl_assign_unsafe! {
     None
-    Real, u64 {usize u64 u32 u16 u8}
-    arb_set_ui
+    Mag, Mag
+    mag_set
+}
+
+// sets to upper bound for absolute value, can be inexact
+impl_assign_unsafe! {
+    None
+    Mag, u64 {usize u64 u32 u16 u8}
+    mag_set_ui
+}
+
+// sets to upper bound for absolute value, can be inexact
+impl_assign_unsafe! {
+    None
+    Mag, f64 {f64 f32}
+    mag_set_d
+}
+
+// sets to upper bound for absolute value, can be inexact
+impl_assign_unsafe! {
+    None
+    Mag, Integer
+    mag_set_fmpz
 }
 
 impl_from_unsafe! {
     None
-    Real, i64 {isize i64 i32 i16 i8}
-    arb_set_si
+    Mag, u64 {usize u64 u32 u16 u8}
+    mag_set_ui
 }
 
 impl_from_unsafe! {
     None
-    Real, f64 {f64 f32}
-    arb_set_d
+    Mag, f64 {f64 f32}
+    mag_set_d
 }
 
 impl_from_unsafe! {
     None
-    Real, Integer
-    arb_set_fmpz
+    Mag, Integer
+    mag_set_fmpz
 }

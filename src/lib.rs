@@ -36,11 +36,14 @@ mod finfld;
 mod finfldpoly;
 mod finfldmat;
 
+//mod intmpoly;
+pub mod ratfunc;
+
 mod real;
 mod complex;
 
-//mod intmpoly;
-pub mod ratfunc;
+pub mod binquad;
+pub mod numfld;
 
 mod util {
     #[must_use]
@@ -101,9 +104,12 @@ pub use finfld::*;
 pub use finfldpoly::*;
 pub use finfldmat::*;
 
+//pub use intmpoly::*;
 pub use ratfunc::*;
 
 pub use real::*;
 pub use complex::*;
 
-//pub use intmpoly::*;
+pub use binquad::*;
+pub use numfld::*;
+

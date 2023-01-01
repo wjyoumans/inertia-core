@@ -17,7 +17,10 @@ TODO:
  * serde
  * TryFrom conversions
  * borrows for FFI types
- * improve op guards to avoid seg faults
+ * improve op guards to avoid seg faults in C
  * improved constructors - New/NewCtx may be suboptimal in some situations
  * better polynomial/matrix pretty printing
  * split into features or workspace (integer, rational, etc.)
+ * (unsafe?) shallow copies could avoid unnecessary allocations in some contexts, like
+ some hash impls
+ * combine From/Assign impl macros, maybe derive From from Assign impls?

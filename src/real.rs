@@ -26,9 +26,8 @@ use arb_sys::arb::*;
 
 use std::ffi::CStr;
 use std::fmt;
-use std::hash::{Hash, Hasher};
+//use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::rc::Rc;
 
 
 #[derive(Debug)]

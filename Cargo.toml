@@ -37,7 +37,6 @@ features = ["disable-make-check"]
 [dependencies.inertia-algebra]
 path = "../inertia-algebra"
 version = "0.1"
-default-features = false
 
 [dependencies.serde]
 optional = true

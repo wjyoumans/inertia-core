@@ -18,10 +18,10 @@
 use crate::*;
 use arb_sys::arb::*;
 use inertia_algebra::ops::*;
-use libc::{c_long, c_ulong};
+//use libc::{c_long, c_ulong};
 
 use std::cmp::Ordering::{self, Equal, Greater, Less};
-use std::mem::MaybeUninit;
+//use std::mem::MaybeUninit;
 
 // TODO:
 // cmp/eq with primitive types + Integer + Rational

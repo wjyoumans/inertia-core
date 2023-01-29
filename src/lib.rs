@@ -52,36 +52,6 @@ mod util {
     }
 }
 
-// constructors
-
-pub trait New<T> {
-    fn new(src: T) -> Self;
-}
-
-/*
-impl<T, S: Into<T>> New<S> for T {
-    #[inline]
-    fn new(src: S) -> T {
-        src.into()
-    }
-}
-
-impl<T: Clone> New<&T> for T {
-    #[inline]
-    fn new(src: &T) -> T {
-        src.clone()
-    }
-}
-*/
-
-pub trait NewCtx<T, Ctx> {
-    fn new(src: T, ctx: &Ctx) -> Self;
-}
-
-pub trait NewMatrix<T> {
-    fn new(src: T, nrows: i64, ncols: i64) -> Self;
-}
-
 pub use inertia_algebra::ops::*;
 
 pub use integer::*;

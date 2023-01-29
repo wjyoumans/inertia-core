@@ -1,14 +1,12 @@
 ## inertia-core
 
-This is a work in progress!
-
 **inertia-core** contains the core functionality of the
 [Inertia](https://github.com/wjyoumans/inertia) crate, providing high-level 
 wrappers for the [FLINT](https://flintlib.org/doc/), 
 [Arb](https://arblib.org/), and [Antic](https://github.com/wbhart/antic) 
 C libraries.
 
-
+<!--
 TODO:
  * better name distancing it from inertia
  * split into features or workspace (maybe make workspace with flint, arb, antic 
@@ -28,3 +26,5 @@ TODO:
  * combine From/Assign impl macros, maybe derive From from Assign impls?
  * macros could use general improvements, proc macro crate for op and From impls
  in inertia-generic and inertia-core might be ideal
+ * split into features or workspace (integer, rational, etc.)
+-->

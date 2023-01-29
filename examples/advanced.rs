@@ -13,4 +13,12 @@ fn main() {
 
     let a = NumFldElem::new([1, 2, 3, 4, 5, 6, 7, 8], &nf);
     println!("{}", &a);
+    
+    // f = x^3 - x^2 - 2x - 8
+    let f = IntPoly::new([-8, -2, -1, 1]);
+    let nf = NumFldCtx::new(f);
+    println!("{}", &nf);
+
+    let a = NumFldElem::new([1, 1, 1, 1], &nf);
+    println!("{}", &a);
 }

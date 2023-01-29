@@ -18,7 +18,7 @@
 mod ops;
 mod conv;
 
-use crate::{New, Real, arf::Arf, mag::Mag};
+use crate::{New, arf::Arf, mag::Mag};
 use arb_sys::{
     arb::*,
     arf::arf_set,
@@ -35,6 +35,8 @@ use std::mem::{ManuallyDrop, MaybeUninit};
 pub struct Arb {
     pub(crate) inner: arb_struct,
 }
+
+pub type Real = Arb;
 
 impl AsRef<Real> for Real {
     fn as_ref(&self) -> &Real {

@@ -21,4 +21,3 @@ pub use arb::*;
 pub mod arf;
 pub mod mag;
 
-pub type Real = arb::Arb;

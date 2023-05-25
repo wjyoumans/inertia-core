@@ -15,13 +15,19 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{Integer, Rational, IntMod};
+use crate::{
+    Integer, 
+    Rational, 
+    IntMod,
+    Error::{self, Msg},
+    Result
+};
 use flint_sys::fmpq;
 use std::str::FromStr;
 
 impl FromStr for Rational {
-    type Err = &'static str;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
         let r = s.split("/").collect::<Vec<_>>();
         match r.len() {
             1 => Ok(Rational::from(Integer::from_str(r[0])?)),
@@ -29,8 +35,8 @@ impl FromStr for Rational {
                 Integer::from_str(r[0])?,
                 Integer::from_str(r[1])?,
             ])),
-            _ => Err("Input must be of the form \"x\" or \"x/y\" where x and y are 
-                     integers."),
+            _ => Err(Msg("Input must be of the form \"x\" or \"x/y\" where x and y are 
+                     integers.".to_string())),
         }
     }
 }

@@ -16,6 +16,7 @@
  */
 
 use crate::{util::is_digit, *};
+use crate::error::Error::*;
 use flint_sys::fmpz;
 use std::ffi::CString;
 use std::str::FromStr;
@@ -25,10 +26,10 @@ use std::str::FromStr;
 // FIXME: Valgrind sometimes complains about possibly lost bytes.
 // Probably false negative, how can we be sure?
 impl FromStr for Integer {
-    type Err = &'static str;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
         if !s.chars().all(is_digit) {
-            return Err("Input is not an integer.");
+            return Err(Msg("Input is not an integer.".to_string()));
         }
 
         if let Ok(c_str) = CString::new(s) {
@@ -42,11 +43,11 @@ impl FromStr for Integer {
                 if res == 0 {
                     Ok(z)
                 } else {
-                    Err("Error in conversion.")
+                    Err(Msg("Error in conversion.".to_string()))
                 }
             }
         } else {
-            Err("String contains 0 byte.")
+            Err(Msg("String contains 0 byte.".to_string()))
         }
     }
 }
@@ -71,4 +72,23 @@ impl_from_unsafe! {
     None
     Integer, IntMod
     fmpz::fmpz_set
+}
+
+///////////////////////////////////////////////////////////////////
+// TryFrom
+///////////////////////////////////////////////////////////////////
+
+impl TryFrom<Rational> for Integer {
+    type Error = Error;
+    fn try_from(src: Rational) -> Result<Self> {
+        if src.denominator().is_one() {
+            Ok(src.numerator())
+        } else {
+            Err(ConversionError {
+                val: src.to_string(),
+                in_type: "Rational".to_string(),
+                out_type: "Integer".to_string(),
+            })
+        }
+    }
 }

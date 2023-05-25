@@ -8,6 +8,7 @@ C libraries.
 
 <!--
 TODO:
+ * swap op
  * better name distancing it from inertia
  * split into features or workspace (maybe make workspace with flint, arb, antic 
  crates with individual features?)

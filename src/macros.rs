@@ -241,27 +241,12 @@ macro_rules! impl_cmp {
     ) => {
         impl Eq for $t {}
 
-        //impl Eq for &$t {}
-
         impl PartialEq for $t {
             #[inline]
             $($code)*
         }
-
-        impl PartialEq<&$t> for $t {
-            #[inline]
-            fn eq(&self, rhs: &&$t) -> bool {
-                rhs.eq(&self)
-            }
-        }
-
-        impl PartialEq<$t> for &$t {
-            #[inline]
-            fn eq(&self, rhs: &$t) -> bool {
-                self.eq(&rhs)
-            }
-        }
     };
+    // a = b
     (
         partial_eq
         $t:ident
@@ -275,6 +260,18 @@ macro_rules! impl_cmp {
             {
                 $($code)*
             }
+        }
+    };
+    (
+        partial_eq
+        $t1:ident, $t2:ident
+        {
+            $($code:tt)*
+        }
+    ) => {
+        impl PartialEq<$t2> for $t1 {
+            #[inline]
+            $($code)*
         }
     };
     // a > a
@@ -309,33 +306,6 @@ macro_rules! impl_cmp {
             $t, $t
             {
                 $($code)*
-            }
-        }
-    };
-    // a = b
-    (
-        partial_eq
-        $t1:ident, $t2:ident
-        {
-            $($code:tt)*
-        }
-    ) => {
-        impl PartialEq<$t2> for $t1 {
-            #[inline]
-            $($code)*
-        }
-
-        impl PartialEq<&$t2> for $t1 {
-            #[inline]
-            fn eq(&self, rhs: &&$t2) -> bool {
-                (&self).eq(rhs)
-            }
-        }
-
-        impl PartialEq<$t2> for &$t1 {
-            #[inline]
-            fn eq(&self, rhs: &$t2) -> bool {
-                self.eq(&rhs)
             }
         }
     };

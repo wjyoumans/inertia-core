@@ -46,7 +46,7 @@ impl_cmp! {
     {
         fn eq(&self, rhs: &IntMod) -> bool {
             self.context() == rhs.context() && 
-                self.degree() == 0 && self.get_coeff(0) == rhs
+                self.degree() == 0 && &self.get_coeff(0) == rhs
         }
     }
 }

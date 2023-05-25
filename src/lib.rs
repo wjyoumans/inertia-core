@@ -19,6 +19,7 @@
 
 #[macro_use]
 mod macros;
+mod error;
 
 mod integer;
 mod intpoly;
@@ -56,9 +57,12 @@ mod util {
     }
 }
 
+pub use error::{Error, Result};
 pub use inertia_algebra::ops::*;
 
 pub use integer::*;
+pub use integer::macros::*;
+
 pub use intpoly::*;
 pub use intmat::*;
 

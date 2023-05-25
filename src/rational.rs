@@ -229,21 +229,21 @@ impl Rational {
     #[inline]
     pub fn floor(&self) -> Integer {
         let mut res = self.numerator();
-        res.fdiv_assign(self.denominator());
+        res.fdiv_q_assign(self.denominator());
         res
     }
 
     #[inline]
     pub fn ceil(&self) -> Integer {
         let mut res = self.numerator();
-        res.cdiv_assign(self.denominator());
+        res.cdiv_q_assign(self.denominator());
         res
     }
     
     #[inline]
     pub fn round(&self) -> Integer {
         let mut res = self.numerator();
-        res.tdiv_assign(self.denominator());
+        res.tdiv_q_assign(self.denominator());
         res
     }
     

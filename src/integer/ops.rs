@@ -33,13 +33,13 @@ impl_assign_unsafe! {
 
 impl_assign_unsafe! {
     None
-    Integer, u64 {u64 u32 u16 u8}
+    Integer, u64 {u64 u32 u16 u8 usize}
     fmpz::fmpz_set_ui
 }
 
 impl_assign_unsafe! {
     None
-    Integer, i64 {i64 i32 i16 i8}
+    Integer, i64 {i64 i32 i16 i8 isize}
     fmpz::fmpz_set_si
 }
 
@@ -57,25 +57,25 @@ impl_cmp_unsafe! {
 
 impl_cmp_unsafe! {
     partial_eq
-    Integer, u64 {u64 u32 u16 u8}
+    Integer, u64 {u64 u32 u16 u8 usize}
     fmpz::fmpz_equal_ui
 }
 
 impl_cmp_unsafe! {
     partial_ord
-    Integer, u64 {u64 u32 u16 u8}
+    Integer, u64 {u64 u32 u16 u8 usize}
     fmpz::fmpz_cmp_ui
 }
 
 impl_cmp_unsafe! {
     partial_eq
-    Integer, i64 {i64 i32 i16 i8}
+    Integer, i64 {i64 i32 i16 i8 isize}
     fmpz::fmpz_equal_si
 }
 
 impl_cmp_unsafe! {
     partial_ord
-    Integer, i64 {i64 i32 i16 i8}
+    Integer, i64 {i64 i32 i16 i8 isize}
     fmpz::fmpz_cmp_si
 }
 
@@ -153,14 +153,14 @@ impl_binop_unsafe! {
 impl_binop_unsafe! {
     None
     Integer, Integer, Rational
+    
+    Div {div}
+    AssignDiv {assign_div}
+    fmpq::fmpq_set_fmpz_frac;
 
     Pow {pow}
     AssignPow {assign_pow}
     fmpz_pow_fmpz;
-
-    Div {div}
-    AssignDiv {assign_div}
-    fmpq::fmpq_set_fmpz_frac;
 }
 
 impl_binop_unsafe! {
@@ -564,3 +564,78 @@ unsafe fn fmpz_si_div(res: *mut fmpq::fmpq, f: c_long, g: *const fmpz::fmpz) {
     fmpz::fmpz_clear(z.as_mut_ptr());
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::{Integer, Rational, int};
+    use inertia_algebra::ops::*;
+
+    #[test]
+    fn assign() {
+        let mut res = Integer::zero();
+
+        // assign an Integer
+        res.assign(Integer::one());
+        assert_eq!(res, 1);
+
+        res.assign(&Integer::new(-2));
+        assert_eq!(res, -2);
+        
+        // assign a primitive integer
+        macro_rules! check {
+            ($($ty:ident)*) => ($(
+                res.assign(1 as $ty);
+                assert_eq!(res, 1 as $ty);
+
+                res.assign(&(2 as $ty));
+                assert_eq!(res, 2 as $ty);
+            )*)
+        }
+
+        check!{usize u8 u16 u32 u64}
+        check!{isize i8 i16 i32 i64}
+    }
+
+    #[test]
+    fn cmp() {
+        let a = Integer::one();
+        
+        assert_eq!(a, Integer::one());
+        assert!(a < Integer::new(2));
+        assert!(a > Integer::new(0));
+
+        macro_rules! check {
+            ($($id:ident)*) => ($(
+                // ==
+                assert_eq!(a, 1 as $id);
+                assert_eq!(1 as $id, a);
+
+                // <
+                assert!(a < (2 as $id));
+                assert!((0 as $id) < a);
+                
+                // >
+                assert!(a > (0 as $id));
+                assert!((2 as $id) > a);
+            )*)
+        }
+        
+        check!{usize u8 u16 u32 u64}
+        check!{isize i8 i16 i32 i64}
+    }
+
+    #[test]
+    fn unops() {
+        let a = Integer::new(3);
+        let b = Integer::new(-3);
+        
+        assert_eq!(-&a, b);
+        assert_eq!(-a.clone(), b);
+    
+        assert_eq!(!&a, Integer::new(-4));
+        assert_eq!(!a.clone(), Integer::new(-4));
+
+        assert_eq!((&a).inv(), Rational::new([1, 3]));
+        assert_eq!(a.inv(), Rational::new([1, 3]));
+        
+    }
+}

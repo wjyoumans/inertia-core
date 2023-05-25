@@ -45,8 +45,7 @@ macro_rules! impl_partial_cmp {
             Real, $t
             {
                 fn eq(&self, rhs: &$t) -> bool {
-                    let temp = Real::from(rhs);
-                    self == temp
+                    self == &Real::from(rhs)
                 }
             }
         }
@@ -55,8 +54,7 @@ macro_rules! impl_partial_cmp {
             $t, Real
             {
                 fn eq(&self, rhs: &Real) -> bool {
-                    let temp = Real::from(self);
-                    temp == rhs
+                    &Real::from(self) == rhs
                 }
             }
         }

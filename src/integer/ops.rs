@@ -566,7 +566,7 @@ unsafe fn fmpz_si_div(res: *mut fmpq::fmpq, f: c_long, g: *const fmpz::fmpz) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Integer, Rational, int};
+    use crate::{Integer, Rational};
     use inertia_algebra::ops::*;
 
     #[test]

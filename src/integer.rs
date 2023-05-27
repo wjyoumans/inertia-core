@@ -1579,7 +1579,7 @@ impl Integer {
     /// ```
     /// use inertia_core::{Integer, New};
     ///
-    /// assert_eq!(Integer::new(5).powm(2, Integer::new(3)), 1);
+    /// assert_eq!(Integer::new(5).powm_ui(2u64, Integer::new(3)), 1);
     /// ```
     #[inline]
     pub fn powm_ui<S, T>(&self, x: S, modulus: T) -> Integer
@@ -1605,7 +1605,7 @@ impl Integer {
     /// use inertia_core::{Integer, New};
     ///
     /// let mut z = Integer::new(5);
-    /// z.powm_ui_assign(2, Integer::new(3));
+    /// z.powm_ui_assign(2u64, Integer::new(3));
     /// assert_eq!(z, 1);
     /// ```
     #[inline]
@@ -1624,76 +1624,540 @@ impl Integer {
         }
     }
    
-    /// Return ceil(log(self)).
+    /// Return the logarithm of `self` with base `b` rounded up to the nearest 
+    /// integer. Assumes the result fits in a signed long.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(100);
+    /// assert_eq!(z.clog(Integer::new(3)), 5);
+    /// ```
+    #[inline]
+    pub fn clog<T>(&self, b: T) -> i64
+    where
+        T: AsRef<Integer>
+    {
+        assert!(self >= &1);
+        assert!(b.as_ref() >= &2);
+
+        unsafe {
+            fmpz::fmpz_clog(self.as_ptr(), b.as_ref().as_ptr())
+        }
+    }
+    
+    /// Return the logarithm of `self` with unsigned long base `b` rounded up to 
+    /// the nearest integer. Assumes the result fits in a signed long.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(100);
+    /// assert_eq!(z.clog_ui(3u32), 5);
+    /// ```
+    #[inline]
+    pub fn clog_ui<S>(&self, b: S) -> i64
+    where
+        S: Into<u64>
+    {
+        assert!(self >= &1);
+
+        let b = b.into();
+        assert!(b >= 2);
+
+        unsafe {
+            fmpz::fmpz_clog_ui(self.as_ptr(), b)
+        }
+    }
+    
+    /// Return the logarithm of `self` with base `b` rounded down to the nearest 
+    /// integer. Assumes the result fits in a signed long.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(100);
+    /// assert_eq!(z.flog(Integer::new(3)), 4);
+    /// ```
+    #[inline]
+    pub fn flog<T>(&self, b: T) -> i64
+    where
+        T: AsRef<Integer>
+    {
+        assert!(self >= &1);
+        assert!(b.as_ref() >= &2);
+
+        unsafe {
+            fmpz::fmpz_flog(self.as_ptr(), b.as_ref().as_ptr())
+        }
+    }
+    
+    /// Return the logarithm of `self` with unsigned long base `b` rounded down to 
+    /// the nearest integer. Assumes the result fits in a signed long.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(100);
+    /// assert_eq!(z.flog_ui(3u32), 4);
+    /// ```
+    #[inline]
+    pub fn flog_ui<S>(&self, b: S) -> i64
+    where
+        S: Into<u64>
+    {
+        assert!(self >= &1);
+
+        let b = b.into();
+        assert!(b >= 2);
+
+        unsafe {
+            fmpz::fmpz_flog_ui(self.as_ptr(), b)
+        }
+    }
+    
+    /// Return the integer part of the square root of `self`.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(7);
+    /// assert_eq!(z.sqrt(), 2);
+    /// ```
+    #[inline]
+    pub fn sqrt(&self) -> Integer {
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_sqrt(res.as_mut_ptr(), self.as_ptr());
+        }
+        res
+    }
+    
+    /// Set `self` to the integer part its square root.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let mut z = Integer::new(7);
+    /// z.sqrt_assign();
+    /// assert_eq!(z, 2);
+    /// ```
+    #[inline]
+    pub fn sqrt_assign(&mut self) {
+        unsafe {
+            fmpz::fmpz_sqrt(self.as_mut_ptr(), self.as_ptr());
+        }
+    }
+   
+    /// If `p` is prime, return an `Option` with the the square root of `self` 
+    /// modulo `p` if `self` is a quadratic residue modulo `p`, otherwise `None`. 
+    /// If `p` is not prime the return value is with high probability `None`, 
+    /// indicating that `p` is not prime, or is not a square modulo `p`. If `p` 
+    /// is not prime and the return value is not `None`, the value is meaningless.
+    ///
+    /// Note: The quadratic residue is well-defined for composite modulus, this
+    /// is a limitation of FLINTs algorithm (which likely avoids factorization).
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(12);
+    /// assert_eq!(z.sqrtmod(Integer::new(13)).unwrap(), 5);
+    /// ```
+    #[inline]
+    pub fn sqrtmod<T>(&self, p: T) -> Option<Integer>
+    where
+        T: AsRef<Integer>
+    {
+        let mut res = Integer::default();
+        unsafe {
+            let b = fmpz::fmpz_sqrtmod(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                p.as_ref().as_ptr()
+            );
+            if b == 1 {
+                Some(res)
+            } else {
+                None
+            }
+        }
+    }
+ 
+    /// Return `f`, the integer part of the square root of `self`, and the remainder
+    /// `r`, that is, the difference `self - f^2`. Requires `self` to be non-negative.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(12);
+    /// let (f, r) = z.sqrtrem();
+    /// assert_eq!(f, 3);
+    /// assert_eq!(r, 3);
+    /// ```
+    #[inline]
+    pub fn sqrtrem(&self) -> (Integer, Integer) {
+        assert!(self >= &0);
+        let mut f = Integer::default();
+        let mut r = Integer::default();
+        unsafe {
+            fmpz::fmpz_sqrtrem(
+                f.as_mut_ptr(), 
+                r.as_mut_ptr(), 
+                self.as_ptr()
+            );
+        }
+        (f, r)
+    }
+
+    /// Return `true` if `self` is a perfect square, `false` otherwise.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(16);
+    /// assert!(z.is_square());
+    ///
+    /// let z = Integer::new(17);
+    /// assert!(!z.is_square());
+    /// ```
+    #[inline]
+    pub fn is_square(&self) -> bool {
+        unsafe { !(fmpz::fmpz_is_square(self.as_ptr()) == 0) }
+    }
+
+    /// Return the integer part of the `n`-th root of `self`. Requires that `n > 0`
+    /// and if `n` is even then `self` is non-negative.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(37);
+    /// assert_eq!(z.root(4), 2);
+    ///
+    /// // fails on:
+    /// // assert_eq!(z.root(4), -2);
+    /// //let z = -z;
+    /// //assert_eq!(z.root(4), -2);
+    /// ```
+    #[inline]
+    pub fn root<S>(&self, n: S) -> Integer
+    where
+        S: Into<i64>
+    {
+        let n = n.into();
+        assert!(n > 0);
+        if (n % 2) == 0 {
+            assert!(self >= &0);
+        }
+
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_root(res.as_mut_ptr(), self.as_ptr(), n);
+        }
+        res
+    }
+    
+    /// Set `self` to the integer part of the `n`-th root of `self`. Requires that 
+    /// `n > 0` and if `n` is even then `self` is non-negative.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let mut z = Integer::new(37);
+    /// z.root_assign(4);
+    /// assert_eq!(z, 2);
+    /// ```
+    #[inline]
+    pub fn root_assign<S>(&mut self, n: S)
+    where
+        S: Into<i64>
+    {
+        let n = n.into();
+        assert!(n > 0);
+        if (n % 2) == 0 {
+            assert!(&*self >= &0);
+        }
+
+        unsafe {
+            fmpz::fmpz_root(self.as_mut_ptr(), self.as_ptr(), n);
+        }
+    }
+    
+    /// If `self` is a perfect power `r^k` return `(r, k)`, otherwise `None`. 
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let mut z = Integer::new(32);
+    /// assert_eq!(z.is_perfect_power().unwrap(), (Integer::new(2), 5));
+    /// ```
+    #[inline]
+    pub fn is_perfect_power(&self) -> Option<(Integer, i32)> {
+        let mut r = Integer::default();
+        unsafe {
+            let k = fmpz::fmpz_is_perfect_power(r.as_mut_ptr(), self.as_ptr());
+            if k == 0 {
+                None
+            } else {
+                Some((r, k))
+            }
+        }
+    }
+
+    /// Return the factorial `n!` where `n` is an unsigned long.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::fac_ui(3u32), 6);
+    /// ```
+    #[inline]
+    pub fn fac_ui<S>(n: S) -> Integer 
+    where
+        S: Into<u64>
+    {
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_fac_ui(res.as_mut_ptr(), n.into());
+        }
+        res
+    }
+
+    /// Return the factorial `n!` where `n` is an unsigned long.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::factorial(3u32), 6);
+    /// ```
+    #[inline]
+    pub fn factorial<S>(n: S) -> Integer 
+    where
+        S: Into<u64>
+    {
+        Integer::fac_ui(n)
+    }
+    
+    /// Return the Fibonacci number `F_n` where `n` is an unsigned long.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::fib_ui(11u32), 89);
+    /// ```
+    #[inline]
+    pub fn fib_ui<S>(n: S) -> Integer 
+    where
+        S: Into<u64>
+    {
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_fib_ui(res.as_mut_ptr(), n.into());
+        }
+        res
+    }
+    
+    /// Return the Fibonacci number `F_n` where `n` is an unsigned long.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::fibonacci(11u32), 89);
+    /// ```
+    #[inline]
+    pub fn fibonacci<S>(n: S) -> Integer 
+    where
+        S: Into<u64>
+    {
+        Integer::fib_ui(n)
+    }
+    
+    /// Return the binomial coefficient `nCk`.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::bin_uiui(11u32, 4u32), 330);
+    /// ```
+    #[inline]
+    pub fn bin_uiui<S>(n: S, k: S) -> Integer 
+    where
+        S: Into<u64>
+    {
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_bin_uiui(res.as_mut_ptr(), n.into(), k.into());
+        }
+        res
+    }
+    
+    /// Return the binomial coefficient `nCk`.
+    ///
+    /// ```
+    /// use inertia_core::Integer;
+    ///
+    /// assert_eq!(Integer::binomial(11u32, 4u32), 330);
+    /// ```
+    #[inline]
+    pub fn binomial<S>(n: S, k: S) -> Integer 
+    where
+        S: Into<u64>
+    {
+        Integer::bin_uiui(n, k)
+    }
+
+    /// Return the rising factorial `x(x + 1)(x + 2)...(x + k - 1)` (`self` = `x`).
     ///
     /// ```
     /// use inertia_core::{Integer, New};
     ///
     /// let z = Integer::new(3);
-    /// assert_eq!(c.clog());
+    /// assert_eq!(z.rfac_ui(3u32), 60);
     /// ```
     #[inline]
-    pub fn clog<T>(&self) -> Integer {
+    pub fn rfac_ui<S>(&self, k: S) -> Integer 
+    where
+        S: Into<u64>
+    {
         let mut res = Integer::default();
         unsafe {
-            fmpz::fmpz_clog(
-                res.as_mut_ptr(),
-                self.as_ptr(), 
-            );
+            fmpz::fmpz_rfac_ui(res.as_mut_ptr(), self.as_ptr(), k.into());
         }
         res
     }
     
-    /// Set self to the signed remainder of self/x symmetric around 0.
+    /// Return the rising factorial `x(x + 1)(x + 2)...(x + k - 1)` (`self` = `x`).
     ///
     /// ```
     /// use inertia_core::{Integer, New};
     ///
-    /// let mut z = Integer::new(4);
-    /// z.clog_assign();
-    /// assert_eq!(z, 1);
+    /// let z = Integer::new(3);
+    /// assert_eq!(z.rising_factorial(3u32), 60);
     /// ```
     #[inline]
-    pub fn clog_assign<T>(&mut self) {
+    pub fn rising_factorial<S>(&self, k: S) -> Integer 
+    where
+        S: Into<u64>
+    {
+        self.rfac_ui(k)
+    }
+    
+    /// Return the rising factorial `x(x + 1)(x + 2)...(x + k - 1)`.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// assert_eq!(Integer::rfac_uiui(3u32, 3u32), 60);
+    /// ```
+    #[inline]
+    pub fn rfac_uiui<S>(x: S, k: S) -> Integer 
+    where
+        S: Into<u64>
+    {
+        let mut res = Integer::default();
         unsafe {
-            fmpz::fmpz_clog(
-                self.as_mut_ptr(),
-                self.as_ptr(), 
+            fmpz::fmpz_rfac_uiui(res.as_mut_ptr(), x.into(), k.into());
+        }
+        res
+    }
+   
+    /* TODO: fix signature in flint-sys
+    /// Return the product of `self` and `h` divided by `2^exp` rounded down towards
+    /// zero.
+    ///
+    /// ```
+    /// use inertia_core::{Integer, New};
+    ///
+    /// let z = Integer::new(3);
+    /// assert_eq!(z.mul_tdiv_q_2exp(Integer::new(2), 2u32), 30);
+    /// ```
+    #[inline]
+    pub fn mul_tdiv_q_2exp<S, T>(&self, h: T, exp: S) -> Integer 
+    where
+        S: Into<u64>,
+        T: AsRef<Integer>
+    {
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_mul_tdiv_q_2exp(
+                res.as_mut_ptr(), 
+                self.as_ref().as_ptr(), 
+                h.as_ref().as_ptr(), 
+                exp.into()
             );
         }
+        res
     }
+    */
 
-    // clog
-    // clog_ui
-    // flog
-    // flog_ui
-    // log (use arbs)
-    // sqrt (integer part? tsqrt or sqrt_trunc?)
-    // sqrtmod 
-    // sqrtrem
-    // is_square
-    // root
-    // is_perfect_power
-    // fac_ui
-    // fib_ui
-    // bin_uiui
-    // rfac_ui
-    // rfac_uiui
-    // mul_tdiv_q_2exp
     // mul_si_tdiv_q_2exp
 
     // Greatest common divisor //
 
-    // gcd
+    #[inline]
+    pub fn gcd<T>(&self, other: T) -> Integer 
+    where
+        T: AsRef<Integer>
+    {
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_gcd(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                other.as_ref().as_ptr()
+            );
+        }
+        res
+    }
+
     // gcd_ui
     // gcd3
-    // lcm
+
+    #[inline]
+    pub fn lcm<T>(&self, other: T) -> Integer
+    where
+        T: AsRef<Integer>
+    {
+        let mut res = Integer::default();
+        unsafe {
+            fmpz::fmpz_lcm(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                other.as_ref().as_ptr()
+            );
+        }
+        res
+    }
+
     // gcdinv
-    // xgcd
+
+    #[inline]
+    pub fn xgcd<T>(&self, other: T) -> (Integer, Integer, Integer) 
+    where
+        T: AsRef<Integer>
+    {
+        let mut d = Integer::default();
+        let mut a = Integer::default();
+        let mut b = Integer::default();
+        unsafe {
+            fmpz::fmpz_xgcd(
+                d.as_mut_ptr(), 
+                a.as_mut_ptr(), 
+                b.as_mut_ptr(),
+                self.as_ptr(), 
+                other.as_ref().as_ptr()
+            );
+        }
+        (d, a, b)
+    } 
+
     // xgcd_canonical_bezout
     // xgcd_partial
-
+    
     // Modular arithmetic //
+
+    // remove
 
     /// Attempt to invert `self` modulo `modulus`.
     ///
@@ -1727,7 +2191,6 @@ impl Integer {
         }
     }
 
-    // remove
     // negmod
     // jacobi
     // kronecker
@@ -1768,6 +2231,42 @@ impl Integer {
     pub fn is_prime(&self) -> bool {
         unsafe { fmpz::fmpz_is_prime(self.as_ptr()) == 1 }
     }
+   
+    /*
+    #[inline]
+    pub fn reconstruct(&self, modulus: T) -> Rational
+    where
+        T: AsRef<Integer>
+    {
+        let mut res = Rational::default();
+        unsafe {
+            fmpq::fmpq_reconstruct_fmpz(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                modulus.as_ptr()
+            );
+        }
+        res
+    }
+    
+    #[inline]
+    pub fn reconstruct_2(&self, modulus: T, n: T, d: T) -> Rational 
+    where
+        T: AsRef<Integer>
+    {
+        let mut res = Rational::default();
+        unsafe {
+            fmpq::fmpq_reconstruct_fmpz_2(
+                res.as_mut_ptr(), 
+                self.as_ptr(), 
+                modulus.as_ptr(),
+                n.as_ptr(),
+                d.as_ptr()
+            );
+        }
+        res
+    }
+    */
 
     // Special functions //
 }
